@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as S from '../store/store';
-import { Badge, Button, Card, CardHeader, Empty, Field, Input, Kpi, Money, PageHeader, SearchInput, Table, Tabs, useRun, useUI } from '../ui/kit';
+import { Badge, Button, Card, CardHeader, Empty, Field, Input, Kpi, Money, PageHeader, SearchInput, Table, Tabs, cx, useRun, useUI } from '../ui/kit';
 import { PaymentModal } from '../ui/modals';
 import { useRange } from '../ui/shell';
 import { financeFor, periodFigures } from '../domain/finance';
@@ -20,6 +20,7 @@ export default function Fees() {
   const [nearest, setNearest] = useState(false); // fee plans: only fees to collect, nearest due date first
   const today = todayIST();
   const plans = useMemo(() => db.feePlans.map((p) => ({ p, s: db.students.find((x) => x.id === p.studentId)!, f: financeFor(db, p.studentId, today) })), [db]);
+  const dueCount = plans.filter((r) => r.f.next && r.f.outstanding > 0).length;
   const reversed = new Set(db.payments.filter((p) => p.kind === 'reversal').map((p) => p.reversesId));
   const unverified = db.payments.filter((p) => p.kind === 'payment' && !p.verified && !reversed.has(p.id));
   const fig = periodFigures(db, range[0], range[1], today);
@@ -40,7 +41,13 @@ export default function Fees() {
       {tab === 'plans' && <>
         <div className="flex flex-wrap items-center gap-2 mb-3">
           <SearchInput value={q} onChange={setQ} placeholder="Search student" className="w-full sm:w-64" />
-          <Button variant={nearest ? 'primary' : undefined} aria-pressed={nearest} onClick={() => setNearest(!nearest)}>{nearest ? '✓ ' : ''}Nearest due date first</Button>
+          <button type="button" aria-pressed={nearest} onClick={() => setNearest(!nearest)}
+            className={cx('inline-flex items-center gap-2 h-10 pl-3 pr-2 rounded-xl border text-[13.5px] font-semibold transition-all shadow-sm',
+              nearest ? 'bg-navy border-navy text-white shadow-[0_4px_14px_-4px_rgba(15,35,65,.45)]' : 'bg-white border-line text-navy hover:border-navy/40 hover:bg-surface')}>
+            <svg viewBox="0 0 24 24" className="size-4.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+            Nearest due first
+            <span className={cx('min-w-6 h-6 px-1.5 rounded-lg grid place-items-center text-[12px] tabular', nearest ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800')}>{dueCount}</span>
+          </button>
         </div>
         <Card>
           <Table key={String(nearest)} rows={(nearest
