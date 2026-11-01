@@ -122,7 +122,7 @@ export default function Profit() {
 
       </>}
 
-      <RecordWithdrawal founder={withdraw} onClose={() => setWithdraw(null)} />
+      <RecordWithdrawal founder={withdraw} month={range[1].slice(0, 7)} onClose={() => setWithdraw(null)} />
     </>
   );
 }
@@ -144,6 +144,10 @@ function SalaryBar() {
   const [f, setF] = useState(blank);
   const amount = parseRupees(f.amount);
   const ok = !!f.name.trim() && amount !== null && amount > 0 && !!f.date;
+  // last salary paid to this person (newest first), used to fill in the amount
+  const lastSalary = (name: string) => db.expenses.filter((e) => SALARY.includes(e.category) && e.description.trim().toLowerCase() === name.trim().toLowerCase())
+    .sort((a, b) => b.date.localeCompare(a.date))[0];
+  const pickName = (name: string) => { const last = lastSalary(name); setF((x) => ({ ...x, name, amount: last ? String(expenseAmount(last) / 100) : x.amount, method: last?.method ?? x.method })); };
   const save = () => {
     let done = false;
     run(() => { S.addExpense({ category: 'Fixed Salaries', kind: 'fixed', description: f.name.trim(), amount: amount!, date: f.date, method: f.method, notes: '' }); done = true; }, `Salary added for ${f.name.trim()}`);
@@ -153,8 +157,8 @@ function SalaryBar() {
     <form onSubmit={(e) => { e.preventDefault(); if (ok) save(); }}
       className="mb-4 rounded-xl border border-line bg-white shadow-[0_1px_3px_rgba(15,35,65,.05)] p-3 grid grid-cols-2 md:grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1.2fr)_auto] gap-2 items-end">
       <label className="col-span-2 md:col-span-1"><span className="mb-1 block text-[11.5px] font-semibold text-zinc-600">Employee</span>
-        <Input list="employee-names" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Name" />
-        <datalist id="employee-names">{db.employees.filter((e) => e.active).map((e) => <option key={e.id} value={e.name} />)}</datalist>
+        <Input list="employee-names" value={f.name} onChange={(e) => pickName(e.target.value)} placeholder="Name" />
+        <datalist id="employee-names">{[...new Set([...db.employees.filter((e) => e.active).map((e) => e.name), ...db.expenses.filter((e) => SALARY.includes(e.category)).map((e) => e.description.trim())])].map((n) => <option key={n} value={n} />)}</datalist>
       </label>
       <label><span className="mb-1 block text-[11.5px] font-semibold text-zinc-600">Amount (₹)</span><Input inputMode="decimal" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></label>
       <label><span className="mb-1 block text-[11.5px] font-semibold text-zinc-600">Date paid</span><Input type="date" max={today} value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></label>
@@ -179,11 +183,12 @@ function WithdrawalActions({ id }: { id: string }) {
   );
 }
 
-function RecordWithdrawal({ founder, onClose }: { founder: string | null; onClose: () => void }) {
+function RecordWithdrawal({ founder, month, onClose }: { founder: string | null; month: string; onClose: () => void }) {
   const db = S.useDB();
   const run = useRun();
   const today = todayIST();
-  const lastMonth = monthOf(addDays(`${monthOf(today)}-01`, -1)); // usually last month's profit is taken at the start of a month
+  // default month = the month shown on the page (top date filter), so the amount matches the founder card
+  const viewMonth = month > monthOf(today) ? monthOf(today) : month;
   // founder's share of a month's profit, less what they already took for that month
   const suggest = (name: string, ym: string) => {
     const [a, b] = monthRange(ym);
@@ -192,12 +197,12 @@ function RecordWithdrawal({ founder, onClose }: { founder: string | null; onClos
     const already = db.withdrawals.filter((w) => w.founder === name && w.forMonth === ym).reduce((t, w) => t + w.amount, 0);
     return { share, already, left: Math.max(0, share - already) };
   };
-  const blank = (name: string) => ({ founder: name, amount: '', date: today, forMonth: lastMonth, method: 'Bank Transfer' as PayMethod, reference: '', notes: '' });
+  const blank = (name: string) => ({ founder: name, amount: '', date: today, forMonth: viewMonth, method: 'Bank Transfer' as PayMethod, reference: '', notes: '' });
   const [f, setF] = useState(blank(''));
   const [open, setOpen] = useState<string | null>(null);
   if (founder !== open) {
     setOpen(founder);
-    if (founder) { const g = suggest(founder, lastMonth); setF({ ...blank(founder), amount: g.left ? String(g.left / 100) : '' }); }
+    if (founder) { const g = suggest(founder, viewMonth); setF({ ...blank(founder), amount: String(g.left / 100) }); } // always filled in; editable
   }
   const g = f.founder ? suggest(f.founder, f.forMonth) : null;
   const amount = parseRupees(f.amount);
@@ -211,7 +216,7 @@ function RecordWithdrawal({ founder, onClose }: { founder: string | null; onClos
     <Modal open={!!founder} onClose={onClose} title={`Withdraw — ${f.founder}`}
       footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" disabled={!ok} onClick={save}>Save withdrawal</Button></>}>
       <div className="grid sm:grid-cols-2 gap-x-4 gap-y-3.5">
-        <Field label="Profit of month" required><Input type="month" max={monthOf(today)} value={f.forMonth} onChange={(e) => { const ym = e.target.value; const s2 = /^\d{4}-\d{2}$/.test(ym) ? suggest(f.founder, ym) : null; setF({ ...f, forMonth: ym, amount: s2?.left ? String(s2.left / 100) : f.amount }); }} /></Field>
+        <Field label="Profit of month" required><Input type="month" max={monthOf(today)} value={f.forMonth} onChange={(e) => { const ym = e.target.value; const s2 = /^\d{4}-\d{2}$/.test(ym) ? suggest(f.founder, ym) : null; setF({ ...f, forMonth: ym, amount: s2 ? String(s2.left / 100) : f.amount }); }} /></Field>
         <Field label="Amount (₹)" required error={f.amount && (amount === null || amount <= 0) ? 'Enter an amount' : undefined}><Input autoFocus inputMode="decimal" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
         {g && /^\d{4}-\d{2}$/.test(f.forMonth) && (
           <p className="sm:col-span-2 -mt-1 text-[12.5px] text-muted">
