@@ -5,7 +5,7 @@ import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Ta
 import { useRange } from '../ui/shell';
 import { expenseAmount, periodFigures, splitProfit } from '../domain/finance';
 import { PAY_METHODS, type PayMethod } from '../domain/types';
-import { addDays, fmtDate, fmtINR, fmtMonth, inRange, monthOf, parseRupees, RANGE_LABELS, todayIST } from '../domain/util';
+import { addDays, fmtDate, fmtINR, fmtMonth, inRange, monthOf, monthRange, parseRupees, RANGE_LABELS, todayIST } from '../domain/util';
 
 const SALARY = ['Fixed Salaries', 'Commissions'];
 const TONES = ['#1d4ed8', '#047857', '#6d28d9', '#c2410c', '#0f766e'];
@@ -18,7 +18,7 @@ export default function Profit() {
   const db = S.useDB();
   const { key, range } = useRange();
   const [adding, setAdding] = useState(false);
-  const [withdraw, setWithdraw] = useState<string | null>(null); // founder name, or '' for any
+  const [withdraw, setWithdraw] = useState<string | null>(null); // founder being paid
   const f = periodFigures(db, range[0], range[1], todayIST());
   const salaries = db.expenses.filter((e) => SALARY.includes(e.category) && inRange(e.date, range)).sort((a, b) => b.date.localeCompare(a.date));
   const salaryTotal = salaries.filter((e) => e.status === 'Approved').reduce((t, e) => t + expenseAmount(e), 0);
@@ -26,10 +26,7 @@ export default function Profit() {
   const profit = f.netProfit;
   const founders = splitProfit(Math.max(0, profit), db.settings.shares);
   const canAdd = S.allowed('expenses', 'create', db);
-  // withdrawals count against the month whose profit they come from
-  const [m0, m1] = [range[0].slice(0, 7), range[1].slice(0, 7)];
-  const wds = db.withdrawals.filter((w) => w.forMonth >= m0 && w.forMonth <= m1).sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
-  const taken = (name: string) => wds.filter((w) => w.founder === name).reduce((t, w) => t + w.amount, 0);
+  const history = [...db.withdrawals].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
   const canWithdraw = S.allowed('profit', 'create', db);
 
   return (
@@ -64,14 +61,8 @@ export default function Profit() {
                 <span className="size-11 rounded-full grid place-items-center text-white font-bold text-[16px]" style={{ background: color }}>{s.name[0]?.toUpperCase()}</span>
                 <div className="min-w-0"><div className="font-bold text-[16px] text-ink truncate">{s.name}</div><div className="text-[12.5px] font-semibold" style={{ color }}>{(s.pctBp / 100).toFixed(s.pctBp % 100 ? 2 : 0)}% share</div></div>
               </div>
-              <div className="mt-4 text-[11px] font-bold uppercase tracking-wider text-zinc-500">Balance to take</div>
-              <div className={cx("text-[28px] font-bold tabular leading-tight", s.amount - taken(s.name) < 0 ? "text-bad" : "text-ink")}>{fmtINR(s.amount - taken(s.name))}</div>
-              {s.amount - taken(s.name) < 0 && <div className="text-[12px] text-bad">Withdrawn more than the share</div>}
-              <dl className="mt-3 pt-3 border-t space-y-1 text-[13px]" style={{ borderColor: `color-mix(in srgb, ${color} 25%, white)` }}>
-                <div className="flex justify-between"><dt className="text-zinc-600">Share of profit</dt><dd className="font-semibold tabular">{fmtINR(s.amount)}</dd></div>
-                <div className="flex justify-between"><dt className="text-zinc-600">Withdrawn</dt><dd className="font-semibold tabular">− {fmtINR(taken(s.name))}</dd></div>
-              </dl>
-              {canWithdraw && <Button className="mt-4 w-full" onClick={() => setWithdraw(s.name)}>Record withdrawal</Button>}
+              <div className="mt-4 text-[11px] font-bold uppercase tracking-wider text-zinc-500">Receives</div>
+              <div className="text-[28px] font-bold tabular text-ink leading-tight">{fmtINR(s.amount)}</div>
             </div>
           );
         })}
@@ -94,15 +85,27 @@ export default function Profit() {
 
       {/* withdrawals */}
       <Card className="rounded-2xl overflow-hidden mt-5">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 pt-4 pb-3">
-          <div><h2 className="font-semibold text-[15px] text-navy">Founder withdrawals</h2><p className="text-[12.5px] text-muted">Money taken out of the profit, by the month it belongs to.</p></div>
-          {canWithdraw && <Button onClick={() => setWithdraw('')}>+ Record withdrawal</Button>}
+        <div className="px-4 sm:px-5 pt-4 pb-3">
+          <h2 className="font-semibold text-[15px] text-navy">Founder withdrawals</h2>
+          {canWithdraw && (
+            <div className="mt-3 grid sm:grid-cols-3 gap-2">
+              {db.settings.shares.map((s, i) => (
+                <button key={s.name} type="button" onClick={() => setWithdraw(s.name)}
+                  className="flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left font-semibold hover:shadow-sm transition-shadow"
+                  style={{ borderColor: `color-mix(in srgb, ${TONES[i % TONES.length]} 35%, white)`, background: `color-mix(in srgb, ${TONES[i % TONES.length]} 7%, white)` }}>
+                  <span className="size-8 rounded-full grid place-items-center text-white text-[13px] shrink-0" style={{ background: TONES[i % TONES.length] }}>{s.name[0]?.toUpperCase()}</span>
+                  <span className="min-w-0"><span className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Withdraw</span><span className="block truncate">{s.name}</span></span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-        <Table rows={wds} rowKey={(w) => w.id} empty={<Empty title="No withdrawals for this period" />} className="[&_td]:py-3" cols={[
+        <div className="px-4 sm:px-5 pb-1 text-[11px] font-bold uppercase tracking-wider text-zinc-500">History</div>
+        <Table rows={history} rowKey={(w) => w.id} empty={<Empty title="No withdrawals yet" />} className="[&_td]:py-3" cols={[
           { key: 'd', label: 'Date', sort: (w) => w.date, render: (w) => <span className="tabular">{fmtDate(w.date)}</span> },
           { key: 'f', label: 'Founder', sort: (w) => w.founder, render: (w) => <span className="font-medium">{w.founder}</span> },
           { key: 'm', label: 'Profit of', sort: (w) => w.forMonth, render: (w) => fmtMonth(w.forMonth) },
-          { key: 'p', label: 'Paid by', render: (w) => <span className="text-zinc-600">{w.method}{w.reference && ` · ${w.reference}`}</span> },
+          { key: 'p', label: 'Paid by', render: (w) => <div className="leading-tight"><div className="text-zinc-700">{w.method}</div>{w.reference && <div className="text-[11.5px] text-muted truncate max-w-36">{w.reference}</div>}</div> },
           { key: 'a', label: 'Amount', className: 'text-right', sort: (w) => w.amount, render: (w) => <span className="font-semibold tabular">{fmtINR(w.amount)}</span> },
           { key: 'x', label: '', className: 'text-right', render: (w) => <WithdrawalActions id={w.id} /> },
         ]} />
@@ -166,27 +169,43 @@ function RecordWithdrawal({ founder, onClose }: { founder: string | null; onClos
   const run = useRun();
   const today = todayIST();
   const lastMonth = monthOf(addDays(`${monthOf(today)}-01`, -1)); // usually last month's profit is taken at the start of a month
-  const [f, setF] = useState({ founder: '', amount: '', date: today, forMonth: lastMonth, method: 'Bank Transfer' as PayMethod, reference: '', notes: '' });
+  // founder's share of a month's profit, less what they already took for that month
+  const suggest = (name: string, ym: string) => {
+    const [a, b] = monthRange(ym);
+    const net = periodFigures(db, a, b, today).netProfit;
+    const share = splitProfit(Math.max(0, net), db.settings.shares).find((x) => x.name === name)?.amount ?? 0;
+    const already = db.withdrawals.filter((w) => w.founder === name && w.forMonth === ym).reduce((t, w) => t + w.amount, 0);
+    return { share, already, left: Math.max(0, share - already) };
+  };
+  const blank = (name: string) => ({ founder: name, amount: '', date: today, forMonth: lastMonth, method: 'Bank Transfer' as PayMethod, reference: '', notes: '' });
+  const [f, setF] = useState(blank(''));
   const [open, setOpen] = useState<string | null>(null);
-  if (founder !== open) { setOpen(founder); if (founder !== null) setF({ founder: founder || db.settings.shares[0]?.name || '', amount: '', date: today, forMonth: lastMonth, method: 'Bank Transfer', reference: '', notes: '' }); }
+  if (founder !== open) {
+    setOpen(founder);
+    if (founder) { const g = suggest(founder, lastMonth); setF({ ...blank(founder), amount: g.left ? String(g.left / 100) : '' }); }
+  }
+  const g = f.founder ? suggest(f.founder, f.forMonth) : null;
   const amount = parseRupees(f.amount);
   const ok = !!f.founder && amount !== null && amount > 0 && !!f.date && /^\d{4}-\d{2}$/.test(f.forMonth) && (f.method === 'Cash' || !!f.reference.trim());
   const save = () => {
     let id: string | undefined;
-    run(() => { id = S.addWithdrawal({ founder: f.founder, amount: amount!, date: f.date, forMonth: f.forMonth, method: f.method, reference: f.reference, notes: f.notes }); }, 'Withdrawal recorded');
-    if (id) { onClose(); window.open(`/withdrawal/${id}`, '_blank'); }
+    run(() => { id = S.addWithdrawal({ founder: f.founder, amount: amount!, date: f.date, forMonth: f.forMonth, method: f.method, reference: f.reference, notes: f.notes }); }, `Withdrawal recorded for ${f.founder}`);
+    if (id) onClose();
   };
   return (
-    <Modal open={founder !== null} onClose={onClose} title="Record founder withdrawal"
-      footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" disabled={!ok} onClick={save}>Save & open receipt</Button></>}>
+    <Modal open={!!founder} onClose={onClose} title={`Withdraw — ${f.founder}`}
+      footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" disabled={!ok} onClick={save}>Save withdrawal</Button></>}>
       <div className="grid sm:grid-cols-2 gap-x-4 gap-y-3.5">
-        <Field label="Founder" required><Select value={f.founder} onChange={(e) => setF({ ...f, founder: e.target.value })} options={db.settings.shares.map((s) => s.name)} /></Field>
+        <Field label="Profit of month" required><Input type="month" max={monthOf(today)} value={f.forMonth} onChange={(e) => { const ym = e.target.value; const s2 = /^\d{4}-\d{2}$/.test(ym) ? suggest(f.founder, ym) : null; setF({ ...f, forMonth: ym, amount: s2?.left ? String(s2.left / 100) : f.amount }); }} /></Field>
         <Field label="Amount (₹)" required error={f.amount && (amount === null || amount <= 0) ? 'Enter an amount' : undefined}><Input autoFocus inputMode="decimal" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
-        <Field label="Profit of month" required hint="Which month's profit this is"><Input type="month" max={monthOf(today)} value={f.forMonth} onChange={(e) => setF({ ...f, forMonth: e.target.value })} /></Field>
+        {g && /^\d{4}-\d{2}$/.test(f.forMonth) && (
+          <p className="sm:col-span-2 -mt-1 text-[12.5px] text-muted">
+            {f.founder}'s share of {fmtMonth(f.forMonth)}: <b className="text-ink tabular">{fmtINR(g.share)}</b>{g.already > 0 && <> · already taken <b className="text-ink tabular">{fmtINR(g.already)}</b></>}
+          </p>
+        )}
         <Field label="Date paid" required><Input type="date" max={today} value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field>
         <Field label="Paid by"><Select value={f.method} onChange={(e) => setF({ ...f, method: e.target.value as PayMethod })} options={PAY_METHODS.filter((m) => m !== 'Online Gateway')} /></Field>
-        <Field label="Reference / UTR" required={f.method !== 'Cash'}><Input value={f.reference} onChange={(e) => setF({ ...f, reference: e.target.value })} /></Field>
-        <Field label="Note" className="sm:col-span-2"><Input value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
+        <Field label="Reference / UTR" required={f.method !== 'Cash'} className="sm:col-span-2"><Input value={f.reference} onChange={(e) => setF({ ...f, reference: e.target.value })} /></Field>
       </div>
     </Modal>
   );
