@@ -19,6 +19,7 @@ type Fin = ReturnType<typeof financeFor>;
 
 // ---------------- small visual helpers (this page only) ----------------
 const ICON = {
+  key: 'M10.5 1.5a4 4 0 0 0-3.8 5.2L1.5 11.9v2.6h2.6v-1.5h1.5v-1.5h1.5l1.4-1.4A4 4 0 1 0 10.5 1.5Zm1 3a1 1 0 1 1 0 .01',
   eye: 'M1.5 8S4 3 8 3s6.5 5 6.5 5S12 13 8 13 1.5 8 1.5 8ZM8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z',
   edit: 'M11 2.5 13.5 5 6 12.5H3.5V10zM9.5 4l2.5 2.5',
   rupee: 'M4.5 2.5h7M4.5 5.5h7M7 2.5c2.5 0 3 1.5 3 3s-1.2 3-3.5 3H4.5l5 5',
@@ -397,6 +398,7 @@ export function StudentProfile() {
   const tab = (sp.get('tab') as Tab) || 'overview';
   const [payOpen, setPayOpen] = useState(false);
   const [transfer, setTransfer] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false); // set / change the student's login password
   const s = db.students.find((x) => x.id === id);
   if (!s) return <Card><Empty title="Student not found" action={<Link to="/students" className="text-accent">Back to students</Link>} /></Card>;
   const fees = S.allowed('fees', 'view', db);
@@ -461,6 +463,7 @@ export function StudentProfile() {
                 ? <Button disabled title="Student opted out of reminders"><Ic d={ICON.bell} /> Remind</Button>
                 : <a href={reminderLink(db, s, f)} target="_blank" rel="noreferrer" title="Send WhatsApp reminder" className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-lg border border-line bg-white font-medium hover:bg-warn-soft hover:text-warn hover:border-warn/30"><Ic d={ICON.bell} /> Remind</a>)}
             </div>
+            {cloudEnabled && canEdit && <Button className="xl:w-full" onClick={() => setLoginOpen(true)}><Ic d={ICON.key} /> Login password</Button>}
             {S.allowed('batches', 'edit', db) && <Button className="xl:w-full" onClick={() => setTransfer(true)}>Transfer batch</Button>}
             {canEdit && <Select value="" onChange={(e) => e.target.value && changeStatus(e.target.value as StudentStatus)} placeholder="Change status…" options={STUDENT_STATUSES.filter((x) => x !== s.status)} className="w-44 xl:w-full" />}
           </div>
@@ -479,6 +482,7 @@ export function StudentProfile() {
       </Card>
 
       <Tabs tabs={tabs} value={tab} onChange={goTab} />
+      {cloudEnabled && <Modal open={loginOpen} onClose={() => setLoginOpen(false)} title={`Login password — ${s.name}`}><StudentLogin id={s.id} bare /></Modal>}
 
       {tab === 'overview' && (
         <div className="grid lg:grid-cols-3 gap-4">
@@ -627,7 +631,7 @@ function Personal({ id }: { id: string }) {
 }
 
 /** Student portal login: login ID = student ID; staff set or reset the password. */
-function StudentLogin({ id }: { id: string }) {
+function StudentLogin({ id, bare }: { id: string; bare?: boolean }) {
   const db = S.useDB();
   const { toast } = useUI();
   const s = db.students.find((x) => x.id === id)!;
@@ -642,8 +646,9 @@ function StudentLogin({ id }: { id: string }) {
     catch (e) { toast((e as Error).message, 'bad'); }
     setBusy(false);
   };
+  const Wrap = bare ? 'div' : Card;
   return (
-    <Card className="p-5">
+    <Wrap className={bare ? '' : 'p-5'}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="font-semibold">Student login</h3>
@@ -662,7 +667,7 @@ function StudentLogin({ id }: { id: string }) {
           <Button variant="primary" loading={busy} disabled={pw.length < 8} onClick={save}>{has ? 'Reset password' : 'Create login'}</Button>
         </div>
       )}
-    </Card>
+    </Wrap>
   );
 }
 
