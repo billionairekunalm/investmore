@@ -19,6 +19,7 @@ export default function Profit() {
   const { key, range } = useRange();
   const [tab, setTab] = useState<'founders' | 'employees'>('founders');
   const [withdraw, setWithdraw] = useState<string | null>(null); // founder being paid
+  const [who, setWho] = useState(''); // history filter, '' = all founders
   const f = periodFigures(db, range[0], range[1], todayIST());
   const salaries = db.expenses.filter((e) => SALARY.includes(e.category) && inRange(e.date, range)).sort((a, b) => b.date.localeCompare(a.date));
   const salaryTotal = salaries.filter((e) => e.status === 'Approved').reduce((t, e) => t + expenseAmount(e), 0);
@@ -96,8 +97,11 @@ export default function Profit() {
             </div>
           )}
         </div>
-        <div className="px-4 sm:px-5 pb-1 text-[11px] font-bold uppercase tracking-wider text-zinc-500">History</div>
-        <Table rows={history} rowKey={(w) => w.id} empty={<Empty title="No withdrawals yet" />} className="[&_td]:py-3" cols={[
+        <div className="px-4 sm:px-5 pb-2 flex items-center justify-between gap-3">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">History</span>
+          <Select className="w-44" value={who} onChange={(e) => setWho(e.target.value)} options={[{ value: '', label: 'All founders' }, ...[...new Set([...db.settings.shares.map((s) => s.name), ...db.withdrawals.map((w) => w.founder)])].map((n) => ({ value: n, label: n }))]} />
+        </div>
+        <Table rows={who ? history.filter((w) => w.founder === who) : history}rowKey={(w) => w.id} empty={<Empty title="No withdrawals yet" />} className="[&_td]:py-3" cols={[
           { key: 'd', label: 'Date', sort: (w) => w.date, render: (w) => <span className="tabular">{fmtDate(w.date)}</span> },
           { key: 'f', label: 'Founder', sort: (w) => w.founder, render: (w) => <span className="font-medium">{w.founder}</span> },
           { key: 'm', label: 'Profit of', sort: (w) => w.forMonth, render: (w) => fmtMonth(w.forMonth) },
