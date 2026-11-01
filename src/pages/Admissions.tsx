@@ -30,8 +30,7 @@ export default function Admissions() {
   return (
     <div className="mx-auto max-w-[1100px]">
       <Link to="/students" className="text-[12.5px] text-muted hover:text-ink">← Students</Link>
-      <h1 className="text-[22px] font-bold tracking-tight mt-1">New admission</h1>
-      <p className="text-muted mt-0.5 mb-5">Creates the student, fee plan and instalment schedule in one step.</p>
+      <h1 className="text-[22px] font-bold tracking-tight mt-1 mb-5">New admission</h1>
       <AdmissionForm page onDone={(id) => nav(id ? `/students/${id}` : '/students')} />
     </div>
   );
@@ -114,34 +113,29 @@ export function AdmissionForm({ leadId, onDone, page }: { leadId?: string; onDon
   const form = (
     <Card className={cx('overflow-hidden', page && 'shadow-[0_1px_3px_rgba(0,0,0,.04)]')}>
       {S.allowed('sensitive', 'create', db) && (
-        <FormSection icon={ICON.scan} title="Aadhaar Smart Autofill" optional sub="Upload the student's Aadhaar card to fill name, date of birth, gender and address automatically.">
+        <FormSection icon={ICON.scan} title="Aadhaar autofill" optional>
           <AadhaarAutofill onFill={fill} />
         </FormSection>
       )}
-      <FormSection icon={ICON.user} title="Student details" sub="Contact details are used for receipts and payment reminders.">
+      <FormSection icon={ICON.user} title="Student details">
+        <div className="flex flex-wrap items-center gap-4 mb-5">
+          {photo ? <img src={photo} className="size-20 rounded-full object-cover ring-4 ring-accent-soft" alt="Student photo" />
+            : <span className="size-20 rounded-full bg-surface border-2 border-dashed border-zinc-300 grid place-items-center text-zinc-400"><Ic d={ICON.user} className="size-8" /></span>}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Upload = gallery / files; Take photo = opens the camera on phones */}
+            <PhotoButton icon={ICON.upload} label={photo ? 'Change photo' : 'Upload photo'} onPick={setPhoto} />
+            <PhotoButton icon={ICON.camera} label="Take photo" camera onPick={setPhoto} />
+            {photo && <button type="button" onClick={() => setPhoto(undefined)} className="text-[13px] font-medium text-muted hover:text-bad px-1">Remove</button>}
+          </div>
+        </div>
         <div className={g2}>
-          <Field label="Full name" required><Input value={f.name} onChange={set('name')} autoFocus={!lead} placeholder="As it should appear on the certificate" className={tint('name')} />{check('name')}</Field>
+          <Field label="Full name" required><Input value={f.name} onChange={set('name')} autoFocus={!lead} className={tint('name')} />{check('name')}</Field>
           <Field label="Mobile number" required error={f.phone && !phoneOk ? 'Enter a valid 10-digit Indian mobile' : undefined}>
             <Input inputMode="tel" value={f.phone} onChange={set('phone')} disabled={!!lead} placeholder="10-digit mobile" />
           </Field>
           <Field label="Date of birth"><Input type="date" max={today} value={f.dob} onChange={set('dob')} className={tint('dob')} />{check('dob')}</Field>
           <Field label="Gender"><Select value={f.gender} onChange={set('gender')} placeholder="Select" options={GENDERS} className={tint('gender')} />{check('gender')}</Field>
-          <Field label="Alternate mobile"><Input inputMode="tel" value={f.altPhone} onChange={set('altPhone')} /></Field>
-          <Field label="Email"><Input type="email" value={f.email} onChange={set('email')} /></Field>
-          <div className="sm:col-span-2">
-            <span className="mb-1 block text-[12.5px] font-medium text-zinc-700">Photo</span>
-            <div className="flex items-center gap-3">
-              {photo ? <img src={photo} className="size-12 rounded-full object-cover ring-2 ring-white shadow" alt="" />
-                : <span className="size-12 rounded-full bg-surface border border-dashed border-zinc-300 grid place-items-center text-zinc-400"><Ic d={ICON.camera} className="size-5" /></span>}
-              <label className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg border border-zinc-300 bg-white font-medium cursor-pointer hover:bg-surface whitespace-nowrap">
-                {photo ? 'Change photo' : 'Upload photo'}
-                <input type="file" accept="image/*" capture="user" className="sr-only" onChange={async (e) => { const file = e.target.files?.[0]; if (file) setPhoto(await resizeImage(file)); e.target.value = ''; }} />
-              </label>
-              {photo && <button type="button" onClick={() => setPhoto(undefined)} className="text-[12.5px] text-muted hover:text-bad">Remove</button>}
-              <span className="text-xs text-muted hidden sm:inline">Optional · opens the camera on phones</span>
-            </div>
-          </div>
-          <Field label="Address" className="sm:col-span-2"><Input value={f.address} onChange={set('address')} placeholder="House / street / area" className={tint('address')} />{check('address')}</Field>
+          <Field label="Address" className="sm:col-span-2"><Input value={f.address} onChange={set('address')} className={tint('address')} />{check('address')}</Field>
           <Field label="City"><Input value={f.city} onChange={set('city')} className={tint('city')} />{check('city')}</Field>
           <div className="grid grid-cols-2 gap-x-4">
             <Field label="State"><Input value={f.state} onChange={set('state')} className={tint('state')} />{check('state')}</Field>
@@ -150,7 +144,7 @@ export function AdmissionForm({ leadId, onDone, page }: { leadId?: string; onDon
         </div>
         {dups.length > 0 && (
           <div className="mt-4 rounded-lg border border-bad/20 bg-bad-soft px-3 py-2.5 text-[13px]">
-            <b className="text-bad">Possible duplicate.</b> {dups.map((d) => <Link key={d.id} to={`/students/${d.id}`} className="underline ml-1">{d.name} ({d.code}, {d.phone})</Link>)} already uses this mobile number or email. Admission will be blocked.
+            <b className="text-bad">Possible duplicate.</b> {dups.map((d) => <Link key={d.id} to={`/students/${d.id}`} className="underline ml-1">{d.name} ({d.code}, {d.phone})</Link>)} already uses this mobile number.
           </div>
         )}
       </FormSection>
@@ -158,7 +152,7 @@ export function AdmissionForm({ leadId, onDone, page }: { leadId?: string; onDon
       <FormSection icon={ICON.book} title="Course details">
         <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3.5">
           <Field label="Course" required><Select value={f.courseId} onChange={(e) => setF({ ...f, courseId: e.target.value, batchId: '', booking: String((db.courses.find((c) => c.id === e.target.value)?.bookingDefault ?? 0) / 100) })} options={db.courses.map((c) => ({ value: c.id, label: c.name }))} /></Field>
-          <Field label="Batch" hint={!batches.length ? 'No open batches — create one in Batches' : undefined}>
+          <Field label="Batch" hint={!batches.length ? 'No open batches' : undefined}>
             <Select value={f.batchId} onChange={set('batchId')} placeholder="Assign later" options={batches.map((b) => ({ value: b.id, label: `${b.name} · ${b.timing} (${db.students.filter((s) => s.batchId === b.id && s.status === 'Active').length}/${b.capacity})` }))} />
           </Field>
           <Field label="Admission date" required><Input type="date" max={today} value={f.admissionDate} onChange={set('admissionDate')} /></Field>
@@ -168,20 +162,19 @@ export function AdmissionForm({ leadId, onDone, page }: { leadId?: string; onDon
         </div>
       </FormSection>
 
-      <FormSection icon={ICON.rupee} title="Fee details" sub={`The booking amount is ${policy === 'additional' ? 'paid on top of the course fee' : 'counted inside the course fee'}.`}>
+      <FormSection icon={ICON.rupee} title="Fee details">
         <div className={g2}>
           <div>
             <span className="mb-1 block text-[12.5px] font-medium text-zinc-700">Total course fee</span>
             <div className="h-9 rounded-lg bg-accent-soft/60 border border-accent/15 px-3 flex items-center font-bold text-accent tabular">{total !== null ? fmtINR(total) : '—'}</div>
-            <span className="mt-1 block text-xs text-muted">Calculated from the course instalments</span>
           </div>
           <Field label="Booking amount (₹)" error={booking === null ? 'Enter a valid amount' : undefined}><Input inputMode="decimal" value={f.booking} onChange={set('booking')} /></Field>
           <div className="sm:col-span-2 rounded-lg border border-line bg-surface/60 px-3 py-2.5">
-            <Checkbox checked={f.bookingPaidNow} onChange={(e) => setF({ ...f, bookingPaidNow: e.target.checked })} label={<span><b className="font-medium">Booking amount received now</b><span className="text-muted"> — records the payment and issues a receipt</span></span>} />
+            <Checkbox checked={f.bookingPaidNow} onChange={(e) => setF({ ...f, bookingPaidNow: e.target.checked })} label={<span className="font-medium">Booking amount received now</span>} />
           </div>
           {f.bookingPaidNow && <>
             <Field label="Payment method"><Select value={f.method} onChange={(e) => setF({ ...f, method: e.target.value as PayMethod })} options={PAY_METHODS.filter((m) => m !== 'Online Gateway')} /></Field>
-            <Field label="Reference / UTR" required={f.method !== 'Cash'}><Input value={f.reference} onChange={set('reference')} placeholder={f.method === 'Cash' ? 'Optional for cash' : 'Transaction / UTR number'} /></Field>
+            <Field label="Reference / UTR" required={f.method !== 'Cash'}><Input value={f.reference} onChange={set('reference')} placeholder={f.method === 'Cash' ? '' : 'UTR number'} /></Field>
           </>}
         </div>
         {preview && 'error' in preview && <p className="mt-3 text-bad">{preview.error}</p>}
@@ -287,7 +280,7 @@ function AadhaarAutofill({ onFill }: { onFill: (r: AadhaarFields) => void }) {
   return (
     <div className="space-y-3">
       <div className="rounded-lg border border-line bg-surface/60 px-3 py-2.5">
-        <Checkbox checked={consent} onChange={(e) => setConsent(e.target.checked)} label="The student has given informed consent to read their Aadhaar for identity records (DPDP Act)." />
+        <Checkbox checked={consent} onChange={(e) => setConsent(e.target.checked)} label="Student has given consent to read their Aadhaar" />
       </div>
       <div className={cx('grid sm:grid-cols-2 gap-3', !consent && 'opacity-50')} aria-disabled={!consent}>
         {(['front', 'back'] as Side[]).map((side) => (
@@ -299,7 +292,6 @@ function AadhaarAutofill({ onFill }: { onFill: (r: AadhaarFields) => void }) {
         <Button variant="primary" disabled={!ready} loading={scanning} onClick={scan} className="h-10 px-4">
           {!scanning && <Ic d={ICON.scan} />}{scanning ? `Reading ${state.side} side…` : 'Scan Aadhaar & Autofill Form'}
         </Button>
-        <span className="text-xs text-muted">{!consent ? 'Tick consent to upload.' : !files.front ? 'Upload the front side to begin.' : !ready ? 'Add the back side (or upload the e-Aadhaar PDF).' : 'Nothing is submitted — you review every field first.'}</span>
       </div>
 
       {state.kind === 'failed' && (
@@ -309,7 +301,6 @@ function AadhaarAutofill({ onFill }: { onFill: (r: AadhaarFields) => void }) {
         <div className="rounded-lg border border-accent/25 bg-accent-soft px-3 py-3 text-[13px]" role="status">
           <div className="flex flex-wrap items-center gap-2 font-semibold text-accent"><Ic d={ICON.check} />Aadhaar details extracted successfully.
             {state.r.fromQr && <span className="inline-flex items-center gap-1 rounded-full bg-accent text-white text-[11px] font-semibold px-2 py-0.5"><Ic d={ICON.shield} className="size-3" />Read from the Aadhaar QR code</span>}</div>
-          <p className="text-zinc-600 mt-1">{state.r.fromQr ? 'Details were read from the secure QR code printed by UIDAI, so they match the Aadhaar record exactly. ' : 'Read from the printed text (the QR code could not be read — a sharper photo of the QR side gives exact data). '}Filled fields are highlighted in green below — you can edit anything.</p>
           <div className="flex flex-wrap gap-1.5 mt-2.5">
             {Object.entries(LABELS).map(([k, l]) => {
               const v = state.r[k as keyof AadhaarFields] as { conf: Conf } | undefined;
@@ -324,7 +315,7 @@ function AadhaarAutofill({ onFill }: { onFill: (r: AadhaarFields) => void }) {
           {state.r.yearOfBirth && <p className="text-xs text-zinc-600 mt-2">Only the year of birth ({state.r.yearOfBirth}) is printed on this card — enter the full date if you know it.</p>}
         </div>
       )}
-      <p className="flex items-start gap-1.5 text-[11.5px] text-muted leading-snug"><Ic d={ICON.lock} className="size-3.5 mt-px" />Read on this device only. The card images are never saved or uploaded, and only the last 4 digits of the Aadhaar number are kept.</p>
+      <p className="flex items-center gap-1.5 text-[11.5px] text-muted"><Ic d={ICON.lock} className="size-3.5" />Card images are not saved. Only the last 4 digits are kept.</p>
     </div>
   );
 }
@@ -363,12 +354,12 @@ function UploadBox({ side, file, onFile, disabled, password, onPassword }: { sid
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center text-center gap-2 py-1">
           <span className="size-9 rounded-full bg-white border border-line grid place-items-center text-zinc-500"><Ic d={ICON.upload} /></span>
-          <div className="text-[12.5px] text-zinc-600">Drag &amp; drop here, or</div>
+          <div className="text-[12.5px] text-zinc-600">Drag &amp; drop or</div>
           <div className="flex flex-wrap justify-center gap-2">
             {picker(false, <><Ic d={ICON.file} className="size-3.5" />Choose file</>, btn)}
             {picker(true, <><Ic d={ICON.camera} className="size-3.5" />Use camera</>, btn)}
           </div>
-          <div className="text-[11px] text-muted">JPG, PNG or PDF · up to 10 MB</div>
+          <div className="text-[11px] text-muted">JPG, PNG or PDF</div>
         </div>
       )}
       {password !== undefined && (
@@ -378,6 +369,16 @@ function UploadBox({ side, file, onFile, disabled, password, onPassword }: { sid
         </div>
       )}
     </div>
+  );
+}
+
+function PhotoButton({ icon, label, camera, onPick }: { icon: string; label: string; camera?: boolean; onPick: (dataUrl: string) => void }) {
+  return (
+    <label className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg border border-zinc-300 bg-white font-medium cursor-pointer hover:bg-surface whitespace-nowrap">
+      <Ic d={icon} />{label}
+      <input type="file" accept="image/jpeg,image/png,image/webp" capture={camera ? 'user' : undefined} className="sr-only"
+        onChange={async (e) => { const file = e.target.files?.[0]; if (file) onPick(await resizeImage(file)); e.target.value = ''; }} />
+    </label>
   );
 }
 
@@ -425,7 +426,7 @@ export function IdCapture({ value, onChange, studentName }: { value?: IdDocument
   return (
     <div className="space-y-3">
       <div className="rounded-lg border border-line bg-surface/60 px-3 py-2.5">
-        <Checkbox checked={consent} onChange={(e) => setConsent(e.target.checked)} label="The student has given informed consent to capture this document for identity records (DPDP Act)." />
+        <Checkbox checked={consent} onChange={(e) => setConsent(e.target.checked)} label="Student has given consent to record this document" />
       </div>
       {consent && (
         <div className="grid sm:grid-cols-2 gap-x-4 gap-y-3 items-end">
@@ -454,7 +455,7 @@ export function IdCapture({ value, onChange, studentName }: { value?: IdDocument
           }}>Confirm document</Button>
         </div>
       )}
-      <p className="flex items-start gap-1.5 text-[11.5px] text-muted leading-snug"><Ic d={ICON.lock} className="size-3.5 mt-px" />Aadhaar is not required — any listed document works. Only the document type, last 4 characters and name are kept; the photo and full number are discarded right after reading. A photo of a card is not treated as verified Aadhaar.</p>
+      <p className="flex items-center gap-1.5 text-[11.5px] text-muted"><Ic d={ICON.lock} className="size-3.5" />Only the document type, name and last 4 digits are kept.</p>
     </div>
   );
 }
