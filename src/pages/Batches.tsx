@@ -80,7 +80,7 @@ function BatchDetail({ id, onBack, onEdit }: { id: string; onBack: () => void; o
         <Stat label="Enrolled" value={`${students.filter((s) => s.status === 'Active').length}/${b.capacity}`} />
         <Stat label="Admissions" value={db.enrolments.filter((e) => e.batchId === id).length} />
         <Stat label="Avg. attendance" value={avg === null ? '—' : `${(avg * 100).toFixed(0)}%`} />
-        {fees && <><Stat label="Collected" value={fmtINR(fin.reduce((a, f) => a + f.paid, 0))} tone="ok" /><Stat label="Outstanding" value={fmtINR(fin.reduce((a, f) => a + f.outstanding, 0))} tone="warn" /></>}
+        {fees && <><Stat label="Collected" value={fmtINR(fin.reduce((a, f) => a + f.paid, 0))} tone="ok" /><Stat label="Balance due" value={fmtINR(fin.reduce((a, f) => a + f.outstanding, 0))} tone="warn" /></>}
       </Card>
       <Card>
         <CardHeader title="Attendance" right={<div className="flex gap-2 items-center"><Input type="date" max={todayIST()} value={date} onChange={(e) => setDate(e.target.value)} className="w-40" />
@@ -90,7 +90,7 @@ function BatchDetail({ id, onBack, onEdit }: { id: string; onBack: () => void; o
           { key: 'n', label: 'Student', render: (s) => <button className="font-medium hover:text-accent" onClick={() => nav(`/students/${s.id}`)}>{s.name}</button> },
           { key: 'c', label: 'ID', render: (s) => <span className="text-muted">{s.code}</span> },
           { key: 'a', label: 'Attendance', render: (s) => { const n = sessions.filter((x) => x.present.includes(s.id)).length; return sessions.length ? `${n}/${sessions.length}` : '—'; } },
-          ...(fees ? [{ key: 'o', label: 'Outstanding', render: (s: any) => <Money v={financeFor(db, s.id, todayIST()).outstanding} /> }] : []),
+          ...(fees ? [{ key: 'o', label: 'Balance due', render: (s: any) => <Money v={financeFor(db, s.id, todayIST()).outstanding} /> }] : []),
           { key: 's', label: 'Status', render: (s) => <Badge>{s.status}</Badge> },
         ]} />
       </Card>

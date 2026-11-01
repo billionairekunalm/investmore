@@ -113,8 +113,10 @@ const STATUS_TONE: Record<string, string> = {
   Waived: 'gray', Cancelled: 'gray', Inactive: 'gray', Draft: 'gray', New: 'blue', 'Not Contacted': 'gray', Cold: 'gray', 'Not Answered': 'gray', 'No Plan': 'gray', 'Promised to Pay': 'blue', 'Already Paid': 'green', 'Needs More Time': 'orange',
   upcoming: 'blue', running: 'green', completed: 'gray', cancelled: 'red', open: 'green', closed: 'gray',
 };
+// Plain-language display for stored status values (data and colours keep the stored value).
+const SAY: Record<string, string> = { 'Partially Paid': 'Part paid', 'Due Soon': 'Due soon', 'No Plan': 'No fee plan', 'Not Contacted': 'Not called yet', Waived: 'Waived off', upcoming: 'Upcoming', running: 'Running', completed: 'Completed', cancelled: 'Cancelled', open: 'Open', closed: 'Closed' };
 export const Badge = ({ children, tone }: { children: ReactNode; tone?: string }) => (
-  <span className={cx('inline-flex items-center rounded-md px-1.5 py-0.5 text-[11.5px] font-medium whitespace-nowrap', TONES[tone ?? STATUS_TONE[String(children)] ?? 'gray'])}>{children}</span>
+  <span className={cx('inline-flex items-center rounded-md px-1.5 py-0.5 text-[11.5px] font-medium whitespace-nowrap', TONES[tone ?? STATUS_TONE[String(children)] ?? 'gray'])}>{typeof children === 'string' ? SAY[children] ?? children : children}</span>
 );
 export const Money = ({ v, className }: { v: number; className?: string }) => <span className={cx('tabular', className)}>{fmtINR(v)}</span>;
 

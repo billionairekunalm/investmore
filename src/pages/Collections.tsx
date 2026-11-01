@@ -67,7 +67,7 @@ export default function Collections() {
               { key: 's', label: 'Student', render: (p) => <span className="font-medium">{sName(p.studentId)?.name}</span> },
               { key: 'a', label: 'Amount', render: (p) => <Money v={p.amount} className={reversed.has(p.id) ? 'line-through text-muted' : ''} />, className: 'text-right', sort: (p) => p.amount },
               { key: 'm', label: 'Method', render: (p) => p.method }, { key: 'r', label: 'Reference', render: (p) => p.reference || '—' },
-              { key: 'v', label: 'Status', render: (p) => (reversed.has(p.id) ? <Badge tone="gray">Reversed</Badge> : p.verified ? <Badge tone="green">Received</Badge> : <Badge tone="orange">Unverified</Badge>) },
+              { key: 'v', label: 'Status', render: (p) => (reversed.has(p.id) ? <Badge tone="gray">Cancelled</Badge> : p.verified ? <Badge tone="green">Received</Badge> : <Badge tone="orange">Not confirmed</Badge>) },
               { key: 'b', label: 'By', render: (p) => S.empName(p.receivedBy, db) },
             ]} />
         ) : (

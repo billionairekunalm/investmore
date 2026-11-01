@@ -13,7 +13,7 @@
   --color-info: #2563eb;
   --color-info-soft: #eff4ff;
   --color-ink: #181818;
-  --color-muted: #71717a;
+  --color-muted: #5f5f6b; /* darker grey: easier to read (6.4:1 on white) */
   --color-line: #e7e7ea;
   --color-surface: #fafafa;
   --color-ok: #028a02;
@@ -25,9 +25,9 @@
 }
 
 html, body, #root { height: 100%; }
-body { @apply bg-white text-ink antialiased text-[13.5px]; font-feature-settings: "cv11", "ss01"; -webkit-tap-highlight-color: transparent; }
+body { @apply bg-white text-ink antialiased text-[14px]; font-feature-settings: "cv11", "ss01"; -webkit-tap-highlight-color: transparent; }
 input, select, textarea { font-size: 16px; } /* avoids iOS zoom */
-@media (min-width: 768px) { input, select, textarea { font-size: 13.5px; } }
+@media (min-width: 768px) { input, select, textarea { font-size: 14px; } }
 .tabular { font-variant-numeric: tabular-nums; }
 @media print {
   .no-print { display: none !important; }

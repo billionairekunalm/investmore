@@ -168,7 +168,7 @@ export function AdmissionForm({ leadId, onDone, page }: { leadId?: string; onDon
         </div>
       </FormSection>
 
-      <FormSection icon={ICON.rupee} title="Fee details" sub={`Booking policy: ${policy === 'additional' ? 'booking is additional to the instalments' : 'booking is credited against the course fee'}.`}>
+      <FormSection icon={ICON.rupee} title="Fee details" sub={`The booking amount is ${policy === 'additional' ? 'paid on top of the course fee' : 'counted inside the course fee'}.`}>
         <div className={g2}>
           <div>
             <span className="mb-1 block text-[12.5px] font-medium text-zinc-700">Total course fee</span>

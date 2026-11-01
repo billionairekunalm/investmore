@@ -72,7 +72,7 @@ function Distributions() {
       <Table rows={list} rowKey={(x) => x.id} onRow={(x) => setOpen(x.id)} empty={<Empty title="No distributions yet" body="Close a month in Financial periods to generate its draft distribution." />} cols={[
         { key: 'id', label: 'ID', render: (x) => <span className="text-muted">{x.id}</span> }, { key: 'p', label: 'Period', render: (x) => <span className="font-medium">{fmtMonth(x.periodId)}</span> },
         { key: 'n', label: 'Net profit', render: (x) => <Money v={x.figures.netProfit} />, className: 'text-right' },
-        { key: 'd', label: 'Distributable', render: (x) => <Money v={x.distributable} className="font-semibold" />, className: 'text-right' },
+        { key: 'd', label: 'Profit to share', render: (x) => <Money v={x.distributable} className="font-semibold" />, className: 'text-right' },
         ...db.settings.shares.map((s) => ({ key: s.name, label: s.name, render: (x: Distribution) => <Money v={x.shares.find((y) => y.name === s.name)?.amount ?? 0} />, className: 'text-right' })),
         { key: 's', label: 'Status', render: (x) => <Badge>{x.status}</Badge> },
       ]} />
@@ -117,7 +117,7 @@ function DistributionView({ d, onBack }: { d: Distribution; onBack: () => void }
             <div key={k as string} className={cx('flex justify-between py-1.5', !!b && 'border-t border-line font-semibold')}><span>{k}</span><Money v={v as number} /></div>
           ))}
           {d.adjustments.map((a, i) => <div key={i} className="flex justify-between py-1.5 text-zinc-600"><span>Adjustment: {a.label}{editable && <button className="ml-2 text-xs text-bad" onClick={() => run(() => S.setDistributionAdjustments(d.id, d.adjustments.filter((_, j) => j !== i)))}>remove</button>}</span><Money v={a.amount} /></div>)}
-          <div className="flex justify-between py-2 border-t-2 border-ink font-semibold text-[15px]"><span>Distributable profit</span><Money v={d.distributable} /></div>
+          <div className="flex justify-between py-2 border-t-2 border-ink font-semibold text-[15px]"><span>Profit to share</span><Money v={d.distributable} /></div>
           {editable && S.allowed('profit', 'edit', db) && (
             <div className="flex gap-2 items-end mt-3">
               <Field label="Approved adjustment" className="flex-1"><Input value={adj.label} onChange={(e) => setAdj({ ...adj, label: e.target.value })} placeholder="e.g. Reserve for taxes" /></Field>

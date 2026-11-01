@@ -71,15 +71,15 @@ function Fees() {
   const choose = async (p: 'additional' | 'credited') => {
     if (s.bookingPolicy === p) return;
     if (s.bookingPolicy && !(await ask({ title: 'Change booking policy?', message: 'Applies to new admissions only. Existing fee plans keep their policy.', confirm: 'Change policy' }))) return;
-    run(() => S.updateSettings({ bookingPolicy: p }), 'Booking policy saved');
+    run(() => S.updateSettings({ bookingPolicy: p }), 'Saved');
   };
   return (
     <div className="space-y-4 max-w-3xl">
       <Card className="p-5">
-        <h3 className="font-semibold">Booking amount policy {!s.bookingPolicy && <Badge tone="red">Required</Badge>}</h3>
-        <p className="text-muted mt-0.5 mb-4">How the ₹500–₹1,000 booking amount relates to the ₹3,000 + ₹3,000 + ₹1,500 instalments. Admissions are blocked until you choose.</p>
+        <h3 className="font-semibold">How the booking amount is counted {!s.bookingPolicy && <Badge tone="red">Required</Badge>}</h3>
+        <p className="text-muted mt-0.5 mb-4">Is the ₹500–₹1,000 booking amount extra, or part of the ₹7,500 course fee (₹3,000 + ₹3,000 + ₹1,500)? Choose once — new admissions can't start until you do.</p>
         <div className="grid sm:grid-cols-2 gap-3">
-          {([['additional', 'Additional', 'Student pays booking + ₹7,500. Example: ₹1,000 + ₹7,500 = ₹8,500.'], ['credited', 'Credited against fee', 'Booking is part of ₹7,500 and reduces the last instalment(s). Example: ₹1,000 + 3,000 + 3,000 + 500.']] as const).map(([id, t, d]) => (
+          {([['additional', 'Extra — on top of the fee', 'Student pays booking + ₹7,500. Example: ₹1,000 + ₹7,500 = ₹8,500.'], ['credited', 'Included — part of the fee', 'Booking is part of ₹7,500 and reduces the last instalment(s). Example: ₹1,000 + 3,000 + 3,000 + 500.']] as const).map(([id, t, d]) => (
             <button key={id} onClick={() => choose(id)} disabled={!S.allowed('settings', 'edit', db)} className={cx('text-left rounded-xl border p-4', s.bookingPolicy === id ? 'border-accent bg-accent-soft ring-3 ring-accent/10' : 'border-line hover:bg-surface')}>
               <div className="font-medium">{t}</div><div className="text-muted text-[12.5px] mt-1">{d}</div>
             </button>

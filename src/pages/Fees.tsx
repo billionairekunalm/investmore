@@ -33,7 +33,7 @@ export default function Fees() {
         <Kpi label="Fees billed" value={fmtINR(fig.billed)} sub="new fee plans in period" />
         <Kpi label="Collected" value={fmtINR(fig.collected)} sub="verified, net of reversals" tone="ok" />
         <Kpi label="Refunds" value={fmtINR(fig.refunds)} tone={fig.refunds ? 'bad' : undefined} />
-        <Kpi label="Outstanding (today)" value={fmtINR(fig.outstanding)} tone="warn" to="/collections?view=due7" />
+        <Kpi label="Balance due (today)" value={fmtINR(fig.outstanding)} tone="warn" to="/collections?view=due7" />
       </div>
       <Tabs value={tab} onChange={setTab} tabs={[{ id: 'plans', label: 'Fee plans', count: plans.length }, { id: 'verify', label: 'Awaiting verification', count: unverified.length }, { id: 'ledger', label: 'Transaction ledger' }, { id: 'structure', label: 'Course fee structure' }]} />
       {tab === 'plans' && <>
@@ -41,11 +41,11 @@ export default function Fees() {
         <Card>
           <Table rows={plans.filter((r) => !t || r.s.name.toLowerCase().includes(t) || r.s.code.toLowerCase().includes(t))} rowKey={(r) => r.p.id} onRow={(r) => nav(`/students/${r.s.id}?tab=fees`)} empty={<Empty title="No fee plans" body="Fee plans are created automatically on admission." />} cols={[
             { key: 'n', label: 'Student', render: (r) => <span className="font-medium">{r.s.name} <span className="text-muted font-normal">{r.s.code}</span></span>, sort: (r) => r.s.name },
-            { key: 'pol', label: 'Booking policy', render: (r) => (r.p.policy === 'additional' ? 'Additional' : 'Credited') },
+            { key: 'pol', label: 'Booking amount', render: (r) => (r.p.policy === 'additional' ? 'On top of fee' : 'Inside fee') },
             { key: 'bk', label: 'Booking', render: (r) => <Money v={r.p.bookingAmount} />, className: 'text-right' },
             { key: 't', label: 'Total', render: (r) => <Money v={r.f.total} />, className: 'text-right', sort: (r) => r.f.total },
             { key: 'p', label: 'Paid', render: (r) => <Money v={r.f.paid} className="text-ok" />, className: 'text-right', sort: (r) => r.f.paid },
-            { key: 'o', label: 'Outstanding', render: (r) => <Money v={r.f.outstanding} />, className: 'text-right', sort: (r) => r.f.outstanding },
+            { key: 'o', label: 'Balance due', render: (r) => <Money v={r.f.outstanding} />, className: 'text-right', sort: (r) => r.f.outstanding },
             { key: 'nx', label: 'Next due', render: (r) => (r.f.next ? `${fmtDate(r.f.next.dueDate)} · ${fmtINR(r.f.next.remaining)}` : '—'), sort: (r) => r.f.next?.dueDate ?? '9' },
             { key: 's', label: 'Status', render: (r) => <Badge>{r.f.status}</Badge>, sort: (r) => r.f.status },
           ]} />
@@ -58,15 +58,15 @@ export default function Fees() {
             { key: 'id', label: 'Txn', render: (p) => p.id }, { key: 's', label: 'Student', render: (p) => sName(p.studentId) }, { key: 'd', label: 'Date', render: (p) => fmtDate(p.date) },
             { key: 'a', label: 'Amount', render: (p) => <Money v={p.amount} /> }, { key: 'm', label: 'Method', render: (p) => p.method }, { key: 'r', label: 'Reference', render: (p) => p.reference || '—' },
             { key: 'x', label: '', render: (p) => S.allowed('fees', 'approve', db) && <div className="flex gap-1">
-              <Button size="sm" variant="primary" onClick={() => run(() => S.verifyPayment(p.id), 'Verified')}>Verify</Button>
-              <Button size="sm" variant="ghost" onClick={async () => { const r = await ask({ title: 'Reject this payment?', message: 'It will be reversed (kept on record).', input: 'Reason', confirm: 'Reverse', danger: true }); if (r) run(() => S.reversePayment(p.id, r), 'Reversed'); }}>Not received</Button>
+              <Button size="sm" variant="primary" onClick={() => run(() => S.verifyPayment(p.id), 'Payment confirmed')}>Confirm</Button>
+              <Button size="sm" variant="ghost" onClick={async () => { const r = await ask({ title: 'Reject this payment?', message: 'It will be cancelled. It stays in the records, marked as cancelled.', input: 'Reason', confirm: 'Reverse', danger: true }); if (r) run(() => S.reversePayment(p.id, r), 'Reversed'); }}>Not received</Button>
             </div> },
           ]} />
         </Card>
       )}
       {tab === 'ledger' && (
         <Card>
-          <CardHeader title="Transaction ledger" sub="Every payment, reversal and refund in the selected period. Entries are never edited or deleted." right={S.allowed('fees', 'export', db) && <Button size="sm" onClick={() => downloadCSV(ledger.map((p) => ({ Txn: p.id, Type: p.kind, Date: p.date, Student: sName(p.studentId), Amount: (p.kind === 'payment' ? p.amount : -p.amount) / 100, Method: p.method, Reference: p.reference, Verified: p.verified ? 'yes' : 'no', 'Reverses': p.reversesId ?? '', 'Received by': S.empName(p.receivedBy, db), Receipt: p.receiptNo, Notes: p.notes })), 'ledger')}>Export</Button>} />
+          <CardHeader title="Transaction ledger" sub="Every payment, cancelled payment and refund in the selected period. Nothing here is ever edited or deleted." right={S.allowed('fees', 'export', db) && <Button size="sm" onClick={() => downloadCSV(ledger.map((p) => ({ Txn: p.id, Type: p.kind, Date: p.date, Student: sName(p.studentId), Amount: (p.kind === 'payment' ? p.amount : -p.amount) / 100, Method: p.method, Reference: p.reference, Verified: p.verified ? 'yes' : 'no', 'Reverses': p.reversesId ?? '', 'Received by': S.empName(p.receivedBy, db), Receipt: p.receiptNo, Notes: p.notes })), 'ledger')}>Export</Button>} />
           <Table rows={ledger} rowKey={(p) => p.id} empty={<Empty title="No transactions in this period" />} cols={[
             { key: 'id', label: 'Txn', render: (p) => <span className="text-muted">{p.id}</span> }, { key: 'k', label: 'Type', render: (p) => <Badge tone={p.kind === 'payment' ? (reversed.has(p.id) ? 'gray' : 'green') : 'red'}>{p.kind}</Badge> },
             { key: 'd', label: 'Date', render: (p) => fmtDate(p.date) }, { key: 's', label: 'Student', render: (p) => sName(p.studentId) },

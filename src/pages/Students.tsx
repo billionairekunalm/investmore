@@ -159,7 +159,7 @@ export function StudentList() {
         fees ? 'xl:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))_auto]' : 'xl:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))_auto]')}>
         <div className="col-span-2 xl:col-span-1"><FilterLabel>Search</FilterLabel><SearchInput value={q} onChange={setQ} placeholder="Name, mobile, student ID or email" /></div>
         <div><FilterLabel>Batch</FilterLabel><Select value={batch} onChange={(e) => setBatch(e.target.value)} placeholder="All batches" options={db.batches.map((b) => ({ value: b.id, label: b.name }))} /></div>
-        {fees && <div><FilterLabel>Payment status</FilterLabel><Select value={pay} onChange={(e) => setPay(e.target.value)} placeholder="Any status" options={['Paid', 'Partially Paid', 'Due Soon', 'Pending', 'Overdue', 'Refunded']} /></div>}
+        {fees && <div><FilterLabel>Payment status</FilterLabel><Select value={pay} onChange={(e) => setPay(e.target.value)} placeholder="Any status" options={[{ value: 'Paid', label: 'Paid' }, { value: 'Partially Paid', label: 'Part paid' }, { value: 'Due Soon', label: 'Due soon' }, { value: 'Pending', label: 'Pending' }, { value: 'Overdue', label: 'Overdue' }, { value: 'Refunded', label: 'Refunded' }]} /></div>}
         <div><FilterLabel>Admission from</FilterLabel><Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
         <div><FilterLabel>Admission to</FilterLabel><Input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></div>
         <div className={cx('flex items-center justify-end gap-4 h-9', fees ? 'col-span-2 md:col-span-2 xl:col-span-1' : 'col-span-2 md:col-span-1 xl:col-span-1')}>
@@ -515,7 +515,7 @@ export function StudentProfile() {
                       <div key={p.id} className="flex items-center gap-3 px-4 py-3">
                         <span className="size-9 rounded-xl bg-accent-soft text-accent grid place-items-center"><Ic d={ICON.rupee} /></span>
                         <div className="flex-1 min-w-0 leading-tight"><div className="font-medium">{p.method}{p.reference && <span className="text-muted font-normal"> · {p.reference}</span>}</div><div className="text-[11.5px] text-muted mt-0.5">{fmtDate(p.date)} · {S.empName(p.receivedBy, db)}</div></div>
-                        <div className="text-right"><Money v={p.amount} className="font-semibold text-accent" /><div className="mt-0.5 flex items-center justify-end gap-2"><Link to={`/receipt/${p.id}`} target="_blank" className="text-[12px] font-medium text-navy hover:underline">Invoice</Link>{p.verified ? <Badge tone="green">Received</Badge> : <Badge tone="orange">Unverified</Badge>}</div></div>
+                        <div className="text-right"><Money v={p.amount} className="font-semibold text-accent" /><div className="mt-0.5 flex items-center justify-end gap-2"><Link to={`/receipt/${p.id}`} target="_blank" className="text-[12px] font-medium text-navy hover:underline">Invoice</Link>{p.verified ? <Badge tone="green">Received</Badge> : <Badge tone="orange">Not confirmed</Badge>}</div></div>
                       </div>
                     ))}
                   </div>
@@ -634,7 +634,7 @@ function FeeDetails({ id }: { id: string }) {
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader title="Instalment schedule" sub={plan && `Booking policy: ${plan.policy === 'additional' ? 'additional to instalments' : 'credited against fee'} · first instalment counted from ${fmtDate(plan.startDate)}`}
+        <CardHeader title="Instalment schedule" sub={plan && `Booking amount ${plan.policy === 'additional' ? 'paid on top of the course fee' : 'counted inside the course fee'} · first instalment counted from ${fmtDate(plan.startDate)}`}
           right={S.allowed('fees', 'approve', db) && f.paid - f.refunded > 0 && s.status !== 'Refunded' && <Button size="sm" variant="danger" onClick={() => setRefund(true)}>Record refund</Button>} />
         <Table rows={f.lines} rowKey={(l) => l.id} empty={<Empty title="No fee plan" />} cols={[
           { key: 'l', label: 'Instalment', render: (l) => <span className="font-medium">{l.label}</span> },
@@ -646,7 +646,7 @@ function FeeDetails({ id }: { id: string }) {
           { key: 'x', label: '', render: (l) => canEdit && l.state === 'active' && l.remaining > 0 && <div className="flex gap-1"><Button size="sm" variant="ghost" onClick={() => setEdit(l.id)}>Override</Button>
             <Button size="sm" variant="ghost" onClick={async () => { const r = await ask({ title: `Waive ${l.label}?`, message: `${fmtINR(l.remaining)} will no longer be owed.`, input: 'Reason', confirm: 'Waive', danger: true }); if (r) run(() => S.overrideInstalment(l.id, l.paid > 0 ? { amount: l.paid } : { state: 'waived' }, `Waived balance: ${r}`), 'Instalment waived'); }}>Waive</Button></div> },
         ]} />
-        <div className="flex justify-end gap-6 px-4 py-3 border-t border-line text-[13px]"><span>Total <Money v={f.total} className="font-semibold" /></span><span>Paid <Money v={f.paid} className="font-semibold text-ok" /></span>{f.refunded > 0 && <span>Refunded <Money v={f.refunded} className="font-semibold text-bad" /></span>}<span>Outstanding <Money v={f.outstanding} className="font-semibold" /></span></div>
+        <div className="flex justify-end gap-6 px-4 py-3 border-t border-line text-[13px]"><span>Total <Money v={f.total} className="font-semibold" /></span><span>Paid <Money v={f.paid} className="font-semibold text-ok" /></span>{f.refunded > 0 && <span>Refunded <Money v={f.refunded} className="font-semibold text-bad" /></span>}<span>Balance due <Money v={f.outstanding} className="font-semibold" /></span></div>
       </Card>
       <OverrideModal id={edit} onClose={() => setEdit(null)} />
       <RefundModal open={refund} onClose={() => setRefund(false)} studentId={id} max={f.paid - f.refunded} />
@@ -705,7 +705,7 @@ export function PaymentHistory({ id }: { id: string }) {
       <Table rows={pays} rowKey={(p) => p.id} empty={<Empty title="No payments yet" />} cols={[
         { key: 'id', label: 'Transaction', render: (p) => <span className="text-muted">{p.id}</span> },
         { key: 'd', label: 'Date', render: (p) => fmtDate(p.date) },
-        { key: 'k', label: 'Type', render: (p) => (p.kind === 'payment' ? (reversed.has(p.id) ? <Badge tone="gray">Reversed</Badge> : p.verified ? <Badge tone="green">Received</Badge> : <Badge tone="orange">Unverified</Badge>) : <Badge tone="red">{p.kind === 'reversal' ? `Reversal of ${p.reversesId}` : 'Refund'}</Badge>) },
+        { key: 'k', label: 'Type', render: (p) => (p.kind === 'payment' ? (reversed.has(p.id) ? <Badge tone="gray">Cancelled</Badge> : p.verified ? <Badge tone="green">Received</Badge> : <Badge tone="orange">Not confirmed</Badge>) : <Badge tone="red">{p.kind === 'reversal' ? `Reversal of ${p.reversesId}` : 'Refund'}</Badge>) },
         { key: 'a', label: 'Amount', render: (p) => <Money v={p.kind === 'payment' ? p.amount : -p.amount} className={reversed.has(p.id) ? 'line-through text-muted' : ''} />, className: 'text-right' },
         { key: 'm', label: 'Method', render: (p) => p.method },
         { key: 'r', label: 'Reference', render: (p) => p.reference || '—' },
@@ -714,8 +714,8 @@ export function PaymentHistory({ id }: { id: string }) {
         { key: 'x', label: '', render: (p) => p.kind === 'payment' && (
           <div className="flex gap-1">
             {!reversed.has(p.id) && <Link to={`/receipt/${p.id}`} target="_blank" className="text-accent text-[12.5px] font-medium px-2">Invoice</Link>}
-            {approve && !p.verified && !reversed.has(p.id) && <Button size="sm" onClick={() => run(() => S.verifyPayment(p.id), 'Payment verified')}>Verify</Button>}
-            {approve && !reversed.has(p.id) && <Button size="sm" variant="ghost" onClick={async () => { const r = await ask({ title: `Reverse ${p.id}?`, message: 'The original stays on record; a reversal entry is added.', input: 'Reason', confirm: 'Reverse', danger: true }); if (r) run(() => S.reversePayment(p.id, r), 'Payment reversed'); }}>Reverse</Button>}
+            {approve && !p.verified && !reversed.has(p.id) && <Button size="sm" onClick={() => run(() => S.verifyPayment(p.id), 'Payment confirmed')}>Confirm</Button>}
+            {approve && !reversed.has(p.id) && <Button size="sm" variant="ghost" onClick={async () => { const r = await ask({ title: `Cancel payment ${p.id}?`, message: 'Use this if the money did not arrive or was entered by mistake. The payment stays in the records, marked as cancelled, and the balance due goes back up.', input: 'Reason', confirm: 'Cancel payment', danger: true }); if (r) run(() => S.reversePayment(p.id, r), 'Payment cancelled'); }}>Cancel payment</Button>}
           </div>
         ) },
       ]} />

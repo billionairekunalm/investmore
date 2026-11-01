@@ -81,7 +81,7 @@ export function PaymentModal({ open, onClose, studentId }: { open: boolean; onCl
           <div className="grid grid-cols-3 gap-3 rounded-lg bg-surface border border-line p-3 text-[12.5px]">
             <div><div className="text-muted">Total fee</div><Money v={f.total} className="font-medium" /></div>
             <div><div className="text-muted">Paid</div><Money v={f.paid} className="font-medium text-ok" /></div>
-            <div><div className="text-muted">Outstanding</div><Money v={f.outstanding} className="font-medium" /></div>
+            <div><div className="text-muted">Balance due</div><Money v={f.outstanding} className="font-medium" /></div>
             {f.next && <div className="col-span-3 text-muted">Next: {f.next.label} — {fmtINR(f.next.remaining)} due {fmtDate(f.next.dueDate)}</div>}
           </div>
         )}
@@ -92,7 +92,7 @@ export function PaymentModal({ open, onClose, studentId }: { open: boolean; onCl
           <Field label="Reference / UTR" required={method !== 'Cash'}><Input value={reference} onChange={(e) => setRef(e.target.value)} placeholder={method === 'Cash' ? 'Optional' : 'UTR / txn no.'} /></Field>
         </div>
         <Field label="Notes"><Input value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
-        <Checkbox checked={verified} onChange={(e) => setVerified(e.target.checked)} label={<span>Money is received and verified <span className="text-muted block text-xs">Unchecked payments are not counted in collections until an accountant verifies them.</span></span>} />
+        <Checkbox checked={verified} onChange={(e) => setVerified(e.target.checked)} label={<span>Money has been received <span className="text-muted block text-xs">Unchecked payments are not counted in collections until an accountant verifies them.</span></span>} />
       </div>
     </Modal>
   );
