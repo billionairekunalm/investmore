@@ -64,4 +64,43 @@ export function splitProfit(distributable: Paise, shares: Share[]): (Share & { a
   return out;
 }
 
-export const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+export interface FounderPart { course: string; profit: Paise; pctBp: number; amount: Paise }
+/**
+ * Each founder's share of the period's net profit, course by course.
+ * The net profit is divided between courses in proportion to the fees each course brought in
+ * (expenses are shared by all courses), then each course's part is split with that course's
+ * founder percentages (Courses tab; default split from Settings when a course has none).
+ */
+export function founderSplit(db: DB, from: ISODate, to: ISODate, today: ISODate) {
+  const range: [ISODate, ISODate] = [from, to];
+  const profit = Math.max(0, periodFigures(db, from, to, today).netProfit);
+  const courseOf = new Map(db.students.map((s) => [s.id, s.courseId]));
+  const byId = new Map(db.payments.map((p) => [p.id, p]));
+  const fees = new Map<string, number>(); // courseId -> fees received in range, after reversals and refunds
+  for (const p of db.payments) {
+    if (!inRange(p.date, range)) continue;
+    const v = p.kind === 'payment' ? (p.verified ? p.amount : 0) : p.kind === 'reversal' ? (byId.get(p.reversesId!)?.verified ? -p.amount : 0) : -p.amount;
+    const c = courseOf.get(p.studentId) ?? '';
+    fees.set(c, (fees.get(c) ?? 0) + v);
+  }
+  const weights = [...fees].filter(([, v]) => v > 0);
+  const total = sum(weights.map(([, v]) => v));
+  // profit per course; the rounding paise go to the course with the most fees
+  const parts = total > 0
+    ? weights.map(([id, v]) => ({ id, profit: Math.floor((profit * v) / total), v })).sort((a, b) => b.v - a.v)
+    : [{ id: '', profit, v: 0 }];
+  if (parts.length) parts[0].profit += profit - sum(parts.map((p) => p.profit));
+
+  const out = new Map(db.settings.shares.map((s) => [s.name, { ...s, amount: 0, parts: [] as FounderPart[] }]));
+  for (const p of parts) {
+    const course = db.courses.find((c) => c.id === p.id);
+    for (const s of splitProfit(p.profit, course?.shares ?? db.settings.shares)) {
+      const f = out.get(s.name) ?? out.set(s.name, { name: s.name, pctBp: 0, amount: 0, parts: [] }).get(s.name)!;
+      f.amount += s.amount;
+      f.parts.push({ course: course?.name ?? 'Other fees', profit: p.profit, pctBp: s.pctBp, amount: s.amount });
+    }
+  }
+  return [...out.values()];
+}
+
+export const sum =(xs: number[]) => xs.reduce((a, b) => a + b, 0);

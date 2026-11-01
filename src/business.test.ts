@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import * as S from './store/store';
 import { buildSchedule } from './domain/fees';
-import { splitProfit, periodFigures, financeFor } from './domain/finance';
+import { splitProfit, periodFigures, financeFor, founderSplit } from './domain/finance';
 import { checkImport, callingQueue } from './domain/leads';
 import { normalizePhone, todayIST, addDays, uid, monthOf } from './domain/util';
 import { can, defaultPermissions } from './domain/permissions';
@@ -334,5 +334,27 @@ describe('founder withdrawals', () => {
     expect(() => S.deleteWithdrawal(id, '')).toThrow(/reason/);
     S.deleteWithdrawal(id, 'entered twice');
     expect(S.getDB().withdrawals).toHaveLength(0);
+  });
+});
+
+describe('founder split by course', () => {
+  it('Forex Advance 45/27.5/27.5, other courses 35/32.5/32.5; net profit shared by each course\'s fees', () => {
+    const forex = S.getDB().courses.find((c) => c.name === 'Forex Advance')!.id;
+    pay(admit('9876500001'), 1000);
+    pay(admit('9876500002', { courseId: forex }), 1000);
+    const P = periodFigures(S.getDB(), T, T, T).netProfit;
+    const out = founderSplit(S.getDB(), T, T, T);
+    const by = (n: string) => out.find((f) => f.name === n)!;
+    expect(out.reduce((a, f) => a + f.amount, 0)).toBe(P);
+    expect(Math.abs(by('Bikram').amount - P * 0.4)).toBeLessThan(3); // (35% + 45%) / 2
+    expect(Math.abs(by('Shekhar').amount - P * 0.3)).toBeLessThan(3);
+    expect(by('Bikram').parts.map((p) => [p.course, p.pctBp])).toEqual(expect.arrayContaining([['Forex Advance', 4500], ['Stock Market Mastery', 3500]]));
+  });
+  it('renaming a founder in Settings carries the name to course splits and withdrawals', () => {
+    const founder = S.getDB().settings.shares[0].name;
+    S.addWithdrawal({ founder, amount: 1000, date: T, forMonth: T.slice(0, 7), method: 'Cash', reference: '', notes: '' });
+    S.updateSettings({ shares: S.getDB().settings.shares.map((s, i) => (i ? s : { ...s, name: 'Bikram Singh' })) });
+    expect(S.getDB().withdrawals[0].founder).toBe('Bikram Singh');
+    expect(S.getDB().courses.find((c) => c.name === 'Forex Advance')!.shares![0].name).toBe('Bikram Singh');
   });
 });

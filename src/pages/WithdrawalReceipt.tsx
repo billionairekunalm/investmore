@@ -13,7 +13,6 @@ export default function WithdrawalReceipt() {
   const w = db.withdrawals.find((x) => x.id === id);
   if (!w) return <Empty title="Receipt not found" body="It may have been deleted." />;
   const inv = db.settings.invoice;
-  const share = db.settings.shares.find((s) => s.name === w.founder);
 
   return (
     <div className="min-h-full bg-surface print:bg-white py-6 sm:py-10 px-3 sm:px-4">
@@ -42,7 +41,7 @@ export default function WithdrawalReceipt() {
           </header>
 
           <p className="mt-8 text-[14px] leading-relaxed text-zinc-700">
-            Received from <b className="text-ink">{db.settings.academyName}</b> the sum of <b className="text-ink">{fmtINR(w.amount)}</b> by <b className="text-ink">{w.founder}</b>{share && <> (founder, {share.pctBp / 100}% share)</>} as a withdrawal from the profit of <b className="text-ink">{longMonth(w.forMonth)}</b>.
+            Received from <b className="text-ink">{db.settings.academyName}</b> the sum of <b className="text-ink">{fmtINR(w.amount)}</b> by <b className="text-ink">{w.founder}</b> (founder) as a withdrawal from the profit of <b className="text-ink">{longMonth(w.forMonth)}</b>.
           </p>
 
           <div className="mt-6 rounded-xl border border-line bg-surface/60 p-5 flex flex-wrap items-end justify-between gap-4">
@@ -58,6 +57,10 @@ export default function WithdrawalReceipt() {
             <Row k="Recorded by" v={S.empName(w.by, db)} />
             {w.notes && <Row k="Note" v={w.notes} />}
           </dl>
+
+          {w.proof?.data.startsWith('data:image') && (
+            <div className="mt-6"><div className="text-[11px] font-bold uppercase tracking-wider text-muted mb-1.5">Payment photo</div><img src={w.proof.data} alt="Payment" className="max-h-72 rounded-lg border border-line" /></div>
+          )}
 
           <div className="mt-14 grid grid-cols-2 gap-10 text-[12.5px] text-zinc-600">
             <div><div className="border-t border-zinc-400 pt-1.5">Received by — {w.founder}</div></div>

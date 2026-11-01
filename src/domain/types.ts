@@ -148,6 +148,7 @@ export interface ImportJob {
 /** Money a founder takes out of the profit. forMonth = whose profit it is (usually the previous month). */
 export interface Withdrawal {
   id: string; founder: string; amount: Paise; date: ISODate; forMonth: string; method: PayMethod; reference: string; notes: string; by: string; createdAt: string;
+  proof?: { name: string; data: string }; // photo / screenshot of the payment
 }
 export interface LoginEvent { id: string; userId: string; at: string; userAgent: string }
 

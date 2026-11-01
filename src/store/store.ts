@@ -24,7 +24,7 @@ export function defaultSettings(): Settings {
     startEvent: 'admission',
     instalmentGapDays: 7,
     gstRateBp: 0,
-    shares: [{ name: 'Teacher', pctBp: 3500 }, { name: 'Shekhar', pctBp: 3250 }, { name: 'Sanjeev', pctBp: 3250 }],
+    shares: [{ name: 'Bikram', pctBp: 3500 }, { name: 'Shekhar', pctBp: 3250 }, { name: 'Sanjeev', pctBp: 3250 }],
     leadStatuses: ['New', 'Not Contacted', 'Connected', 'Warm', 'Hot', 'Call Later', 'Converted', 'Cold', 'Lost'],
     reminderOffsets: [-2, 0, 1, 3],
     rules: Object.fromEntries(RULES.map((r) => [r.id, true])),
@@ -50,7 +50,9 @@ export const RULES = [
 export function emptyDB(): DB {
   return {
     version: 1, settings: defaultSettings(), counters: {},
-    employees: [], courses: [{ id: uid(), name: 'Stock Market Mastery', bookingDefault: 100000, instalments: [300000, 300000, 150000], durationWeeks: 8, status: 'active' }],
+    employees: [], courses: [{ id: uid(), name: 'Stock Market Mastery', bookingDefault: 100000, instalments: [300000, 300000, 150000], durationWeeks: 8, status: 'active' },
+      // Forex Advance: Bikram takes 45%, the other two share the remaining 55% equally
+      { id: uid(), name: 'Forex Advance', bookingDefault: 100000, instalments: [300000, 300000, 150000], durationWeeks: 8, status: 'active', shares: [{ name: 'Bikram', pctBp: 4500 }, { name: 'Shekhar', pctBp: 2750 }, { name: 'Sanjeev', pctBp: 2750 }] }],
     batches: [], students: [], enrolments: [], feePlans: [], instalments: [], payments: [], leads: [], calls: [], expenses: [],
     recurring: [], periods: [], distributions: [], templates: [], certificates: [], attendance: [], notifications: [], audit: [], imports: [], logins: [], withdrawals: [],
   };
@@ -238,6 +240,14 @@ export function updateSettings(patch: Partial<Settings>, reason = '') {
     if (patch.shares) {
       if (u.role !== 'super_admin') fail('Only Super Admin can change profit-sharing percentages.');
       splitProfit(100, patch.shares); // throws unless exactly 100%
+      // a founder renamed in place: carry the new name to course splits and past withdrawals
+      if (patch.shares.length === d.settings.shares.length)
+        d.settings.shares.forEach((old, i) => {
+          const to = patch.shares![i].name;
+          if (old.name === to) return;
+          for (const c of d.courses) for (const s of c.shares ?? []) if (s.name === old.name) s.name = to;
+          for (const w of d.withdrawals) if (w.founder === old.name) w.founder = to;
+        });
     }
     if (patch.permissions && u.role !== 'super_admin') fail('Only Super Admin can change permissions.');
     d.settings = { ...d.settings, ...patch };
