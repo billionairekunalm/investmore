@@ -5,7 +5,8 @@ import { Badge, Button, Card, Checkbox, Field, Input, Select, cx, useRun, useUI,
 import { buildSchedule } from '../domain/fees';
 import { GENDERS, LEAD_SOURCES, PAY_METHODS, type Gender, type IdDocument, type PayMethod } from '../domain/types';
 import { fmtDate, fmtINR, normalizePhone, nowISO, parseRupees, todayIST, uid } from '../domain/util';
-import { extractId, mask, resizeImage } from '../lib/ocr';
+import { resizeImage } from '../lib/ocr';
+import { removeAadhaar, storeAadhaar } from '../lib/aadhaarFiles';
 import { mergeFields, parseAadhaar, PasswordNeeded, readSide, type AadhaarFields, type Conf, type ReadResult } from '../lib/aadhaar';
 
 const ICON = {
@@ -52,6 +53,9 @@ export function AdmissionForm({ leadId, onDone, page }: { leadId?: string; onDon
   });
   const [photo, setPhoto] = useState<string>();
   const [idDoc, setIdDoc] = useState<IdDocument>();
+  // Aadhaar card uploaded at the top: saved with the student on Complete admission (consent required)
+  const [aadhaar, setAadhaar] = useState<{ files: { front?: File; back?: File }; consent: boolean }>({ files: {}, consent: false });
+  const { toast } = useUI();
   const [busy, setBusy] = useState(false);
   // fields filled from the Aadhaar scan → green tint; 'low' adds a "please check" note. Editing a field clears its mark.
   const [auto, setAuto] = useState<Partial<Record<keyof typeof f, Conf>>>({});
@@ -84,15 +88,23 @@ export function AdmissionForm({ leadId, onDone, page }: { leadId?: string; onDon
   const total = preview && 'total' in preview ? preview.total : null;
   const paidNow = f.bookingPaidNow && booking ? booking : 0;
 
-  const submit = () => {
+  const submit = async () => {
     if (booking === null) return;
     setBusy(true);
+    let doc = idDoc;
+    if (aadhaar.consent && (aadhaar.files.front || aadhaar.files.back)) {
+      try {
+        const files = await storeAadhaar(key, aadhaar.files); // the student's id is this form's key
+        doc = { type: 'Aadhaar', maskedNumber: idDoc?.maskedNumber ?? '', nameOnDoc: idDoc?.nameOnDoc || f.name, consentAt: nowISO(), capturedBy: me.id, imageRetained: true, files };
+      } catch (e) { toast((e as Error).message, 'bad'); setBusy(false); return; }
+    }
     const input: S.AdmissionInput = {
       key, name: f.name, phone: f.phone, altPhone: f.altPhone, email: f.email, address: f.address, city: f.city, state: f.state, pin: f.pin, photo, dob: f.dob, gender: f.gender,
       courseId: f.courseId, batchId: f.batchId, admissionDate: f.admissionDate, source: f.source, campaign: f.campaign, counsellorId: f.counsellorId,
-      bookingAmount: booking, bookingPaid: f.bookingPaidNow && booking > 0 ? { method: f.method, reference: f.reference } : null, idDoc,
+      bookingAmount: booking, bookingPaid: f.bookingPaidNow && booking > 0 ? { method: f.method, reference: f.reference } : null, idDoc: doc,
     };
     const id = run(() => (leadId ? S.convertLead(leadId, input) : S.admitStudent(input)), leadId ? 'Lead converted — student created' : 'Student admitted');
+    if (!id && doc?.files) void removeAadhaar([doc.files.front, doc.files.back]); // admission refused: don't keep the card
     setBusy(false);
     if (id) onDone(id);
   };
@@ -114,7 +126,7 @@ export function AdmissionForm({ leadId, onDone, page }: { leadId?: string; onDon
     <Card className={cx('overflow-hidden', page && 'shadow-[0_1px_3px_rgba(0,0,0,.04)]')}>
       {S.allowed('sensitive', 'create', db) && (
         <FormSection icon={ICON.scan} title="Aadhaar autofill" optional>
-          <AadhaarAutofill onFill={fill} />
+          <AadhaarAutofill onFill={fill} onFiles={(files, consent) => setAadhaar({ files, consent })} />
         </FormSection>
       )}
       <FormSection icon={ICON.user} title="Student details">
@@ -157,7 +169,6 @@ export function AdmissionForm({ leadId, onDone, page }: { leadId?: string; onDon
           </Field>
           <Field label="Admission date" required><Input type="date" max={today} value={f.admissionDate} onChange={set('admissionDate')} /></Field>
           <Field label="Lead source"><Select value={f.source} onChange={set('source')} options={LEAD_SOURCES} disabled={!!lead} /></Field>
-          <Field label="Campaign"><Input value={f.campaign} onChange={set('campaign')} disabled={!!lead} /></Field>
           <Field label="Counsellor"><Select value={f.counsellorId} onChange={set('counsellorId')} options={counsellors.map((c) => ({ value: c.id, label: c.name }))} /></Field>
         </div>
       </FormSection>
@@ -197,15 +208,12 @@ export function AdmissionForm({ leadId, onDone, page }: { leadId?: string; onDon
         )}
       </FormSection>
 
-      <FormSection icon={ICON.shield} title="Identity document" optional>
-        <IdCapture value={idDoc} onChange={setIdDoc} studentName={f.name} />
-      </FormSection>
     </Card>
   );
 
   const actions = (
-    // sticky: stays in view while scrolling; on the page it sits above the phone tab bar
-    <div className={cx('sticky z-20 mt-4', page ? 'bottom-[calc(4rem+env(safe-area-inset-bottom))] lg:bottom-4' : 'bottom-0 -mx-1')}>
+    // at the very end of the form (not floating over the fields)
+    <div className={cx('mt-4', page && 'mb-2')}>
       <div className="rounded-xl border border-line bg-white px-3 sm:px-4 py-3 shadow-[0_-2px_16px_-6px_rgba(0,0,0,.12),0_4px_12px_-6px_rgba(0,0,0,.08)] flex items-center gap-3">
         <div className="min-w-0 flex-1 leading-tight hidden sm:block">
           {blocked
@@ -230,7 +238,7 @@ const isPdf = (f?: File) => !!f && (f.type === 'application/pdf' || f.name.toLow
 const LABELS: Record<string, string> = { name: 'Name', dob: 'Date of birth', gender: 'Gender', maskedNumber: 'Aadhaar no.', address: 'Address', city: 'City', state: 'State', pin: 'PIN code' };
 
 /** Front/back upload → on-device read → parsed fields handed to the form. Never submits anything. */
-function AadhaarAutofill({ onFill }: { onFill: (r: AadhaarFields) => void }) {
+function AadhaarAutofill({ onFill, onFiles }: { onFill: (r: AadhaarFields) => void; onFiles: (files: { front?: File; back?: File }, consent: boolean) => void }) {
   const { toast } = useUI();
   const [consent, setConsent] = useState(false);
   const [files, setFiles] = useState<Partial<Record<Side, File>>>({});
@@ -247,6 +255,7 @@ function AadhaarAutofill({ onFill }: { onFill: (r: AadhaarFields) => void }) {
     if (needPw === side) setNeedPw(null);
     setState({ kind: 'idle' });
   };
+  useEffect(() => { onFiles(files, consent); }, [files, consent]); // eslint-disable-line react-hooks/exhaustive-deps
   // an e-Aadhaar PDF holds both sides, so it can be scanned on its own
   const ready = consent && !!files.front && (!!files.back || isPdf(files.front));
   const scanning = state.kind === 'scanning';
@@ -280,7 +289,7 @@ function AadhaarAutofill({ onFill }: { onFill: (r: AadhaarFields) => void }) {
   return (
     <div className="space-y-3">
       <div className="rounded-lg border border-line bg-surface/60 px-3 py-2.5">
-        <Checkbox checked={consent} onChange={(e) => setConsent(e.target.checked)} label="Student has given consent to read their Aadhaar" />
+        <Checkbox checked={consent} onChange={(e) => setConsent(e.target.checked)} label="Student has given consent to save their Aadhaar card" />
       </div>
       <div className={cx('grid sm:grid-cols-2 gap-3', !consent && 'opacity-50')} aria-disabled={!consent}>
         {(['front', 'back'] as Side[]).map((side) => (
@@ -315,12 +324,12 @@ function AadhaarAutofill({ onFill }: { onFill: (r: AadhaarFields) => void }) {
           {state.r.yearOfBirth && <p className="text-xs text-zinc-600 mt-2">Only the year of birth ({state.r.yearOfBirth}) is printed on this card — enter the full date if you know it.</p>}
         </div>
       )}
-      <p className="flex items-center gap-1.5 text-[11.5px] text-muted"><Ic d={ICON.lock} className="size-3.5" />Card images are not saved. Only the last 4 digits are kept.</p>
+      <p className="flex items-center gap-1.5 text-[11.5px] text-muted"><Ic d={ICON.lock} className="size-3.5" />Saved securely with the student. Only staff can view it.</p>
     </div>
   );
 }
 
-function UploadBox({ side, file, onFile, disabled, password, onPassword }: { side: Side; file?: File; onFile: (f?: File) => void; disabled: boolean; password?: string; onPassword: (v: string) => void }) {
+export function UploadBox({ side, file, onFile, disabled, password, onPassword }: { side: Side; file?: File; onFile: (f?: File) => void; disabled: boolean; password?: string; onPassword: (v: string) => void }) {
   const [over, setOver] = useState(false);
   const url = useMemo(() => (file && !isPdf(file) ? URL.createObjectURL(file) : undefined), [file]);
   useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
@@ -394,68 +403,5 @@ function FormSection({ icon, title, sub, optional, children }: { icon: string; t
       </div>
       {children}
     </section>
-  );
-}
-
-/** Consent-first ID capture. Stores only doc type + masked number + name, never the image or full number. */
-export function IdCapture({ value, onChange, studentName }: { value?: IdDocument; onChange: (d?: IdDocument) => void; studentName: string }) {
-  const db = S.useDB();
-  const me = S.useMe()!;
-  const { toast } = useUI();
-  const [consent, setConsent] = useState(false);
-  const [type, setType] = useState<IdDocument['type']>('Aadhaar');
-  const [busy, setBusy] = useState(false);
-  const [draft, setDraft] = useState<{ masked: string; name: string } | null>(null);
-  if (!S.allowed('sensitive', 'create', db)) return <p className="text-muted">Your role cannot capture identity documents.</p>;
-  if (value) return (
-    <div className="flex items-center justify-between rounded-lg border border-line p-3">
-      <div><Badge tone="green">Captured</Badge> <span className="ml-2">{value.type} · {value.maskedNumber} · {value.nameOnDoc}</span></div>
-      <Button size="sm" variant="ghost" onClick={() => onChange(undefined)}>Remove</Button>
-    </div>
-  );
-  const scan = async (file?: File) => {
-    if (!file) return;
-    setBusy(true);
-    try {
-      const r = await extractId(file, type);
-      setDraft({ masked: r.maskedNumber, name: r.nameOnDoc || studentName });
-      if (!r.maskedNumber) toast('Could not read the ID number — enter the last 4 digits manually.', 'bad');
-    } catch { toast('OCR failed — you can enter the details manually.', 'bad'); setDraft({ masked: '', name: studentName }); }
-    setBusy(false);
-  };
-  return (
-    <div className="space-y-3">
-      <div className="rounded-lg border border-line bg-surface/60 px-3 py-2.5">
-        <Checkbox checked={consent} onChange={(e) => setConsent(e.target.checked)} label="Student has given consent to record this document" />
-      </div>
-      {consent && (
-        <div className="grid sm:grid-cols-2 gap-x-4 gap-y-3 items-end">
-          <Field label="Document type"><Select value={type} onChange={(e) => setType(e.target.value as IdDocument['type'])} options={['Aadhaar', 'PAN', 'Driving Licence', 'Passport', 'Voter ID', 'Other']} /></Field>
-          <div className="flex flex-wrap gap-2">
-            <label className="inline-flex items-center gap-2 h-9 px-3.5 rounded-lg border border-line bg-white font-medium cursor-pointer hover:bg-surface">
-              <Ic d={ICON.camera} />{busy ? 'Reading…' : 'Upload / capture'}
-              <input type="file" accept="image/*" capture="environment" className="hidden" disabled={busy} onChange={(e) => { scan(e.target.files?.[0]); e.target.value = ''; }} />
-            </label>
-            <Button variant="ghost" onClick={() => setDraft({ masked: '', name: studentName })}>Enter manually</Button>
-          </div>
-        </div>
-      )}
-      {consent && draft && (
-        <div className="rounded-lg bg-surface border border-line p-3 space-y-3">
-          <div className="font-medium">Confirm extracted details</div>
-          <div className="grid sm:grid-cols-2 gap-3">
-            <Field label="Name on document"><Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></Field>
-            <Field label="Document number (masked)" hint="Type the last 4 characters or the full number — only the last 4 are kept">
-              <Input value={draft.masked} onChange={(e) => setDraft({ ...draft, masked: e.target.value.toUpperCase() })} onBlur={() => setDraft({ ...draft, masked: draft.masked.length > 4 && !draft.masked.startsWith('X') ? mask(draft.masked) : draft.masked.length === 4 ? `XXXXXXXX${draft.masked}` : draft.masked })} />
-            </Field>
-          </div>
-          <Button variant="primary" size="sm" disabled={draft.masked.replace(/X/g, '').length < 4 || !draft.name} onClick={() => {
-            onChange({ type, maskedNumber: mask(draft.masked) || draft.masked, nameOnDoc: draft.name, consentAt: nowISO(), capturedBy: me.id, imageRetained: false });
-            setDraft(null);
-          }}>Confirm document</Button>
-        </div>
-      )}
-      <p className="flex items-center gap-1.5 text-[11.5px] text-muted"><Ic d={ICON.lock} className="size-3.5" />Only the document type, name and last 4 digits are kept.</p>
-    </div>
   );
 }

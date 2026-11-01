@@ -365,7 +365,7 @@ function admitInto(d: DB, a: AdmissionInput): string {
   d.feePlans.push({ id: planId, studentId: id, policy: d.settings.bookingPolicy!, bookingAmount: a.bookingAmount, total: sched.total, startDate, createdAt: a.admissionDate });
   for (const l of sched.lines) d.instalments.push({ id: uid(), planId, studentId: id, seq: l.seq, label: l.label, amount: l.amount, dueDate: l.dueDate, state: 'active' });
   audit(d, 'student.admit', 'student', id, `${a.name} — ${course.name}, total ${sched.total / 100}`);
-  if (a.idDoc) audit(d, 'iddoc.capture', 'student', id, `${a.idDoc.type} ${a.idDoc.maskedNumber} (consent ${a.idDoc.consentAt}, image not retained)`);
+  if (a.idDoc) audit(d, 'iddoc.capture', 'student', id, `${a.idDoc.type}${a.idDoc.maskedNumber ? ' ' + a.idDoc.maskedNumber : ''} · consent ${a.idDoc.consentAt.slice(0, 10)} · ${a.idDoc.imageRetained ? 'card images saved' : 'no images'}`);
   if (a.bookingPaid && a.bookingAmount > 0)
     paymentInto(d, { key: `${id}:booking`, studentId: id, amount: a.bookingAmount, date: a.admissionDate, method: a.bookingPaid.method, reference: a.bookingPaid.reference, notes: 'Booking amount', verified: true });
   notify(d, { key: `admit:${id}`, title: 'New admission', body: `${a.name} (${code}) admitted to ${course.name}`, link: `/students/${id}`, forRoles: ['admin', 'accountant'] }, 'student_admitted');

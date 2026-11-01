@@ -36,8 +36,9 @@ export const STUDENT_STATUSES: StudentStatus[] = ['Active', 'Completed', 'Inacti
 
 export interface IdDocument {
   type: 'Aadhaar' | 'PAN' | 'Driving Licence' | 'Passport' | 'Voter ID' | 'Other';
-  maskedNumber: string; // never the full number: last 4 only
-  nameOnDoc: string; consentAt: string; capturedBy: string; imageRetained: false;
+  maskedNumber: string; // never the full number: last 4 only ('' if it could not be read)
+  nameOnDoc: string; consentAt: string; capturedBy: string; imageRetained: boolean;
+  files?: { front?: string; back?: string }; // card images: 'sb:<path>' in the private Supabase bucket, or a data URL in device-only mode
 }
 
 export type Gender = 'Male' | 'Female' | 'Transgender' | '';

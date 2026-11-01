@@ -4,7 +4,8 @@ import * as S from '../store/store';
 import { Badge, Button, Card, CardHeader, Checkbox, Empty, Field, Input, LogoMark, Modal, Money, SearchInput, Select, Stat, Table, Tabs, Textarea, cx, useRun, useUI } from '../ui/kit';
 import { CallButton, useCall } from '../ui/shell';
 import { PaymentModal } from '../ui/modals';
-import { IdCapture } from './Admissions';
+import { UploadBox } from './Admissions';
+import { aadhaarUrl, removeAadhaar, storeAadhaar } from '../lib/aadhaarFiles';
 import { financeFor } from '../domain/finance';
 import { GENDERS, PAY_METHODS, STUDENT_STATUSES, type DB, type IdDocument, type PayMethod, type Student, type StudentStatus } from '../domain/types';
 import { daysBetween, fmtDate, fmtDateTime, fmtINR, fmtPhone, parseRupees, todayIST } from '../domain/util';
@@ -761,28 +762,88 @@ function AttendanceTab({ id }: { id: string }) {
 function Documents({ id }: { id: string }) {
   const db = S.useDB();
   const run = useRun();
-  const { ask } = useUI();
+  const { ask, toast } = useUI();
   const s = db.students.find((x) => x.id === id)!;
+  const doc = s.idDoc;
   const [shown, setShown] = useState(false);
-  const [adding, setAdding] = useState<IdDocument | undefined>();
+  const [urls, setUrls] = useState<{ front?: string; back?: string }>({});
+  const [files, setFiles] = useState<{ front?: File; back?: File }>({});
+  const [consent, setConsent] = useState(false);
+  const [busy, setBusy] = useState(false);
   const logs = db.audit.filter((a) => a.entityId === id && a.action.startsWith('iddoc'));
+  const canAdd = S.allowed('sensitive', 'edit', db);
+
+  const reveal = async () => {
+    let ok = false;
+    run(() => { S.logSensitiveView(id); ok = true; });
+    if (!ok) return;
+    setShown(true);
+    try {
+      const out: { front?: string; back?: string } = {};
+      for (const side of ['front', 'back'] as const) { const ref = doc?.files?.[side]; if (ref) out[side] = await aadhaarUrl(ref); }
+      setUrls(out);
+    } catch (e) { toast(`Could not open the card: ${(e as Error).message}`, 'bad'); }
+  };
+  const save = async () => {
+    setBusy(true);
+    try {
+      const saved = await storeAadhaar(id, files);
+      run(() => S.updateStudent(id, { idDoc: { type: 'Aadhaar', maskedNumber: '', nameOnDoc: s.name, consentAt: new Date().toISOString(), capturedBy: S.currentUser()?.id ?? 'system', imageRetained: true, files: saved } }), 'Aadhaar card saved');
+      setFiles({}); setConsent(false);
+    } catch (e) { toast((e as Error).message, 'bad'); }
+    setBusy(false);
+  };
+  const remove = async () => {
+    const r = await ask({ title: 'Delete Aadhaar card?', message: 'The card images and details will be removed from this student.', input: 'Reason', confirm: 'Delete', danger: true });
+    if (!r) return;
+    let ok = false;
+    run(() => { S.deleteIdDocument(id, r); ok = true; }, 'Aadhaar card deleted');
+    if (ok) { void removeAadhaar([doc?.files?.front, doc?.files?.back]); setShown(false); setUrls({}); }
+  };
+  const pic = (side: 'front' | 'back') => {
+    const ref = doc?.files?.[side], url = urls[side];
+    if (!ref) return <div className="aspect-[1.6] rounded-xl border border-dashed border-line grid place-items-center text-[12.5px] text-muted">No {side} side</div>;
+    if (!url) return <div className="aspect-[1.6] rounded-xl bg-surface border border-line grid place-items-center text-[12.5px] text-muted">Loading…</div>;
+    const pdf = ref.endsWith('.pdf') || url.startsWith('data:application/pdf');
+    return pdf
+      ? <a href={url} target="_blank" rel="noreferrer" className="aspect-[1.6] rounded-xl bg-surface border border-line grid place-items-center font-medium text-navy hover:underline">Open PDF ({side})</a>
+      : <a href={url} target="_blank" rel="noreferrer" title="Open full size"><img src={url} alt={`Aadhaar ${side}`} className="w-full aspect-[1.6] object-cover rounded-xl border border-line" /></a>;
+  };
+
   return (
     <div className="space-y-4 max-w-3xl">
       <Card className="p-5">
-        <h3 className="font-semibold mb-1">Identity document</h3>
-        <p className="text-muted text-xs mb-4">Restricted. Every view, capture and deletion is logged.</p>
-        {s.idDoc ? (
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            {shown ? <div className="space-y-1"><div><b>{s.idDoc.type}</b> · {s.idDoc.maskedNumber}</div><div className="text-muted text-xs">Name on document: {s.idDoc.nameOnDoc} · consent {fmtDateTime(s.idDoc.consentAt)} · captured by {S.empName(s.idDoc.capturedBy, db)} · image not retained</div></div>
-              : <Button onClick={() => run(() => { S.logSensitiveView(id); setShown(true); })}>Reveal details</Button>}
-            {S.allowed('sensitive', 'delete', db) && <Button variant="danger" onClick={async () => { const r = await ask({ title: 'Delete identity record?', message: 'This removes the masked record. Use for retention expiry or a deletion request.', input: 'Reason', confirm: 'Delete', danger: true }); if (r) run(() => S.deleteIdDocument(id, r), 'Identity record deleted'); }}>Delete</Button>}
-          </div>
-        ) : S.allowed('sensitive', 'edit', db) ? (
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+          <div><h3 className="font-semibold">Aadhaar card</h3><p className="text-muted text-xs mt-0.5">Restricted · every view is logged</p></div>
+          {doc && <div className="flex gap-2">
+            {!shown && <Button onClick={reveal}>Show card</Button>}
+            {S.allowed('sensitive', 'delete', db) && <Button variant="danger" onClick={remove}>Delete</Button>}
+          </div>}
+        </div>
+        {doc ? (
+          <>
+            <dl className="grid sm:grid-cols-3 gap-3 text-[13px]">
+              <div><dt className="text-muted text-xs">Aadhaar no.</dt><dd className="font-medium tabular">{doc.maskedNumber || '—'}</dd></div>
+              <div><dt className="text-muted text-xs">Consent given</dt><dd className="font-medium">{fmtDate(doc.consentAt.slice(0, 10))}</dd></div>
+              <div><dt className="text-muted text-xs">Saved by</dt><dd className="font-medium">{S.empName(doc.capturedBy, db)}</dd></div>
+            </dl>
+            {doc.type !== 'Aadhaar' && <p className="mt-3 text-xs text-muted">Older record: {doc.type}.</p>}
+            {shown && (doc.files?.front || doc.files?.back
+              ? <div className="grid sm:grid-cols-2 gap-3 mt-4">{pic('front')}{pic('back')}</div>
+              : <p className="mt-4 text-[13px] text-muted">No card images were saved for this student.</p>)}
+          </>
+        ) : canAdd ? (
           <div className="space-y-3">
-            <IdCapture value={adding} onChange={setAdding} studentName={s.name} />
-            {adding && <Button variant="primary" onClick={() => { run(() => S.updateStudent(id, { idDoc: adding }), 'Document saved'); setAdding(undefined); }}>Save to record</Button>}
+            <Checkbox checked={consent} onChange={(e) => setConsent(e.target.checked)} label="Student has given consent to save their Aadhaar card" />
+            <div className={cx('grid sm:grid-cols-2 gap-3', !consent && 'opacity-50')}>
+              {(['front', 'back'] as const).map((side) => (
+                <UploadBox key={side} side={side} file={files[side]} disabled={!consent || busy} onPassword={() => undefined}
+                  onFile={(f) => setFiles((x) => { const n = { ...x }; if (f) n[side] = f; else delete n[side]; return n; })} />
+              ))}
+            </div>
+            <Button variant="primary" loading={busy} disabled={!consent || !(files.front || files.back)} onClick={save}>Save Aadhaar card</Button>
           </div>
-        ) : <p className="text-muted">No identity document on file.</p>}
+        ) : <p className="text-muted">No Aadhaar card on file.</p>}
       </Card>
       <Card>
         <CardHeader title="Access log" />
