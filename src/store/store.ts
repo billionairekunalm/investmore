@@ -424,6 +424,15 @@ export function setStudentStatus(id: string, status: StudentStatus, reason: stri
   });
 }
 
+/** Course kit handed to the student (or undo a mistake). Recorded with time and staff member. */
+export function setKitReceived(id: string, received: boolean) {
+  tx((d) => {
+    const u = guard(d, 'students', 'edit');
+    const s = d.students.find((x) => x.id === id) ?? fail('Student not found.');
+    if (received) { s.kitReceivedAt = nowISO(); s.kitReceivedBy = u.id; } else { s.kitReceivedAt = undefined; s.kitReceivedBy = undefined; }
+    audit(d, received ? 'kit.given' : 'kit.undo', 'student', id, received ? 'Course kit handed over' : 'Kit status reset to not received');
+  });
+}
 export function setReminderOptOut(id: string, optOut: boolean) {
   tx((d) => { guard(d, 'students', 'edit'); d.students.find((s) => s.id === id)!.remindersOptOut = optOut; audit(d, 'student.optout', 'student', id, optOut ? 'opted out of reminders' : 'opted in'); });
 }

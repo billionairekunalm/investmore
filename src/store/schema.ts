@@ -29,7 +29,7 @@ export const TABLES: TableSpec[] = [
   { table: 'batches', key: 'batches', cols: cols('id', 'name', 'courseId', 'teacherId:text?', 'startDate:date', 'endDate:date', 'schedule', 'timing', 'capacity:int', 'status') },
   { table: 'leads', key: 'leads', cols: cols('id', 'name', 'phone', 'email', 'source', 'campaign', 'assignedTo:text?', 'status', 'interest', 'lastCallAt:ts', 'nextFollowUp:date', 'notes', 'createdAt:ts', 'convertedStudentId', 'importJobId') },
   { table: 'students', key: 'students', cols: cols('id', 'code', 'name', 'phone', 'altPhone', 'email', 'address', 'city', 'state', 'pin', 'photo', 'dob:date', 'gender',
-    'courseId', 'batchId:text?', 'admissionDate:date', 'leadId', 'source', 'campaign', 'counsellorId:text?', 'status', 'remindersOptOut:bool', 'idDoc:json', 'createdAt:ts') },
+    'courseId', 'batchId:text?', 'admissionDate:date', 'leadId', 'source', 'campaign', 'counsellorId:text?', 'status', 'remindersOptOut:bool', 'idDoc:json', 'createdAt:ts', 'kitReceivedAt:ts', 'kitReceivedBy') },
   { table: 'enrolments', key: 'enrolments', cols: cols('id', 'studentId', 'batchId', 'from:date', 'to:date', 'reason') },
   { table: 'fee_plans', key: 'feePlans', cols: cols('id', 'studentId', 'policy', 'bookingAmount:money', 'total:money', 'startDate:date', 'createdAt:ts') },
   { table: 'instalments', key: 'instalments', cols: cols('id', 'planId', 'studentId', 'seq:int', 'label', 'amount:money', 'dueDate:date', 'state') },

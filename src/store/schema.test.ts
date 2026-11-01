@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import * as S from './store';
 import { TABLES, fromRow, toRow, type Kind } from './schema';
@@ -6,7 +6,8 @@ import { loadDemo } from '../lib/demo';
 import { uid } from '../domain/util';
 
 // Parse the migration: table → column → { type, notNull }
-const sql = readFileSync(new URL('../../supabase/migrations/0001_init.sql', import.meta.url), 'utf8');
+const dir = new URL('../../supabase/migrations/', import.meta.url);
+const sql = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort().map((f) => readFileSync(new URL(f, dir), 'utf8')).join('\n');
 const tables = new Map<string, Map<string, { type: string; notNull: boolean }>>();
 for (const m of sql.matchAll(/create table if not exists (\w+) \(([\s\S]*?)\n\);/g)) {
   const colsMap = new Map<string, { type: string; notNull: boolean }>();
@@ -16,9 +17,12 @@ for (const m of sql.matchAll(/create table if not exists (\w+) \(([\s\S]*?)\n\);
   }
   tables.set(m[1], colsMap);
 }
+// later migrations: alter table X add column if not exists col type ...
+for (const m of sql.matchAll(/alter table (\w+) add column if not exists ([a-z_]+) (text|integer|bigint|boolean|date|timestamptz|jsonb)\b([^;]*);/g))
+  tables.get(m[1])?.set(m[2], { type: m[3], notNull: /not null/.test(m[4]) });
 const SQL_TYPE: Record<Kind, string> = { text: 'text', int: 'integer', money: 'bigint', bool: 'boolean', date: 'date', ts: 'timestamptz', json: 'jsonb' };
 
-describe('schema.ts ↔ 0001_init.sql', () => {
+describe('schema.ts ↔ supabase/migrations', () => {
   it.each(TABLES.map((t) => [t.table, t] as const))('%s: same columns and types', (_n, spec) => {
     const sqlCols = tables.get(spec.table);
     expect(sqlCols, `table ${spec.table} missing from SQL`).toBeDefined();

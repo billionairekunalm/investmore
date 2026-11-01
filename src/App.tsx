@@ -20,6 +20,7 @@ import Notifications from './pages/Notifications';
 import Settings from './pages/Settings';
 import Receipt from './pages/Receipt';
 import Invoices from './pages/Invoices';
+import Kits from './pages/Kits';
 import CloudAuth from './pages/CloudAuth';
 import StudentPortal from './pages/StudentPortal';
 
@@ -42,6 +43,7 @@ export default function App() {
                   <Route path="/leads" element={guard('leads', <Leads />)} />
                   <Route path="/students" element={guard('students', <StudentList />)} />
                   <Route path="/students/:id" element={guard('students', <StudentProfile />)} />
+                  <Route path="/kits" element={guard('students', <Kits />)} />
                   <Route path="/admissions" element={guard('admissions', <Admissions />)} />
                   <Route path="/fees" element={guard('fees', <Fees />)} />
                   <Route path="/collections" element={guard('collections', <Collections />)} />

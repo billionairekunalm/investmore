@@ -49,6 +49,7 @@ export interface Student {
   address: string; city: string; state: string; pin: string; photo?: string; dob?: ISODate; gender?: Gender;
   courseId: string; batchId: string; admissionDate: ISODate; leadId?: string; source: string; campaign: string;
   counsellorId: string; status: StudentStatus; remindersOptOut: boolean; idDoc?: IdDocument; createdAt: string;
+  kitReceivedAt?: string; kitReceivedBy?: string; // course kit handed over (empty = not yet)
 }
 
 export interface Enrolment { id: string; studentId: string; batchId: string; from: ISODate; to?: ISODate; reason: string }
