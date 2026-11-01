@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* InvestMore brand: logo greens #05B200 / #028A02 / #005D00, charcoal #181818 */
+  --color-accent: #028a02;
+  --color-accent-hover: #006d00;
+  --color-accent-soft: #ebf7ea;
+  --color-brand-bright: #05b200;
+  --color-brand-dark: #005d00;
+  --color-navy: #0f2341;
+  --color-navy-soft: #eef2f9;
+  --color-info: #2563eb;
+  --color-info-soft: #eff4ff;
+  --color-ink: #181818;
+  --color-muted: #71717a;
+  --color-line: #e7e7ea;
+  --color-surface: #fafafa;
+  --color-ok: #028a02;
+  --color-ok-soft: #ebf7ea;
+  --color-warn: #c2410c;
+  --color-warn-soft: #fff4ec;
+  --color-bad: #b91c1c;
+  --color-bad-soft: #fef2f2;
+}
+
+html, body, #root { height: 100%; }
+body { @apply bg-white text-ink antialiased text-[13.5px]; font-feature-settings: "cv11", "ss01"; -webkit-tap-highlight-color: transparent; }
+input, select, textarea { font-size: 16px; } /* avoids iOS zoom */
+@media (min-width: 768px) { input, select, textarea { font-size: 13.5px; } }
+.tabular { font-variant-numeric: tabular-nums; }
+@media print {
+  .no-print { display: none !important; }
+  body { background: white; }
+}
