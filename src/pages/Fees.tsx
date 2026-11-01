@@ -17,6 +17,7 @@ export default function Fees() {
   const [tab, setTab] = useState<'plans' | 'verify' | 'ledger'>('plans');
   const [q, setQ] = useState('');
   const [pay, setPay] = useState(false);
+  const [nearest, setNearest] = useState(false); // fee plans: only fees to collect, nearest due date first
   const today = todayIST();
   const plans = useMemo(() => db.feePlans.map((p) => ({ p, s: db.students.find((x) => x.id === p.studentId)!, f: financeFor(db, p.studentId, today) })), [db]);
   const reversed = new Set(db.payments.filter((p) => p.kind === 'reversal').map((p) => p.reversesId));
@@ -37,9 +38,14 @@ export default function Fees() {
       </div>
       <Tabs value={tab} onChange={setTab} tabs={[{ id: 'plans', label: 'Fee plans', count: plans.length }, { id: 'verify', label: 'Awaiting verification', count: unverified.length }, { id: 'ledger', label: 'Transaction ledger' }]} />
       {tab === 'plans' && <>
-        <SearchInput value={q} onChange={setQ} placeholder="Search student" className="w-full sm:w-64 mb-3" />
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <SearchInput value={q} onChange={setQ} placeholder="Search student" className="w-full sm:w-64" />
+          <Button variant={nearest ? 'primary' : undefined} aria-pressed={nearest} onClick={() => setNearest(!nearest)}>{nearest ? '✓ ' : ''}Nearest due date first</Button>
+        </div>
         <Card>
-          <Table rows={plans.filter((r) => !t || r.s.name.toLowerCase().includes(t) || r.s.code.toLowerCase().includes(t))} rowKey={(r) => r.p.id} onRow={(r) => nav(`/students/${r.s.id}?tab=fees`)} empty={<Empty title="No fee plans" body="Fee plans are created automatically on admission." />} cols={[
+          <Table key={String(nearest)} rows={(nearest
+            ? plans.filter((r) => r.f.next && r.f.outstanding > 0).sort((a, b) => a.f.next!.dueDate.localeCompare(b.f.next!.dueDate)) // only fees still to collect, soonest (or most overdue) on top
+            : plans).filter((r) => !t || r.s.name.toLowerCase().includes(t) || r.s.code.toLowerCase().includes(t))}rowKey={(r) => r.p.id} onRow={(r) => nav(`/students/${r.s.id}?tab=fees`)} empty={<Empty title="No fee plans" body="Fee plans are created automatically on admission." />} cols={[
             { key: 'n', label: 'Student', render: (r) => <span className="font-medium">{r.s.name} <span className="text-muted font-normal">{r.s.code}</span></span>, sort: (r) => r.s.name },
             { key: 'pol', label: 'Booking amount', render: (r) => (r.p.policy === 'additional' ? 'On top of fee' : 'Inside fee') },
             { key: 'bk', label: 'Booking', render: (r) => <Money v={r.p.bookingAmount} />, className: 'text-right' },
