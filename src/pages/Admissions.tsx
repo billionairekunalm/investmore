@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import * as S from '../store/store';
+import { cloudEnabled, setStudentLogin } from '../store/cloud';
 import { Badge, Button, Card, Checkbox, Field, Input, Select, cx, useRun, useUI, Money } from '../ui/kit';
 import { buildSchedule } from '../domain/fees';
 import { GENDERS, LEAD_SOURCES, PAY_METHODS, type Gender, type IdDocument, type PayMethod } from '../domain/types';
@@ -54,6 +55,7 @@ export function AdmissionForm({ leadId, onDone, page }: { leadId?: string; onDon
   const [photo, setPhoto] = useState<string>();
   const [idDoc, setIdDoc] = useState<IdDocument>();
   // Aadhaar card uploaded at the top: saved with the student on Complete admission (consent required)
+  const [portalPw, setPortalPw] = useState(''); // student login password (login ID = student ID)
   const [aadhaar, setAadhaar] = useState<{ files: { front?: File; back?: File }; consent: boolean }>({ files: {}, consent: false });
   const { toast } = useUI();
   const [busy, setBusy] = useState(false);
@@ -106,6 +108,10 @@ export function AdmissionForm({ leadId, onDone, page }: { leadId?: string; onDon
     const id = run(() => (leadId ? S.convertLead(leadId, input) : S.admitStudent(input)), leadId ? 'Lead converted — student created' : 'Student admitted');
     if (!id && doc?.files) void removeAadhaar([doc.files.front, doc.files.back]); // admission refused: don't keep the card
     setBusy(false);
+    if (id && cloudEnabled && portalPw) {
+      // create the student's login once the new student has reached the database
+      setStudentLogin(id, portalPw).then((code) => toast(`Student login ready — Login ID ${code}`, 'ok')).catch((e) => toast(`Student saved, but the login was not created: ${(e as Error).message}`, 'bad'));
+    }
     if (id) onDone(id);
   };
 
@@ -119,7 +125,7 @@ export function AdmissionForm({ leadId, onDone, page }: { leadId?: string; onDon
 
   // what still blocks "Complete admission" — same conditions as before, now spelled out
   const missing = [!f.name && 'full name', !phoneOk && 'a valid mobile', booking === null && 'a valid booking amount', !f.courseId && 'a course'].filter(Boolean) as string[];
-  const blocked = missing.length > 0 || dups.length > 0;
+  const blocked = missing.length > 0 || dups.length > 0 || (portalPw.length > 0 && portalPw.length < 8);
   const g2 = 'grid sm:grid-cols-2 gap-x-4 gap-y-3.5';
 
   const form = (
@@ -147,6 +153,9 @@ export function AdmissionForm({ leadId, onDone, page }: { leadId?: string; onDon
           </Field>
           <Field label="Date of birth"><Input type="date" max={today} value={f.dob} onChange={set('dob')} className={tint('dob')} />{check('dob')}</Field>
           <Field label="Gender"><Select value={f.gender} onChange={set('gender')} placeholder="Select" options={GENDERS} className={tint('gender')} />{check('gender')}</Field>
+          {cloudEnabled && <Field label="Student login password" hint="Login ID will be the student ID" error={portalPw && portalPw.length < 8 ? 'At least 8 characters' : undefined}>
+            <Input type="text" autoComplete="new-password" value={portalPw} onChange={(e) => setPortalPw(e.target.value)} placeholder="Optional" />
+          </Field>}
           <Field label="Address" className="sm:col-span-2"><Input value={f.address} onChange={set('address')} className={tint('address')} />{check('address')}</Field>
           <Field label="City"><Input value={f.city} onChange={set('city')} className={tint('city')} />{check('city')}</Field>
           <div className="grid grid-cols-2 gap-x-4">

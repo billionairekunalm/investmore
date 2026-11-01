@@ -6,6 +6,7 @@ import { CallButton, useCall } from '../ui/shell';
 import { PaymentModal } from '../ui/modals';
 import { UploadBox } from './Admissions';
 import { aadhaarUrl, removeAadhaar, storeAadhaar } from '../lib/aadhaarFiles';
+import { cloudEnabled, setStudentLogin, studentLoginExists } from '../store/cloud';
 import { financeFor } from '../domain/finance';
 import { GENDERS, PAY_METHODS, STUDENT_STATUSES, type DB, type IdDocument, type PayMethod, type Student, type StudentStatus } from '../domain/types';
 import { daysBetween, fmtDate, fmtDateTime, fmtINR, fmtPhone, parseRupees, todayIST } from '../domain/util';
@@ -602,7 +603,8 @@ function Personal({ id }: { id: string }) {
   const set = (k: keyof typeof s) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
   const dirty = (['name', 'phone', 'altPhone', 'email', 'address', 'city', 'state', 'pin', 'dob', 'gender'] as const).some((k) => (f[k] ?? '') !== (s[k] ?? ''));
   return (
-    <Card className="p-5 max-w-3xl">
+    <div className="space-y-4 max-w-3xl">
+    <Card className="p-5">
       <div className="grid sm:grid-cols-2 gap-3">
         <Field label="Full name"><Input value={f.name} onChange={set('name')} disabled={!can} /></Field>
         <Field label="Mobile"><Input value={f.phone} onChange={set('phone')} disabled={!can} /></Field>
@@ -618,6 +620,48 @@ function Personal({ id }: { id: string }) {
         <Checkbox checked={s.remindersOptOut} disabled={!can} onChange={(e) => run(() => S.setReminderOptOut(id, e.target.checked), 'Preference saved')} label="Opted out of WhatsApp / SMS payment reminders" />
         {can && <Button variant="primary" disabled={!dirty} onClick={() => run(() => S.updateStudent(id, { name: f.name, phone: f.phone, altPhone: f.altPhone, email: f.email, address: f.address, city: f.city, state: f.state, pin: f.pin, dob: f.dob || undefined, gender: f.gender || undefined }), 'Saved')}>Save changes</Button>}
       </div>
+    </Card>
+    {cloudEnabled && <StudentLogin id={id} />}
+    </div>
+  );
+}
+
+/** Student portal login: login ID = student ID; staff set or reset the password. */
+function StudentLogin({ id }: { id: string }) {
+  const db = S.useDB();
+  const { toast } = useUI();
+  const s = db.students.find((x) => x.id === id)!;
+  const [has, setHas] = useState<boolean | null>(null);
+  const [pw, setPw] = useState('');
+  const [busy, setBusy] = useState(false);
+  const can = S.allowed('students', 'edit', db);
+  useEffect(() => { studentLoginExists(id).then(setHas).catch(() => setHas(null)); }, [id]);
+  const save = async () => {
+    setBusy(true);
+    try { await setStudentLogin(id, pw); setHas(true); setPw(''); toast(has ? 'Password reset' : `Login created — Login ID ${s.code}`, 'ok'); }
+    catch (e) { toast((e as Error).message, 'bad'); }
+    setBusy(false);
+  };
+  return (
+    <Card className="p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="font-semibold">Student login</h3>
+          <p className="text-[13px] text-muted mt-0.5">The student signs in on the same login page to see their fees and payments.</p>
+        </div>
+        {has !== null && <Badge tone={has ? 'green' : 'gray'}>{has ? 'Login active' : 'No login yet'}</Badge>}
+      </div>
+      <dl className="mt-4 grid sm:grid-cols-2 gap-3">
+        <div><dt className="text-xs text-muted">Login ID</dt><dd className="font-semibold tabular text-[15px]">{s.code}</dd></div>
+      </dl>
+      {can && (
+        <div className="mt-4 flex flex-wrap items-end gap-2">
+          <Field label={has ? 'New password' : 'Password'} className="w-full sm:w-64" error={pw && pw.length < 8 ? 'At least 8 characters' : undefined}>
+            <Input type="text" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} />
+          </Field>
+          <Button variant="primary" loading={busy} disabled={pw.length < 8} onClick={save}>{has ? 'Reset password' : 'Create login'}</Button>
+        </div>
+      )}
     </Card>
   );
 }

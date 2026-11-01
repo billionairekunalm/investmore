@@ -9,7 +9,7 @@ import { financeFor, periodFigures, splitProfit } from '../domain/finance';
 import { can, defaultPermissions } from '../domain/permissions';
 import { addDays, monthOf, monthRange, normalizePhone, nowISO, todayIST, uid } from '../domain/util';
 import { idbGet, idbSet } from './idb';
-import { cloudEnabled, getSession, getSyncStatus, pullAll, pushSoon, resetSynced, sb, signOutCloud } from './cloud';
+import { cloudEnabled, getSession, getSyncStatus, isStudentEmail, pullAll, pushSoon, resetSynced, sb, signOutCloud } from './cloud';
 
 export class AppError extends Error {}
 const fail = (msg: string): never => { throw new AppError(msg); };
@@ -68,7 +68,7 @@ export const useDB = () => useSyncExternalStore(subscribe, getDB);
 // Local mode (no Supabase env): data lives in IndexedDB key 'db', "sign in as" picker.
 // Cloud mode: staff sign in with email + password; data is pulled from Supabase, every commit is pushed (see cloud.ts),
 // and a cache sits in IndexedDB key 'cloud-db' for offline use. The device's old local data stays under 'db' until moved.
-export type CloudPhase = 'signed-out' | 'setup' | 'not-staff' | 'ready' | 'error' | 'recovery';
+export type CloudPhase = 'signed-out' | 'setup' | 'not-staff' | 'ready' | 'error' | 'recovery' | 'student';
 export type Cloud = { enabled: boolean; phase: CloudPhase; email: string | null; error?: string; deviceData?: DB };
 let cloud: Cloud = { enabled: cloudEnabled, phase: 'signed-out', email: null };
 const setCloud = (c: Partial<Cloud>) => { cloud = { ...cloud, ...c }; emit(); };
@@ -112,6 +112,8 @@ export async function boot() {
 
 /** After sign-in: load the academy from Supabase and find the employee with this login email. */
 export async function enterCloud(email: string) {
+  // students get their own portal; no academy data is loaded for them
+  if (isStudentEmail(email)) { db = emptyDB(); me = null; setCloud({ email, error: undefined, phase: 'student' }); return; }
   setCloud({ email, error: undefined });
   try {
     const remote = await pullAll(emptyDB);
@@ -170,6 +172,9 @@ function tx<T>(fn: (d: DB) => T): T {
 }
 
 const next = (d: DB, prefix: string, pad = 4) => `${prefix}-${String((d.counters[prefix] = (d.counters[prefix] ?? 0) + 1)).padStart(pad, '0')}`;
+const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+/** Student ID = IM + admission month + running serial, e.g. IMNOV0001, IMNOV0002, IMDEC0003. The serial never resets, so IDs stay unique across years. */
+export const studentCode = (d: DB, admissionDate: ISODate) => `IM${MON[+admissionDate.slice(5, 7) - 1]}${String((d.counters.IM = (d.counters.IM ?? 0) + 1)).padStart(4, '0')}`;
 function audit(d: DB, action: string, entity: string, entityId: string, detail = '') {
   d.audit.unshift({ id: uid(), at: nowISO(), by: me ?? 'system', action, entity, entityId, detail });
 }
@@ -354,7 +359,7 @@ function admitInto(d: DB, a: AdmissionInput): string {
     admissionDate: a.admissionDate, startDate, gapDays: d.settings.instalmentGapDays,
   });
 
-  const id = a.key, code = next(d, 'STU');
+  const id = a.key, code = studentCode(d, a.admissionDate);
   d.students.push({
     id, code, name: a.name.trim(), phone, altPhone: alt, email: a.email?.trim() ?? '', address: a.address ?? '', city: a.city ?? '', state: a.state ?? '',
     pin: a.pin ?? '', photo: a.photo, dob: a.dob || undefined, gender: a.gender || undefined, courseId: course.id, batchId: a.batchId, admissionDate: a.admissionDate, leadId: a.leadId,

@@ -49,5 +49,6 @@ The MVP stores data on the device (IndexedDB) and permission checks run in the b
 
 - Schema: `supabase/migrations/0001_init.sql` (22 tables, row-level security; only signed-in **active employees**, matched by login email, can read or write). `src/store/schema.ts` maps app records to columns; `src/store/schema.test.ts` keeps the two in sync.
 - Config: `.env.local` holds only the browser-safe values `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`. Never put the secret key or an access token in the app.
-- First run: the first person to create an account and sign in sets up the academy (or uploads the data already in that browser). Staff sign up later with the email an admin added for them in Employees.
+- Logins (migration 0003): everyone signs in on the same page with a **Login ID + password** (no email). First run shows **Create admin login** (ID pre-filled `investmore`); after that, setup is locked. Students sign in with their **student ID** (e.g. IMNOV0001); staff set or reset a student's password in the admission form or the student's Personal info tab. Students only see their own dashboard (fees, payments, batch, attendance) via `my_portal()`.
+- Student IDs: `IM` + admission month + running serial (IMNOV0001, IMNOV0002, IMDEC0003 …).
 - Sync: every change is saved to Supabase automatically; a copy is cached on the device for offline use and pending changes retry. Without `.env.local` the app runs fully offline on the device, as before.

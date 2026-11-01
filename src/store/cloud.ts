@@ -144,3 +144,58 @@ async function push(d: DB) {
     for (const id of x.ids) m.delete(id);
   }
 }
+
+// ---------------- login IDs (admin & students) — see 0003_logins_and_portal.sql ----------------
+const STUDENT_DOMAIN = '@student.investmore.invalid';
+const idEmail = (loginId: string, kind: 'staff' | 'student') => `${loginId.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '')}@${kind}.investmore.invalid`;
+export const isStudentEmail = (email?: string | null) => !!email && email.toLowerCase().endsWith(STUDENT_DOMAIN);
+/** 'investmore@staff.investmore.invalid' → 'investmore'; real emails are shown as they are. */
+export const loginIdOf = (email?: string | null) => (email && /\.investmore\.invalid$/i.test(email) ? email.split('@')[0] : email ?? '');
+const looksLikeStudentId = (id: string) => /^IM[A-Z]{3}\d{4,}$/i.test(id.trim()) || /^STU-\d+$/i.test(id.trim());
+
+/** Sign in with a login ID (student ID or staff ID) or, for older accounts, an email. Returns the session email. */
+export async function signInWithId(loginId: string, password: string): Promise<string> {
+  const id = loginId.trim();
+  if (id.includes('@')) { await signIn(id, password); return id; }
+  const order: ('student' | 'staff')[] = looksLikeStudentId(id) ? ['student', 'staff'] : ['staff', 'student'];
+  for (const kind of order) {
+    const { error } = await sb!.auth.signInWithPassword({ email: idEmail(id, kind), password });
+    if (!error) return idEmail(id, kind);
+    if (error.message !== 'Invalid login credentials') throw new Error(error.message);
+  }
+  throw new Error('Wrong login ID or password.');
+}
+/** First run only: creates the admin login, then signs in with it. */
+export async function setupAdmin(loginId: string, password: string): Promise<string> {
+  const { data, error } = await sb!.rpc('setup_admin_login', { p_login_id: loginId.trim(), p_password: password });
+  if (error) throw new Error(error.message);
+  await signIn(String(data), password);
+  return String(data);
+}
+/** Staff: create or reset a student's portal login (login ID = student ID). Waits until the student is saved. */
+export async function setStudentLogin(studentId: string, password: string): Promise<string> {
+  await flushSync();
+  const { data, error } = await sb!.rpc('set_student_login', { p_student_id: studentId, p_password: password });
+  if (error) throw new Error(error.message);
+  return String(data);
+}
+export async function studentLoginExists(studentId: string): Promise<boolean> {
+  const { data, error } = await sb!.rpc('student_login_exists', { p_student_id: studentId });
+  if (error) throw new Error(error.message);
+  return !!data;
+}
+/** Signed-in student: their own records only. */
+export async function loadPortal(): Promise<Record<string, unknown> | null> {
+  const { data, error } = await sb!.rpc('my_portal');
+  if (error) throw new Error(error.message);
+  return data as Record<string, unknown> | null;
+}
+/** Resolves once every pending change has reached Supabase (or rejects if it can't). */
+export async function flushSync(timeoutMs = 20000) {
+  const start = Date.now();
+  while (running || latest) {
+    if (Date.now() - start > timeoutMs) throw new Error('Still saving — try again in a moment.');
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  if (status.state === 'error' || status.state === 'offline') throw new Error(status.message ?? 'Changes are not saved yet.');
+}

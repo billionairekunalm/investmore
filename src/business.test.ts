@@ -278,3 +278,13 @@ describe('fee follow-up calls', () => {
     expect(() => S.logCall('student', id, 'Call Later', '', addDays(T, -1))).toThrow(/past/i);
   });
 });
+
+describe('student ID format', () => {
+  it('IM + admission month + running serial', () => {
+    const a = admit('9876500001', { admissionDate: '2026-11-03' });
+    const b = admit('9876500002', { admissionDate: '2026-11-20' });
+    const c = admit('9876500003', { admissionDate: '2026-12-01' });
+    const code = (id: string) => S.getDB().students.find((s) => s.id === id)!.code;
+    expect([code(a), code(b), code(c)]).toEqual(['IMNOV0001', 'IMNOV0002', 'IMDEC0003']);
+  });
+});

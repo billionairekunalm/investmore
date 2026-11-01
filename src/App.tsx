@@ -21,6 +21,7 @@ import Settings from './pages/Settings';
 import Receipt from './pages/Receipt';
 import Invoices from './pages/Invoices';
 import CloudAuth from './pages/CloudAuth';
+import StudentPortal from './pages/StudentPortal';
 
 const guard = (mod: Module, el: JSX.Element) => (S.allowed(mod) ? el : <NoAccess />);
 
@@ -31,7 +32,7 @@ export default function App() {
   return (
     <UIProvider>
       <BrowserRouter>
-        {cloud.enabled && (!me || cloud.phase !== 'ready') ? <CloudAuth /> : !me ? <SignIn /> : (
+        {cloud.phase === 'student' ? <StudentPortal /> : cloud.enabled && (!me || cloud.phase !== 'ready') ? <CloudAuth /> : !me ? <SignIn /> : (
           <Routes>
             <Route path="/receipt/:id" element={guard('fees', <Receipt />)} />
             <Route path="*" element={
