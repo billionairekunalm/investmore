@@ -17,7 +17,7 @@ const TONES = ['#1d4ed8', '#047857', '#6d28d9', '#c2410c', '#0f766e'];
 export default function Profit() {
   const db = S.useDB();
   const { key, range } = useRange();
-  const [adding, setAdding] = useState(false);
+  const [tab, setTab] = useState<'founders' | 'employees'>('founders');
   const [withdraw, setWithdraw] = useState<string | null>(null); // founder being paid
   const f = periodFigures(db, range[0], range[1], todayIST());
   const salaries = db.expenses.filter((e) => SALARY.includes(e.category) && inRange(e.date, range)).sort((a, b) => b.date.localeCompare(a.date));
@@ -33,6 +33,13 @@ export default function Profit() {
     <>
       <PageHeader title="Salary & Profit" sub={key === 'all' ? 'All time' : `${RANGE_LABELS[key]} · ${fmtDate(range[0])} – ${fmtDate(range[1])}`} />
 
+      <div role="tablist" className="inline-flex gap-1 p-1 mb-5 rounded-xl bg-zinc-100/80 border border-line">
+        {([['founders', 'Founders'], ['employees', 'Employees']] as const).map(([v, l]) => (
+          <button key={v} role="tab" aria-selected={tab === v} onClick={() => setTab(v)} className={cx('h-9 px-5 rounded-lg text-[14px] font-semibold transition-colors', tab === v ? 'bg-navy text-white shadow-sm' : 'text-zinc-600 hover:text-navy hover:bg-white')}>{l}</button>
+        ))}
+      </div>
+
+      {tab === 'founders' ? <>
       {/* net profit */}
       <Card className="rounded-2xl overflow-hidden mb-5">
         <div className="h-1.5 bg-gradient-to-r from-navy via-[#173563] to-accent" />
@@ -52,7 +59,7 @@ export default function Profit() {
 
       {/* founders */}
       <h2 className="text-[12px] font-bold uppercase tracking-wider text-zinc-500 mb-2.5">Founders' share</h2>
-      <div className="grid sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid sm:grid-cols-3 gap-4 mb-4">
         {founders.map((s, i) => {
           const color = TONES[i % TONES.length];
           return (
@@ -68,23 +75,8 @@ export default function Profit() {
         })}
       </div>
 
-      {/* salaries */}
-      <Card className="rounded-2xl overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 pt-4 pb-3">
-          <div><h2 className="font-semibold text-[15px] text-navy">Salaries paid</h2><p className="text-[12.5px] text-muted">Salaries reduce the net profit.</p></div>
-          {canAdd && <Button variant="primary" onClick={() => setAdding(true)}>+ Add salary</Button>}
-        </div>
-        <Table rows={salaries} rowKey={(e) => e.id} empty={<Empty title="No salaries in this period" />} className="[&_td]:py-3" cols={[
-          { key: 'd', label: 'Date', sort: (e) => e.date, render: (e) => <span className="tabular">{fmtDate(e.date)}</span> },
-          { key: 'n', label: 'Paid to', sort: (e) => e.description, render: (e) => <span className="font-medium">{e.description}</span> },
-          { key: 'm', label: 'Method', render: (e) => <span className="text-zinc-600">{e.method}</span> },
-          { key: 's', label: 'Status', render: (e) => <Badge>{e.status}</Badge> },
-          { key: 'a', label: 'Amount', className: 'text-right', sort: (e) => expenseAmount(e), render: (e) => <span className="font-semibold tabular">{fmtINR(expenseAmount(e))}</span> },
-        ]} />
-      </Card>
-
       {/* withdrawals */}
-      <Card className="rounded-2xl overflow-hidden mt-5">
+      <Card className="rounded-2xl overflow-hidden">
         <div className="px-4 sm:px-5 pt-4 pb-3">
           <h2 className="font-semibold text-[15px] text-navy">Founder withdrawals</h2>
           {canWithdraw && (
@@ -111,7 +103,25 @@ export default function Profit() {
         ]} />
       </Card>
 
-      <AddSalary open={adding} onClose={() => setAdding(false)} />
+      </> : <>
+      {canAdd && <SalaryBar />}
+      {/* salaries */}
+      <Card className="rounded-2xl overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 pt-4 pb-3">
+          <div><h2 className="font-semibold text-[15px] text-navy">Salaries paid</h2><p className="text-[12.5px] text-muted">Salaries reduce the net profit.</p></div>
+          <div className="text-right"><div className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">Total</div><div className="font-bold tabular text-[17px]">{fmtINR(salaryTotal)}</div></div>
+        </div>
+        <Table rows={salaries} rowKey={(e) => e.id} empty={<Empty title="No salaries in this period" />} className="[&_td]:py-3" cols={[
+          { key: 'd', label: 'Date', sort: (e) => e.date, render: (e) => <span className="tabular">{fmtDate(e.date)}</span> },
+          { key: 'n', label: 'Paid to', sort: (e) => e.description, render: (e) => <span className="font-medium">{e.description}</span> },
+          { key: 'm', label: 'Method', render: (e) => <span className="text-zinc-600">{e.method}</span> },
+          { key: 's', label: 'Status', render: (e) => <Badge>{e.status}</Badge> },
+          { key: 'a', label: 'Amount', className: 'text-right', sort: (e) => expenseAmount(e), render: (e) => <span className="font-semibold tabular">{fmtINR(expenseAmount(e))}</span> },
+        ]} />
+      </Card>
+
+      </>}
+
       <RecordWithdrawal founder={withdraw} onClose={() => setWithdraw(null)} />
     </>
   );
@@ -125,27 +135,32 @@ const Part = ({ label, sub, value }: { label: string; sub: string; value: string
   </div>
 );
 
-function AddSalary({ open, onClose }: { open: boolean; onClose: () => void }) {
+/** One-line bar to record a salary paid to an employee (saved as a salary expense, so it lowers the profit). */
+function SalaryBar() {
+  const db = S.useDB();
   const run = useRun();
   const today = todayIST();
-  const [f, setF] = useState({ name: '', amount: '', date: today, method: 'Bank Transfer' as PayMethod });
+  const blank = { name: '', amount: '', date: today, method: 'Bank Transfer' as PayMethod };
+  const [f, setF] = useState(blank);
   const amount = parseRupees(f.amount);
   const ok = !!f.name.trim() && amount !== null && amount > 0 && !!f.date;
   const save = () => {
     let done = false;
-    run(() => { S.addExpense({ category: 'Fixed Salaries', kind: 'fixed', description: f.name.trim(), amount: amount!, date: f.date, method: f.method, notes: '' }); done = true; }, 'Salary added');
-    if (done) { setF({ name: '', amount: '', date: today, method: 'Bank Transfer' }); onClose(); }
+    run(() => { S.addExpense({ category: 'Fixed Salaries', kind: 'fixed', description: f.name.trim(), amount: amount!, date: f.date, method: f.method, notes: '' }); done = true; }, `Salary added for ${f.name.trim()}`);
+    if (done) setF(blank);
   };
   return (
-    <Modal open={open} onClose={onClose} title="Add salary"
-      footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" disabled={!ok} onClick={save}>Add salary</Button></>}>
-      <div className="grid sm:grid-cols-2 gap-x-4 gap-y-3.5">
-        <Field label="Paid to" required className="sm:col-span-2"><Input autoFocus value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Name of the person" /></Field>
-        <Field label="Amount (₹)" required error={f.amount && (amount === null || amount <= 0) ? 'Enter an amount' : undefined}><Input inputMode="decimal" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
-        <Field label="Date paid" required><Input type="date" max={today} value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field>
-        <Field label="Paid by" className="sm:col-span-2"><Select value={f.method} onChange={(e) => setF({ ...f, method: e.target.value as PayMethod })} options={PAY_METHODS.filter((m) => m !== 'Online Gateway')} /></Field>
-      </div>
-    </Modal>
+    <form onSubmit={(e) => { e.preventDefault(); if (ok) save(); }}
+      className="mb-4 rounded-xl border border-line bg-white shadow-[0_1px_3px_rgba(15,35,65,.05)] p-3 grid grid-cols-2 md:grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1.2fr)_auto] gap-2 items-end">
+      <label className="col-span-2 md:col-span-1"><span className="mb-1 block text-[11.5px] font-semibold text-zinc-600">Employee</span>
+        <Input list="employee-names" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Name" />
+        <datalist id="employee-names">{db.employees.filter((e) => e.active).map((e) => <option key={e.id} value={e.name} />)}</datalist>
+      </label>
+      <label><span className="mb-1 block text-[11.5px] font-semibold text-zinc-600">Amount (₹)</span><Input inputMode="decimal" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></label>
+      <label><span className="mb-1 block text-[11.5px] font-semibold text-zinc-600">Date paid</span><Input type="date" max={today} value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></label>
+      <label><span className="mb-1 block text-[11.5px] font-semibold text-zinc-600">Paid by</span><Select value={f.method} onChange={(e) => setF({ ...f, method: e.target.value as PayMethod })} options={PAY_METHODS.filter((m) => m !== 'Online Gateway')} /></label>
+      <Button type="submit" variant="primary" disabled={!ok} className="col-span-2 md:col-span-1">+ Add salary</Button>
+    </form>
   );
 }
 
