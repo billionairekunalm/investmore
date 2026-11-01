@@ -106,6 +106,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <div className={cx('min-w-0 flex-1 leading-tight transition-opacity', m && 'opacity-0')}><div className="font-medium truncate">{me.name}</div><div className="text-[11px] text-muted">{ROLES.find((r) => r.id === me.role)?.label}</div></div>
           <button onClick={() => { S.logout(); nav('/'); }} tabIndex={m ? -1 : undefined} className={cx('text-xs text-muted hover:text-ink', m && 'invisible')}>Sign out</button>
         </div>
+        {!m && <div className="mt-2 text-[10.5px] text-zinc-400 tabular" title={`Built ${new Date(__BUILT_AT__).toLocaleString('en-IN')}`}>v {__APP_VERSION__} · {new Date(__BUILT_AT__).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</div>}
       </div>
     </nav>
   );
