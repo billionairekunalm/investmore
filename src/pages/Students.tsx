@@ -80,6 +80,7 @@ export function StudentList() {
   const [to, setTo] = useState(sp.get('to') ?? '');
   const [owing, setOwing] = useState(false);
   const [payFor, setPayFor] = useState('');
+  const [logins, setLogins] = useState(false); // set / change a student's login password
   const [limit, setLimit] = useState(30);
   const [view, setViewState] = useState<'table' | 'cards'>(() => { try { return localStorage.getItem('studentsView') === 'cards' ? 'cards' : 'table'; } catch { return 'table'; } });
   const setView = (v: 'table' | 'cards') => { setViewState(v); try { localStorage.setItem('studentsView', v); } catch { /* */ } };
@@ -112,10 +113,13 @@ export function StudentList() {
           <p className="text-muted mt-0.5">{activeFilters ? `${shown.length} of ${db.students.length} students match your filters` : `${db.students.length} students enrolled`}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {cloudEnabled && S.allowed('students', 'edit', db) && <Button onClick={() => setLogins(true)}><Ic d={ICON.key} /> Student login password</Button>}
           {S.allowed('students', 'export', db) && <Button onClick={() => downloadCSV(shown.map(({ s, f }) => ({ ID: s.code, Name: s.name, Mobile: s.phone, Email: s.email, Batch: bName(s.batchId), Admitted: s.admissionDate, Status: s.status, Source: s.source, ...(fees ? { 'Total fee': f.total / 100, Paid: f.paid / 100, Outstanding: f.outstanding / 100, 'Payment status': f.status } : {}) })), 'students')}>Export</Button>}
           {S.allowed('admissions', 'create', db) && <Button variant="primary" onClick={() => nav('/admissions')}>+ New admission</Button>}
         </div>
       </div>
+
+      {cloudEnabled && <LoginPicker open={logins} onClose={() => setLogins(false)} />}
 
       {/* summary — same tiles as the Dashboard; figures cover the students currently shown */}
       <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
@@ -631,6 +635,41 @@ function Personal({ id }: { id: string }) {
 }
 
 /** Student portal login: login ID = student ID; staff set or reset the password. */
+/** Pick any student, then set or change their login password. */
+function LoginPicker({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const db = S.useDB();
+  const [q, setQ] = useState('');
+  const [id, setId] = useState('');
+  useEffect(() => { if (open) { setQ(''); setId(''); } }, [open]);
+  const t = q.trim().toLowerCase();
+  const found = t ? db.students.filter((s) => s.name.toLowerCase().includes(t) || s.code.toLowerCase().includes(t) || s.phone.includes(t)).slice(0, 8) : [];
+  const picked = db.students.find((s) => s.id === id);
+  return (
+    <Modal open={open} onClose={onClose} title="Student login password">
+      {picked ? (
+        <>
+          <button type="button" className="mb-3 text-[12.5px] font-medium text-navy hover:underline" onClick={() => setId('')}>← Choose another student</button>
+          <div className="mb-3 font-semibold text-ink">{picked.name} <span className="text-muted font-normal">{picked.code}</span></div>
+          <StudentLogin id={picked.id} bare />
+        </>
+      ) : (
+        <>
+          <SearchInput value={q} onChange={setQ} placeholder="Search student by name, ID or mobile" className="w-full" />
+          <div className="mt-2 divide-y divide-line">
+            {found.map((s) => (
+              <button key={s.id} type="button" onClick={() => setId(s.id)} className="w-full flex items-center gap-3 px-2 py-2.5 text-left hover:bg-surface rounded-lg">
+                <Avatar name={s.name} photo={s.photo} size="size-8" />
+                <span className="min-w-0 flex-1"><span className="block font-medium truncate">{s.name}</span><span className="block text-[12px] text-muted">{s.code} · {fmtPhone(s.phone)}</span></span>
+              </button>
+            ))}
+            {t && !found.length && <p className="py-4 text-center text-[13px] text-muted">No student found</p>}
+          </div>
+        </>
+      )}
+    </Modal>
+  );
+}
+
 function StudentLogin({ id, bare }: { id: string; bare?: boolean }) {
   const db = S.useDB();
   const { toast } = useUI();
