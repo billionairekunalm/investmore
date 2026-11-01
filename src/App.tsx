@@ -22,6 +22,7 @@ import Receipt from './pages/Receipt';
 import Invoices from './pages/Invoices';
 import Kits from './pages/Kits';
 import Courses from './pages/Courses';
+import WithdrawalReceipt from './pages/WithdrawalReceipt';
 import CloudAuth from './pages/CloudAuth';
 import StudentPortal from './pages/StudentPortal';
 
@@ -37,6 +38,7 @@ export default function App() {
         {cloud.phase === 'student' ? <StudentPortal /> : cloud.enabled && (!me || cloud.phase !== 'ready') ? <CloudAuth /> : !me ? <SignIn /> : (
           <Routes>
             <Route path="/receipt/:id" element={guard('fees', <Receipt />)} />
+            <Route path="/withdrawal/:id" element={guard('profit', <WithdrawalReceipt />)} />
             <Route path="*" element={
               <Layout>
                 <Routes>

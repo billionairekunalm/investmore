@@ -46,6 +46,7 @@ export const TABLES: TableSpec[] = [
   { table: 'audit_log', key: 'audit', cols: cols('id', 'at:ts', 'by', 'action', 'entity', 'entityId', 'detail') },
   { table: 'import_jobs', key: 'imports', cols: cols('id', 'at:ts', 'by', 'fileName', 'total:int', 'imported:int', 'duplicates:int', 'invalid:int', 'errors:json') },
   { table: 'login_events', key: 'logins', cols: cols('id', 'userId', 'at:ts', 'userAgent') },
+  { table: 'founder_withdrawals', key: 'withdrawals', cols: cols('id', 'founder', 'amount:money', 'date:date', 'forMonth', 'method', 'reference', 'notes', 'by', 'createdAt:ts') },
 ];
 
 type Rec = Record<string, unknown>;

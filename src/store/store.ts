@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import type {
   Action, Batch, BookingPolicy, CallOutcome, Certificate, CertificateTemplate, Course, DB, Distribution, DistributionStatus,
-  Employee, Expense, ISODate, Lead, Module, Notification, Paise, Payment, PayMethod, RecurringExpense, Role, Settings, Student, StudentStatus,
+  Employee, Expense, ISODate, Withdrawal, Lead, Module, Notification, Paise, Payment, PayMethod, RecurringExpense, Role, Settings, Student, StudentStatus,
 } from '../domain/types';
 import { NEEDS_DATE } from '../domain/types';
 import { buildSchedule } from '../domain/fees';
@@ -52,7 +52,7 @@ export function emptyDB(): DB {
     version: 1, settings: defaultSettings(), counters: {},
     employees: [], courses: [{ id: uid(), name: 'Stock Market Mastery', bookingDefault: 100000, instalments: [300000, 300000, 150000], durationWeeks: 8, status: 'active' }],
     batches: [], students: [], enrolments: [], feePlans: [], instalments: [], payments: [], leads: [], calls: [], expenses: [],
-    recurring: [], periods: [], distributions: [], templates: [], certificates: [], attendance: [], notifications: [], audit: [], imports: [], logins: [],
+    recurring: [], periods: [], distributions: [], templates: [], certificates: [], attendance: [], notifications: [], audit: [], imports: [], logins: [], withdrawals: [],
   };
 }
 
@@ -285,6 +285,31 @@ export function saveCourse(c: Omit<Course, 'id'> & { id?: string }) {
     const id = uid(); d.courses.push({ ...c, id }); audit(d, 'course.create', 'course', id, c.name); return id;
   });
 }
+/** A founder takes money out of the profit. Recorded with a receipt number; does not change the profit itself. */
+export function addWithdrawal(w: Omit<Withdrawal, 'id' | 'by' | 'createdAt'>) {
+  return tx((d) => {
+    guard(d, 'profit', 'create');
+    if (!d.settings.shares.some((s) => s.name === w.founder)) fail('Choose a founder.');
+    if (!Number.isInteger(w.amount) || w.amount <= 0) fail('Enter an amount greater than zero.');
+    if (w.date > todayIST()) fail('The date cannot be in the future.');
+    if (!/^\d{4}-\d{2}$/.test(w.forMonth)) fail('Choose which month\'s profit this is from.');
+    if (w.method !== 'Cash' && !w.reference.trim()) fail('Add the reference / UTR for non-cash payments.');
+    const id = next(d, 'WDR', 5);
+    d.withdrawals.unshift({ ...w, reference: w.reference.trim(), notes: w.notes.trim(), id, by: me ?? 'system', createdAt: nowISO() });
+    audit(d, 'withdrawal.create', 'withdrawal', id, `${w.founder} ₹${w.amount / 100} for ${w.forMonth}`);
+    return id;
+  });
+}
+export function deleteWithdrawal(id: string, reason: string) {
+  tx((d) => {
+    guard(d, 'profit', 'delete');
+    if (!reason.trim()) fail('Please give a reason.');
+    const w = d.withdrawals.find((x) => x.id === id) ?? fail('Withdrawal not found.');
+    d.withdrawals = d.withdrawals.filter((x) => x.id !== id);
+    audit(d, 'withdrawal.delete', 'withdrawal', id, `${w!.founder} ₹${w!.amount / 100} for ${w!.forMonth} — ${reason}`);
+  });
+}
+
 /** Only courses nobody has joined can be deleted; otherwise mark them Closed. */
 export function deleteCourse(id: string) {
   tx((d) => {

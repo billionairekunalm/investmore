@@ -321,3 +321,18 @@ describe('booking smaller or bigger than the standard booking (additional rule)'
     expect(financeFor(S.getDB(), id, T).total).toBe(850000);
   });
 });
+
+describe('founder withdrawals', () => {
+  it('records with a receipt number, validates, and can be deleted with a reason', () => {
+    const founder = S.getDB().settings.shares[0].name;
+    expect(() => S.addWithdrawal({ founder, amount: 0, date: T, forMonth: T.slice(0, 7), method: 'Cash', reference: '', notes: '' })).toThrow(/greater than zero/);
+    expect(() => S.addWithdrawal({ founder, amount: 100000, date: T, forMonth: T.slice(0, 7), method: 'UPI', reference: '', notes: '' })).toThrow(/reference/i);
+    expect(() => S.addWithdrawal({ founder: 'Nobody', amount: 100000, date: T, forMonth: T.slice(0, 7), method: 'Cash', reference: '', notes: '' })).toThrow(/founder/i);
+    const id = S.addWithdrawal({ founder, amount: 2500000, date: T, forMonth: T.slice(0, 7), method: 'Cash', reference: '', notes: 'October profit' });
+    expect(id).toMatch(/^WDR-\d{5}$/);
+    expect(S.getDB().withdrawals[0]).toMatchObject({ id, founder, amount: 2500000 });
+    expect(() => S.deleteWithdrawal(id, '')).toThrow(/reason/);
+    S.deleteWithdrawal(id, 'entered twice');
+    expect(S.getDB().withdrawals).toHaveLength(0);
+  });
+});

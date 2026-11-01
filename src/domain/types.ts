@@ -145,6 +145,10 @@ export interface ImportJob {
   id: string; at: string; by: string; fileName: string; total: number; imported: number; duplicates: number; invalid: number;
   errors: { row: number; reason: string; data: Record<string, string> }[];
 }
+/** Money a founder takes out of the profit. forMonth = whose profit it is (usually the previous month). */
+export interface Withdrawal {
+  id: string; founder: string; amount: Paise; date: ISODate; forMonth: string; method: PayMethod; reference: string; notes: string; by: string; createdAt: string;
+}
 export interface LoginEvent { id: string; userId: string; at: string; userAgent: string }
 
 export interface Settings {
@@ -170,5 +174,5 @@ export interface DB {
   feePlans: FeePlan[]; instalments: Instalment[]; payments: Payment[]; leads: Lead[]; calls: CallActivity[];
   expenses: Expense[]; recurring: RecurringExpense[]; periods: FinancialPeriod[]; distributions: Distribution[];
   templates: CertificateTemplate[]; certificates: Certificate[]; attendance: Attendance[];
-  notifications: Notification[]; audit: AuditLog[]; imports: ImportJob[]; logins: LoginEvent[];
+  notifications: Notification[]; audit: AuditLog[]; imports: ImportJob[]; logins: LoginEvent[]; withdrawals: Withdrawal[];
 }
