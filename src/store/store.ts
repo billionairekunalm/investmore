@@ -375,7 +375,7 @@ function admitInto(d: DB, a: AdmissionInput): string {
   const startDate = d.settings.startEvent === 'batch_start' && batch ? batch.startDate : a.admissionDate;
   const sched = buildSchedule({
     booking: a.bookingAmount, instalments: course.instalments, policy: d.settings.bookingPolicy as BookingPolicy,
-    admissionDate: a.admissionDate, startDate, gapDays: d.settings.instalmentGapDays,
+    admissionDate: a.admissionDate, startDate, gapDays: d.settings.instalmentGapDays, fullBooking: course.bookingDefault,
   });
 
   const id = a.key, code = studentCode(d, a.admissionDate);

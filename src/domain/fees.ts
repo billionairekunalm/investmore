@@ -11,10 +11,22 @@ export interface ScheduleLine { seq: number; label: string; amount: Paise; dueDa
  */
 export function buildSchedule(opts: {
   booking: Paise; instalments: Paise[]; policy: BookingPolicy; admissionDate: ISODate; startDate: ISODate; gapDays?: number;
+  /** The course's standard booking. With the 'additional' rule the total stays booking + instalments as set on the course:
+   *  a smaller booking moves the shortfall into the last instalment, a bigger one comes off the last instalment(s). */
+  fullBooking?: Paise;
 }): { total: Paise; lines: ScheduleLine[] } {
   const { booking, policy, admissionDate, startDate, gapDays = 7 } = opts;
   if (!Number.isInteger(booking) || booking < 0) throw new Error('Booking amount must be a non-negative whole paise value');
   const amounts = [...opts.instalments];
+  if (policy === 'additional' && opts.fullBooking !== undefined && amounts.length) {
+    const diff = opts.fullBooking - booking;
+    if (diff > 0) amounts[amounts.length - 1] += diff; // e.g. ₹500 instead of ₹1,000 booking → last instalment +₹500
+    else if (diff < 0) {
+      let left = -diff;
+      for (let i = amounts.length - 1; i >= 0 && left > 0; i--) { const take = Math.min(left, amounts[i]); amounts[i] -= take; left -= take; }
+      if (left > 0) throw new Error('Booking amount cannot be more than the full course fee');
+    }
+  }
   if (policy === 'credited') {
     const base = amounts.reduce((a, b) => a + b, 0);
     if (booking > base) throw new Error('Booking amount cannot exceed the course fee when it is credited against it');

@@ -59,7 +59,7 @@ describe('B/C. partial and full payment', () => {
     pay(id, 2000);
     f = financeFor(S.getDB(), id, T);
     expect(f.lines[0].status).toBe('Paid');
-    expect(f.outstanding).toBe(450000);
+    expect(f.outstanding).toBe(550000); // no booking paid → its ₹1,000 sits in the last instalment, total stays ₹8,500
   });
   it('same idempotency key never counts twice; overpayment rejected; future date rejected', () => {
     const id = admit();
@@ -300,5 +300,24 @@ describe('courses', () => {
   it('a course in use cannot be deleted', () => {
     admit();
     expect(() => S.deleteCourse(course())).toThrow(/Closed instead/);
+  });
+});
+
+describe('booking smaller or bigger than the standard booking (additional rule)', () => {
+  const sched = (booking: number) => buildSchedule({ booking, instalments: [300000, 300000, 150000], policy: 'additional', admissionDate: T, startDate: T, fullBooking: 100000 });
+  it('₹500 booking: the missing ₹500 moves to the last instalment, total stays ₹8,500', () => {
+    const s = sched(50000);
+    expect(s.total).toBe(850000);
+    expect(s.lines.map((l) => [l.label, l.amount])).toEqual([['Booking', 50000], ['Instalment 1', 300000], ['Instalment 2', 300000], ['Instalment 3', 200000]]);
+  });
+  it('₹1,500 booking: the extra comes off the last instalment, total stays ₹8,500', () => {
+    const s = sched(150000);
+    expect(s.total).toBe(850000);
+    expect(s.lines.at(-1)).toMatchObject({ label: 'Instalment 3', amount: 100000 });
+  });
+  it('standard ₹1,000 booking is unchanged, and an admission keeps the course total', () => {
+    expect(sched(100000).total).toBe(850000);
+    const id = admit('9876511111', { bookingAmount: 50000 });
+    expect(financeFor(S.getDB(), id, T).total).toBe(850000);
   });
 });

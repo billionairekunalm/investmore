@@ -81,7 +81,7 @@ export function AdmissionForm({ leadId, onDone, page }: { leadId?: string; onDon
     if (!course || booking === null || !policy) return null;
     try {
       const start = db.settings.startEvent === 'batch_start' && batch ? batch.startDate : f.admissionDate;
-      return buildSchedule({ booking, instalments: course.instalments, policy, admissionDate: f.admissionDate, startDate: start, gapDays: db.settings.instalmentGapDays });
+      return buildSchedule({ booking, instalments: course.instalments, policy, admissionDate: f.admissionDate, startDate: start, gapDays: db.settings.instalmentGapDays, fullBooking: course.bookingDefault });
     } catch (e) { return { error: (e as Error).message }; }
   }, [course, booking, policy, f.admissionDate, batch, db.settings]);
   const phoneOk = normalizePhone(f.phone);
