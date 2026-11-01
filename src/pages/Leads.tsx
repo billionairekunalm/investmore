@@ -10,6 +10,7 @@ import { LEAD_SOURCES, type Lead } from '../domain/types';
 import { fmtDate, fmtDateTime, fmtPhone, inRange, todayIST } from '../domain/util';
 import { downloadCSV, readSheet } from '../lib/export';
 import { useRange } from '../ui/shell';
+import { StatTile } from './Dashboard';
 
 type View = 'pipeline' | 'list' | 'calling' | 'import' | 'performance';
 
@@ -34,6 +35,11 @@ export default function Leads() {
     (!q || l.name.toLowerCase().includes(q.toLowerCase()) || l.phone.includes(q) || l.id.toLowerCase().includes(q.toLowerCase()) || l.campaign.toLowerCase().includes(q.toLowerCase())) &&
     (!fCaller || l.assignedTo === fCaller) && (!fSource || l.source === fSource) && (!fStatus || l.status === fStatus));
 
+  // follow-ups due as of today (same rule as the calling queue): open leads with a follow-up date today or earlier
+  const today = todayIST();
+  const due = leads.filter((l) => l.nextFollowUp && l.nextFollowUp <= today && l.status !== 'Converted' && l.status !== 'Lost');
+  const dueToday = due.filter((l) => l.nextFollowUp === today).length;
+
   const tabs: { id: View; label: string; count?: number }[] = [
     { id: 'calling', label: 'Calling queue', count: callingQueue(leads, todayIST()).filter((l) => l.tier <= 2).length },
     { id: 'pipeline', label: 'Pipeline' }, { id: 'list', label: 'All leads', count: leads.length },
@@ -53,6 +59,10 @@ export default function Leads() {
     <>
       <PageHeader title="Leads CRM" sub={`${leads.length} leads${me.role === 'caller' ? ' assigned to you' : ''}`}
         actions={S.allowed('leads', 'create', db) && <Button variant="primary" onClick={() => setAdding(true)}>+ New lead</Button>} />
+      <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-5">
+        <StatTile color="#0f766e" icon="phone" label="Follow-ups due" scope="As of today" value={due.length} to="/leads?view=calling"
+          subs={[['Due today', dueToday], ['Missed earlier', due.length - dueToday]]} />
+      </div>
       <Tabs tabs={tabs} value={view} onChange={setView} />
       {view === 'calling' && <CallingQueue leads={filtered} filters={filters} onOpen={(id) => { sp.set('lead', id); setSp(sp); }} />}
       {view === 'pipeline' && <>{filters}<Pipeline leads={filtered} onOpen={(id) => { sp.set('lead', id); setSp(sp); }} /></>}

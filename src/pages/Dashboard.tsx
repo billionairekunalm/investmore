@@ -16,7 +16,7 @@ const tip = { contentStyle: { borderRadius: 8, border: '1px solid #e7e7ea', font
 /**
  * Two kinds of figure, labelled on every tile:
  *  - period: follows the global date filter (admissions, leads, collections, revenue, expenses, profit)
- *  - today:  a live snapshot (active students, pending/overdue fees, follow-ups, upcoming batches)
+ *  - today:  a live snapshot (active students, pending/overdue fees)
  */
 export function useAnalytics(db: DB, range: [string, string]) {
   return useMemo(() => {
@@ -42,8 +42,6 @@ export function useAnalytics(db: DB, range: [string, string]) {
     const converted = leadsIn.filter((l) => l.status === 'Converted').length;
     const admitted = db.students.filter((s) => inRange(s.admissionDate, range));
     const payments = db.payments.filter((p) => p.kind === 'payment' && p.verified && inRange(p.date, range)).length;
-    const followups = db.leads.filter((l) => l.nextFollowUp && l.nextFollowUp <= today && l.status !== 'Converted' && l.status !== 'Lost');
-    const upcoming = db.batches.filter((b) => b.status === 'upcoming' || (b.status === 'running' && b.startDate > today)).sort((a, b) => a.startDate.localeCompare(b.startDate));
 
     // monthly series for the charts: the months of the filter, at least the last 6
     const start = range[0] > addDays(range[1], -150) ? `${monthOf(addDays(range[1], -150))}-01` : range[0];
@@ -72,10 +70,6 @@ export function useAnalytics(db: DB, range: [string, string]) {
       conv: leadsIn.length ? (converted / leadsIn.length) * 100 : null,
       // fee overview
       payments, pending, due7, overdue, overdueStudents, pendingStudents,
-      // operations
-      followupsDue: followups.length, followupsToday: followups.filter((l) => l.nextFollowUp === today).length,
-      upcoming: upcoming.length, nextBatch: upcoming[0],
-      upcomingEnrolled: db.students.filter((s) => s.status === 'Active' && upcoming.some((b) => b.id === s.batchId)).length,
     };
   }, [db, range[0], range[1]]);
 }
@@ -144,15 +138,6 @@ export default function Dashboard() {
           </div>
         </Section>
       </>}
-
-      <Section title="Operations">
-        <div className="grid sm:grid-cols-2 gap-4">
-          <StatTile color="#0f766e" icon="phone" label="Follow-ups due" scope={T} value={a.followupsDue} to="/leads?view=calling"
-            subs={[['Due today', a.followupsToday], ['Missed earlier', a.followupsDue - a.followupsToday]]} />
-          <StatTile color="#1d4ed8" icon="calendar" label="Upcoming batches" scope={T} value={a.upcoming} to="/batches"
-            subs={[['Next start', a.nextBatch ? `${fmtDate(a.nextBatch.startDate)}` : '—'], ['Students enrolled', a.upcomingEnrolled]]} />
-        </div>
-      </Section>
 
       <div className="grid lg:grid-cols-2 gap-4">
         {fin && (
