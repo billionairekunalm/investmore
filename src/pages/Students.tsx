@@ -417,10 +417,6 @@ export function StudentProfile() {
   const today = todayIST();
   const canEdit = S.allowed('students', 'edit', db);
   const canCollect = fees && S.allowed('fees', 'create', db) && f.outstanding > 0 && s.status !== 'Refunded';
-  const att = attendanceFor(db, s.id);
-  const attPct = att.sessions.length ? pct(att.present, att.sessions.length) : null;
-  const batchPct = batch ? pct(Math.max(0, daysBetween(batch.startDate, today)), Math.max(1, daysBetween(batch.startDate, batch.endDate))) : null;
-  const cert = db.certificates.find((c) => c.studentId === s.id && c.status === 'Issued');
   const recent = db.payments.filter((p) => p.studentId === s.id && p.kind === 'payment').sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 4);
   const goTab = (t: Tab) => { sp.set('tab', t); setSp(sp, { replace: true }); };
 
@@ -522,19 +518,6 @@ export function StudentProfile() {
                 )}
               </Card>
             )}
-            <Card className="rounded-2xl p-4">
-              <h3 className="font-semibold text-[14px]">Academic progress</h3>
-              <p className="text-xs text-muted mt-0.5 mb-4">From batch dates, marked attendance and certificates.</p>
-              <div className="grid sm:grid-cols-3 gap-4">
-                <Progress label="Course progress" value={batchPct} sub={batch ? `${fmtDate(batch.startDate)} – ${fmtDate(batch.endDate)}` : 'No batch assigned'} tone="bg-navy" />
-                <Progress label="Attendance" value={attPct} sub={att.sessions.length ? `${att.present} of ${att.sessions.length} sessions` : 'No sessions marked yet'} tone={attPct !== null && attPct < 75 ? 'bg-warn' : 'bg-accent'} />
-                <div>
-                  <div className="text-[11.5px] font-semibold uppercase tracking-wider text-muted">Certificate</div>
-                  <div className="mt-1.5 font-semibold text-[15px]">{cert ? 'Issued' : s.status === 'Completed' ? 'Ready to issue' : 'Not yet eligible'}</div>
-                  <div className="text-[11.5px] text-muted mt-1">{cert ? `${cert.id} · ${fmtDate(cert.issuedAt.slice(0, 10))}` : s.status === 'Completed' ? 'Student marked Completed' : 'After the course is completed'}</div>
-                </div>
-              </div>
-            </Card>
           </div>
           <div className="space-y-4">
             <Card className="rounded-2xl p-4">
@@ -593,15 +576,6 @@ function MiniStat({ label, value, icon, tone, valueCls, foot }: { label: string;
       <div className={cx('mt-1.5 text-[20px] font-bold tabular text-navy truncate', valueCls)}>{value}</div>
       {foot && <div className="mt-1.5">{foot}</div>}
     </Card>
-  );
-}
-function Progress({ label, value, sub, tone }: { label: string; value: number | null; sub: string; tone: string }) {
-  return (
-    <div>
-      <div className="flex items-baseline justify-between"><span className="text-[11.5px] font-semibold uppercase tracking-wider text-muted">{label}</span><span className="font-bold text-[15px] tabular">{value === null ? '—' : `${value}%`}</span></div>
-      <Bar value={value ?? 0} tone={tone} className="mt-2 h-2" />
-      <div className="text-[11.5px] text-muted mt-1.5">{sub}</div>
-    </div>
   );
 }
 
