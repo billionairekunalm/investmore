@@ -23,7 +23,12 @@ export interface Employee {
   id: string; name: string; phone: string; email: string; role: Role; active: boolean; createdAt: string;
 }
 
-export interface Course { id: string; name: string; bookingDefault: Paise; instalments: Paise[]; durationWeeks: number }
+export type CourseStatus = 'upcoming' | 'active' | 'closed';
+export interface Course {
+  id: string; name: string; bookingDefault: Paise; instalments: Paise[]; durationWeeks: number;
+  description?: string; status?: CourseStatus; launchDate?: ISODate; // status missing = active (older records)
+  shares?: Share[]; // founders' split of this course's fees; missing = the default split in Settings
+}
 
 export type BatchStatus = 'upcoming' | 'running' | 'completed' | 'cancelled';
 export interface Batch {

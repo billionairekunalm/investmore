@@ -25,7 +25,7 @@ const cols = (...defs: string[]): ColSpec[] => defs.map((d) => {
 // Order matters: parents before children (inserts run top-down, deletes bottom-up).
 export const TABLES: TableSpec[] = [
   { table: 'employees', key: 'employees', cols: cols('id', 'name', 'phone', 'email', 'role', 'active:bool', 'createdAt:ts?') },
-  { table: 'courses', key: 'courses', cols: cols('id', 'name', 'bookingDefault:money', 'instalments:json', 'durationWeeks:int') },
+  { table: 'courses', key: 'courses', cols: cols('id', 'name', 'bookingDefault:money', 'instalments:json', 'durationWeeks:int', 'description', 'status', 'launchDate:date', 'shares:json') },
   { table: 'batches', key: 'batches', cols: cols('id', 'name', 'courseId', 'teacherId:text?', 'startDate:date', 'endDate:date', 'schedule', 'timing', 'capacity:int', 'status') },
   { table: 'leads', key: 'leads', cols: cols('id', 'name', 'phone', 'email', 'source', 'campaign', 'assignedTo:text?', 'status', 'interest', 'lastCallAt:ts', 'nextFollowUp:date', 'notes', 'createdAt:ts', 'convertedStudentId', 'importJobId') },
   { table: 'students', key: 'students', cols: cols('id', 'code', 'name', 'phone', 'altPhone', 'email', 'address', 'city', 'state', 'pin', 'photo', 'dob:date', 'gender',

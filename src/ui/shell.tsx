@@ -40,6 +40,7 @@ const NAV: { to: string; label: string; mod: Module; icon: string }[] = [
   { to: '/fees', label: 'Fee Management', mod: 'fees', icon: 'M4 2h8v12l-2-1.2-2 1.2-2-1.2L4 14zM6 5.5h4M6 8h4' },
   { to: '/collections', label: 'Collections', mod: 'collections', icon: 'M1.5 4.5h13v8h-13zM1.5 7h13M4 10.5h2' },
   { to: '/invoices', label: 'Invoices', mod: 'fees', icon: 'M4 1.5h5.5L12 4v10.5H4zM9.5 1.5V4H12M6 7h4M6 9.5h4M6 12h2' },
+  { to: '/courses', label: 'Courses', mod: 'settings', icon: 'M2 3h4.5A1.5 1.5 0 0 1 8 4.5V14a1.5 1.5 0 0 0-1.5-1.5H2zM14 3H9.5A1.5 1.5 0 0 0 8 4.5V14a1.5 1.5 0 0 1 1.5-1.5H14z' },
   { to: '/batches', label: 'Batches', mod: 'batches', icon: 'M2 3h12v10H2zM2 6h12M5.5 1.5v3M10.5 1.5v3' },
   { to: '/certificates', label: 'Certificates', mod: 'certificates', icon: 'M2 2.5h12v8H2zM6 13.5l2-1.5 2 1.5v-3H6z' },
   { to: '/expenses', label: 'Expenses', mod: 'expenses', icon: 'M8 1.5v13M11 4H6.5a2 2 0 0 0 0 4h3a2 2 0 0 1 0 4H5' },

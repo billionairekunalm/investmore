@@ -50,7 +50,7 @@ export const RULES = [
 export function emptyDB(): DB {
   return {
     version: 1, settings: defaultSettings(), counters: {},
-    employees: [], courses: [{ id: uid(), name: 'Stock Market Mastery', bookingDefault: 100000, instalments: [300000, 300000, 150000], durationWeeks: 8 }],
+    employees: [], courses: [{ id: uid(), name: 'Stock Market Mastery', bookingDefault: 100000, instalments: [300000, 300000, 150000], durationWeeks: 8, status: 'active' }],
     batches: [], students: [], enrolments: [], feePlans: [], instalments: [], payments: [], leads: [], calls: [], expenses: [],
     recurring: [], periods: [], distributions: [], templates: [], certificates: [], attendance: [], notifications: [], audit: [], imports: [], logins: [],
   };
@@ -270,10 +270,29 @@ export function saveEmployee(e: Omit<Employee, 'id' | 'createdAt'> & { id?: stri
 export function saveCourse(c: Omit<Course, 'id'> & { id?: string }) {
   return tx((d) => {
     guard(d, 'settings', 'edit');
-    if (!c.name.trim()) fail('Course name is required.');
+    c = { ...c, name: c.name.trim() };
+    if (!c.name) fail('Course name is required.');
+    if (d.courses.some((x) => x.id !== c.id && x.name.toLowerCase() === c.name.toLowerCase())) fail('A course with this name already exists.');
+    if (!Number.isInteger(c.durationWeeks) || c.durationWeeks < 1) fail('Duration must be at least 1 week.');
+    if (!Number.isInteger(c.bookingDefault) || c.bookingDefault < 0) fail('Booking amount cannot be negative.');
     if (!c.instalments.length || c.instalments.some((x) => !Number.isInteger(x) || x <= 0)) fail('Each instalment must be a positive amount.');
+    if (c.shares) {
+      if (c.shares.some((s) => !s.name.trim() || s.pctBp <= 0)) fail('Each founder needs a name and a share above 0%.');
+      const total = c.shares.reduce((a, s) => a + s.pctBp, 0);
+      if (total !== 10000) fail(`Founder shares must add up to 100% (now ${(total / 100).toFixed(2)}%).`);
+    }
     if (c.id) { Object.assign(d.courses.find((x) => x.id === c.id)!, c); audit(d, 'course.update', 'course', c.id, c.name); return c.id; }
     const id = uid(); d.courses.push({ ...c, id }); audit(d, 'course.create', 'course', id, c.name); return id;
+  });
+}
+/** Only courses nobody has joined can be deleted; otherwise mark them Closed. */
+export function deleteCourse(id: string) {
+  tx((d) => {
+    guard(d, 'settings', 'edit');
+    if (d.students.some((s) => s.courseId === id) || d.batches.some((b) => b.courseId === id)) fail('Students or batches use this course. Mark it Closed instead.');
+    if (d.courses.length <= 1) fail('Keep at least one course.');
+    const c = d.courses.find((x) => x.id === id);
+    d.courses = d.courses.filter((x) => x.id !== id); audit(d, 'course.delete', 'course', id, c?.name ?? '');
   });
 }
 

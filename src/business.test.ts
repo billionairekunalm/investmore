@@ -288,3 +288,17 @@ describe('student ID format', () => {
     expect([code(a), code(b), code(c)]).toEqual(['IMNOV0001', 'IMNOV0002', 'IMDEC0003']);
   });
 });
+
+describe('courses', () => {
+  const base = { name: 'Options Pro', bookingDefault: 100000, instalments: [400000, 400000], durationWeeks: 6, status: 'upcoming' as const };
+  it('founder split must total 100% and names must be unique', () => {
+    expect(() => S.saveCourse({ ...base, shares: [{ name: 'A', pctBp: 6000 }, { name: 'B', pctBp: 3000 }] })).toThrow(/100%/);
+    const id = S.saveCourse({ ...base, shares: [{ name: 'A', pctBp: 6000 }, { name: 'B', pctBp: 4000 }] });
+    expect(S.getDB().courses.find((c) => c.id === id)).toMatchObject({ status: 'upcoming', shares: [{ name: 'A', pctBp: 6000 }, { name: 'B', pctBp: 4000 }] });
+    expect(() => S.saveCourse({ ...base, name: 'options pro' })).toThrow(/already exists/);
+  });
+  it('a course in use cannot be deleted', () => {
+    admit();
+    expect(() => S.deleteCourse(course())).toThrow(/Closed instead/);
+  });
+});

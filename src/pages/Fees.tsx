@@ -14,7 +14,7 @@ export default function Fees() {
   const run = useRun();
   const { ask } = useUI();
   const { range } = useRange();
-  const [tab, setTab] = useState<'plans' | 'verify' | 'ledger' | 'structure'>('plans');
+  const [tab, setTab] = useState<'plans' | 'verify' | 'ledger'>('plans');
   const [q, setQ] = useState('');
   const [pay, setPay] = useState(false);
   const today = todayIST();
@@ -35,7 +35,7 @@ export default function Fees() {
         <Kpi label="Refunds" value={fmtINR(fig.refunds)} tone={fig.refunds ? 'bad' : undefined} />
         <Kpi label="Balance due (today)" value={fmtINR(fig.outstanding)} tone="warn" to="/collections?view=due7" />
       </div>
-      <Tabs value={tab} onChange={setTab} tabs={[{ id: 'plans', label: 'Fee plans', count: plans.length }, { id: 'verify', label: 'Awaiting verification', count: unverified.length }, { id: 'ledger', label: 'Transaction ledger' }, { id: 'structure', label: 'Course fee structure' }]} />
+      <Tabs value={tab} onChange={setTab} tabs={[{ id: 'plans', label: 'Fee plans', count: plans.length }, { id: 'verify', label: 'Awaiting verification', count: unverified.length }, { id: 'ledger', label: 'Transaction ledger' }]} />
       {tab === 'plans' && <>
         <SearchInput value={q} onChange={setQ} placeholder="Search student" className="w-full sm:w-64 mb-3" />
         <Card>
@@ -75,55 +75,8 @@ export default function Fees() {
           ]} />
         </Card>
       )}
-      {tab === 'structure' && <Structure />}
       <PaymentModal open={pay} onClose={() => setPay(false)} />
     </>
   );
 }
 
-function Structure() {
-  const db = S.useDB();
-  const run = useRun();
-  const can = S.allowed('settings', 'edit', db);
-  return (
-    <div className="space-y-4">
-      {db.courses.map((c) => <CourseEditor key={c.id} id={c.id} disabled={!can} />)}
-      {can && <Button onClick={() => run(() => S.saveCourse({ name: 'New course', bookingDefault: 100000, instalments: [300000, 300000, 150000], durationWeeks: 8 }), 'Course added')}>+ Add course</Button>}
-      <p className="text-xs text-muted">Changes apply to new admissions only. Existing fee plans keep their schedule; adjust them individually from the student's Fee details tab (logged).</p>
-    </div>
-  );
-}
-
-function CourseEditor({ id, disabled }: { id: string; disabled: boolean }) {
-  const db = S.useDB();
-  const run = useRun();
-  const c = db.courses.find((x) => x.id === id)!;
-  const [name, setName] = useState(c.name);
-  const [booking, setBooking] = useState(String(c.bookingDefault / 100));
-  const [inst, setInst] = useState(c.instalments.map((x) => String(x / 100)));
-  const [weeks, setWeeks] = useState(String(c.durationWeeks));
-  const parsed = inst.map(parseRupees);
-  const bk = parseRupees(booking);
-  const ok = bk !== null && parsed.every((x) => x !== null && x > 0) && !!name.trim();
-  return (
-    <Card className="p-4">
-      <div className="grid sm:grid-cols-4 gap-3">
-        <Field label="Course name" className="sm:col-span-2"><Input value={name} onChange={(e) => setName(e.target.value)} disabled={disabled} /></Field>
-        <Field label="Default booking (₹)" hint="₹500–₹1,000 typical"><Input value={booking} onChange={(e) => setBooking(e.target.value)} disabled={disabled} /></Field>
-        <Field label="Duration (weeks)"><Input type="number" value={weeks} onChange={(e) => setWeeks(e.target.value)} disabled={disabled} /></Field>
-      </div>
-      <div className="mt-3 flex flex-wrap items-end gap-2">
-        {inst.map((v, i) => (
-          <Field key={i} label={`Instalment ${i + 1} (₹)`} className="w-32"><Input value={v} onChange={(e) => setInst(inst.map((x, j) => (j === i ? e.target.value : x)))} disabled={disabled} /></Field>
-        ))}
-        {!disabled && <>
-          <Button size="sm" variant="ghost" onClick={() => setInst([...inst, '1000'])}>+ Instalment</Button>
-          {inst.length > 1 && <Button size="sm" variant="ghost" onClick={() => setInst(inst.slice(0, -1))}>− Remove last</Button>}
-        </>}
-        <div className="flex-1" />
-        <span className="text-muted pb-2">Instalments total {ok ? fmtINR(parsed.reduce((a, b) => a! + b!, 0)!) : '—'}</span>
-        {!disabled && <Button variant="primary" disabled={!ok} onClick={() => run(() => S.saveCourse({ id, name, bookingDefault: bk!, instalments: parsed as number[], durationWeeks: +weeks || 1 }), 'Course saved')}>Save</Button>}
-      </div>
-    </Card>
-  );
-}

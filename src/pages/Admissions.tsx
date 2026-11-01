@@ -46,7 +46,7 @@ export function AdmissionForm({ leadId, onDone, page }: { leadId?: string; onDon
   const lead = db.leads.find((l) => l.id === leadId);
   const today = todayIST();
   const [key] = useState(uid);
-  const course0 = db.courses[0];
+  const course0 = db.courses.find((c) => c.status !== 'closed') ?? db.courses[0];
   const [f, setF] = useState({
     name: lead?.name ?? '', phone: lead?.phone ?? '', altPhone: '', email: lead?.email ?? '', address: '', city: '', state: '', pin: '', dob: '', gender: '' as Gender,
     courseId: course0?.id ?? '', batchId: '', admissionDate: today, source: lead?.source ?? 'Walk-in', campaign: lead?.campaign ?? '', counsellorId: lead?.assignedTo || me.id,
@@ -172,7 +172,7 @@ export function AdmissionForm({ leadId, onDone, page }: { leadId?: string; onDon
 
       <FormSection icon={ICON.book} title="Course details">
         <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3.5">
-          <Field label="Course" required><Select value={f.courseId} onChange={(e) => setF({ ...f, courseId: e.target.value, batchId: '', booking: String((db.courses.find((c) => c.id === e.target.value)?.bookingDefault ?? 0) / 100) })} options={db.courses.map((c) => ({ value: c.id, label: c.name }))} /></Field>
+          <Field label="Course" required><Select value={f.courseId} onChange={(e) => setF({ ...f, courseId: e.target.value, batchId: '', booking: String((db.courses.find((c) => c.id === e.target.value)?.bookingDefault ?? 0) / 100) })} options={db.courses.filter((c) => c.status !== 'closed' || c.id === f.courseId).map((c) => ({ value: c.id, label: c.status === 'upcoming' ? `${c.name} (upcoming)` : c.name }))} /></Field>
           <Field label="Batch" hint={!batches.length ? 'No open batches' : undefined}>
             <Select value={f.batchId} onChange={set('batchId')} placeholder="Assign later" options={batches.map((b) => ({ value: b.id, label: `${b.name} · ${b.timing} (${db.students.filter((s) => s.batchId === b.id && s.status === 'Active').length}/${b.capacity})` }))} />
           </Field>
