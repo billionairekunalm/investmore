@@ -418,59 +418,63 @@ export function StudentProfile() {
   const canEdit = S.allowed('students', 'edit', db);
   const canCollect = fees && S.allowed('fees', 'create', db) && f.outstanding > 0 && s.status !== 'Refunded';
   const recent = db.payments.filter((p) => p.studentId === s.id && p.kind === 'payment').sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 4);
+  const overdueAmt = f.lines.filter((l) => l.status === 'Overdue').reduce((t, l) => t + l.remaining, 0);
+  const missing = [!s.email && 'email', !s.altPhone && 'alternate mobile', !s.dob && 'date of birth', !(s.address || s.city) && 'address'].filter(Boolean) as string[];
   const goTab = (t: Tab) => { sp.set('tab', t); setSp(sp, { replace: true }); };
 
   return (
     <>
       <Link to="/students" className="inline-flex items-center gap-1 text-[12.5px] text-muted hover:text-navy mb-3">← All students</Link>
+      {/* profile header: identity first, actions grouped on the right, fee figures in one band underneath */}
       <Card className="overflow-hidden mb-4 rounded-2xl shadow-[0_2px_10px_-4px_rgba(15,35,65,.15)]">
-        <div className="h-20 sm:h-24 bg-gradient-to-r from-navy via-[#173563] to-[#0b4d2c] relative">
-          <div className="absolute inset-0 opacity-[.07] bg-[radial-gradient(circle_at_1px_1px,white_1px,transparent_0)] [background-size:16px_16px]" />
-        </div>
-        {/* on phones the action buttons move below the name (row becomes `contents`, actions `order-last`) */}
-        <div className="px-4 sm:px-6 pb-5 flex flex-col">
-          <div className="flex flex-wrap items-end justify-between gap-3 max-sm:contents">
-            <div className="relative -mt-10 sm:-mt-12 self-start">
-              <Avatar name={s.name} photo={s.photo} size="size-20 sm:size-24 text-2xl ring-4!" />
+        <div className="h-1.5 bg-gradient-to-r from-navy via-[#173563] to-accent" />
+        <div className="p-4 sm:p-6 flex flex-col xl:flex-row xl:items-start gap-5">
+          <div className="flex items-start gap-4 min-w-0 flex-1">
+            <div className="relative shrink-0">
+              <Avatar name={s.name} photo={s.photo} size="size-16 sm:size-20 text-xl" />
               {canEdit && (
-                <label className="absolute bottom-0.5 right-0.5 size-7 rounded-full bg-white border border-line shadow grid place-items-center cursor-pointer text-zinc-600 hover:text-navy" title={s.photo ? 'Change photo' : 'Add photo'}>
+                <label className="absolute -bottom-0.5 -right-0.5 size-7 rounded-full bg-white border border-line shadow grid place-items-center cursor-pointer text-zinc-600 hover:text-navy" title={s.photo ? 'Change photo' : 'Add photo'}>
                   <Ic d={ICON.camera} className="size-3.5" />
                   <input type="file" accept="image/*" className="sr-only" onChange={async (e) => { const file = e.target.files?.[0]; if (!file) return; const photo = await resizeImage(file); run(() => S.updateStudent(s.id, { photo }), 'Photo updated'); e.target.value = ''; }} />
                 </label>
               )}
             </div>
-            <div className="flex flex-wrap gap-2 pt-3 max-sm:order-last max-sm:pt-4">
-              <CallButton size="md" target={{ entity: 'student', id: s.id, name: s.name, phone: s.phone }} />
-              {fees && f.outstanding > 0 && f.next && s.status !== 'Refunded' && (s.remindersOptOut
-                ? <Button disabled title="Student opted out of reminders"><Ic d={ICON.bell} /> Reminder</Button>
-                : <a href={reminderLink(db, s, f)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg border border-line bg-white font-medium hover:bg-warn-soft hover:text-warn hover:border-warn/30"><Ic d={ICON.bell} /> Send reminder</a>)}
-              {S.allowed('batches', 'edit', db) && <Button onClick={() => setTransfer(true)}>Transfer batch</Button>}
-              {canEdit && <Select value="" onChange={(e) => e.target.value && changeStatus(e.target.value as StudentStatus)} placeholder="Change status…" options={STUDENT_STATUSES.filter((x) => x !== s.status)} className="w-44" />}
-              {canCollect && <Button variant="primary" onClick={() => setPayOpen(true)}><Ic d={ICON.rupee} /> Collect fees</Button>}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap"><h1 className="text-[22px] sm:text-[24px] font-bold tracking-tight text-navy leading-tight">{s.name}</h1><Badge>{s.status}</Badge>{fees && <Badge>{f.status}</Badge>}</div>
+              <dl className="mt-3 grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-x-6 gap-y-2.5">
+                <Fact icon={ICON.id} label="Student ID" value={s.code} />
+                <Fact icon={ICON.phone} label="Mobile" value={fmtPhone(s.phone)} />
+                <Fact icon={ICON.cal} label="Enrolled" value={fmtDate(s.admissionDate)} />
+                <Fact icon={ICON.book} label="Course" value={course?.name ?? '—'} />
+                <Fact icon={ICON.layers} label="Batch" value={batch ? `${batch.name} · ${batch.timing}` : 'Not assigned'} />
+                {s.email && <Fact icon={ICON.mail} label="Email" value={s.email} />}
+              </dl>
             </div>
           </div>
-          <div className="mt-3 flex items-center gap-2 flex-wrap"><h1 className="text-[22px] font-bold tracking-tight text-navy">{s.name}</h1><Badge>{s.status}</Badge>{fees && <Badge>{f.status}</Badge>}</div>
-          <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1.5 text-[13px] text-zinc-600">
-            <Meta icon={ICON.id}>{s.code}</Meta>
-            <Meta icon={ICON.phone}>{fmtPhone(s.phone)}</Meta>
-            {s.email && <Meta icon={ICON.mail}>{s.email}</Meta>}
-            <Meta icon={ICON.cal}>Enrolled {fmtDate(s.admissionDate)}</Meta>
-            <Meta icon={ICON.layers}>{batch ? `${batch.name} · ${batch.timing}` : 'No batch'}</Meta>
+          <div className="flex flex-wrap gap-2 sm:pl-24 xl:pl-0 xl:w-56 xl:shrink-0 xl:flex-col xl:items-stretch">
+            {canCollect && <Button variant="primary" className="h-9 xl:h-10 xl:w-full" onClick={() => setPayOpen(true)}><Ic d={ICON.rupee} /> Collect fees</Button>}
+            <div className="flex flex-wrap gap-2 xl:grid xl:grid-cols-2 [&>*]:justify-center">
+              <div className="contents xl:block [&>a]:xl:w-full [&>a]:justify-center"><CallButton size="md" target={{ entity: 'student', id: s.id, name: s.name, phone: s.phone }} /></div>
+              {fees && f.outstanding > 0 && f.next && s.status !== 'Refunded' && (s.remindersOptOut
+                ? <Button disabled title="Student opted out of reminders"><Ic d={ICON.bell} /> Remind</Button>
+                : <a href={reminderLink(db, s, f)} target="_blank" rel="noreferrer" title="Send WhatsApp reminder" className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-lg border border-line bg-white font-medium hover:bg-warn-soft hover:text-warn hover:border-warn/30"><Ic d={ICON.bell} /> Remind</a>)}
+            </div>
+            {S.allowed('batches', 'edit', db) && <Button className="xl:w-full" onClick={() => setTransfer(true)}>Transfer batch</Button>}
+            {canEdit && <Select value="" onChange={(e) => e.target.value && changeStatus(e.target.value as StudentStatus)} placeholder="Change status…" options={STUDENT_STATUSES.filter((x) => x !== s.status)} className="w-44 xl:w-full" />}
           </div>
         </div>
+        {fees && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-line border-t border-line">
+            <Band label="Total fee" value={fmtINR(f.total)} foot={`${f.lines.filter((l) => l.state === 'active').length} instalments`} />
+            <Band label="Paid" value={<span className="text-accent">{fmtINR(f.paid)}</span>}
+              foot={<span className="flex items-center gap-2"><Bar value={pct(f.paid, f.total)} className="flex-1 max-w-28" /><b className="text-accent tabular">{pct(f.paid, f.total)}%</b></span>} />
+            <Band label="Pending balance" value={<span className={f.outstanding ? (overdueAmt ? 'text-bad' : 'text-warn') : 'text-accent'}>{fmtINR(f.outstanding)}</span>}
+              foot={overdueAmt ? <span className="text-bad font-medium">{fmtINR(overdueAmt)} overdue</span> : f.refunded > 0 ? `Refunded ${fmtINR(f.refunded)}` : f.outstanding ? 'Nothing overdue' : 'Fully paid'} />
+            <Band label="Next due" value={f.next ? fmtINR(f.next.remaining) : '—'}
+              foot={f.next ? <span className="flex flex-wrap items-center gap-1.5"><span className="whitespace-nowrap">{fmtDate(f.next.dueDate)}</span><DueChip date={f.next.dueDate} today={today} /></span> : 'Nothing due'} />
+          </div>
+        )}
       </Card>
-
-      {fees && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
-          <MiniStat label="Total fee" value={fmtINR(f.total)} icon={ICON.wallet} tone="text-navy bg-navy-soft" />
-          <MiniStat label="Paid" value={fmtINR(f.paid)} icon={ICON.check} tone="text-accent bg-accent-soft" valueCls="text-accent"
-            foot={<div className="flex items-center gap-2"><Bar value={pct(f.paid, f.total)} className="flex-1" /><span className="text-[11.5px] font-semibold text-accent tabular">{pct(f.paid, f.total)}%</span></div>} />
-          <MiniStat label="Pending balance" value={fmtINR(f.outstanding)} icon={ICON.alert} tone="text-bad bg-bad-soft" valueCls={f.status === 'Overdue' ? 'text-bad' : undefined}
-            foot={f.refunded > 0 ? <span className="text-[11.5px] text-muted">Refunded {fmtINR(f.refunded)}</span> : undefined} />
-          <MiniStat label="Next due" value={f.next ? fmtINR(f.next.remaining) : '—'} icon={ICON.cal} tone="text-warn bg-warn-soft"
-            foot={f.next ? <div className="flex items-center gap-1.5 text-[11.5px] text-muted">{fmtDate(f.next.dueDate)} <DueChip date={f.next.dueDate} today={today} /></div> : <span className="text-[11.5px] text-accent font-medium">Nothing due</span>} />
-        </div>
-      )}
 
       <Tabs tabs={tabs} value={tab} onChange={goTab} />
 
@@ -523,14 +527,17 @@ export function StudentProfile() {
             <Card className="rounded-2xl p-4">
               <h3 className="font-semibold text-[14px] mb-3">Contact & personal</h3>
               <div className="space-y-2.5">
+                <Row k="Mobile" v={fmtPhone(s.phone)} />
+                {s.altPhone && <Row k="Alternate" v={fmtPhone(s.altPhone)} />}
+                {s.email && <Row k="Email" v={<span className="break-all">{s.email}</span>} />}
                 {(s.dob || s.gender) && <Row k="Born · gender" v={[s.dob && fmtDate(s.dob), s.gender].filter(Boolean).join(' · ')} />}
-                <Row k="Mobile" v={fmtPhone(s.phone)} /><Row k="Alternate" v={s.altPhone ? fmtPhone(s.altPhone) : '—'} /><Row k="Email" v={<span className="break-all">{s.email || '—'}</span>} />
-                <Row k="Address" v={[s.address, s.city, s.state, s.pin].filter(Boolean).join(', ') || '—'} />
+                {(s.address || s.city) && <Row k="Address" v={[s.address, s.city, s.state, s.pin].filter(Boolean).join(', ')} />}
                 <Row k="Source" v={`${s.source}${s.campaign ? ` · ${s.campaign}` : ''}`} />
                 <Row k="Counsellor" v={S.empName(s.counsellorId, db)} />
                 {s.leadId && <Row k="Converted from" v={<Link className="text-accent" to={`/leads?lead=${s.leadId}`}>{s.leadId}</Link>} />}
               </div>
-              {canEdit && <button onClick={() => goTab('personal')} className="mt-3 text-[12.5px] font-medium text-navy hover:underline">Edit details →</button>}
+              {missing.length > 0 && <p className="mt-3 pt-3 border-t border-line text-[12px] text-muted">Not added yet: {missing.join(', ')}{canEdit && <> · <button onClick={() => goTab('personal')} className="font-medium text-navy hover:underline">Add →</button></>}</p>}
+              {canEdit && !missing.length && <button onClick={() => goTab('personal')} className="mt-3 text-[12.5px] font-medium text-navy hover:underline">Edit details →</button>}
             </Card>
             <Card className="rounded-2xl p-4">
               <h3 className="font-semibold text-[14px] mb-3">Course & batch</h3>
@@ -568,14 +575,19 @@ export function StudentProfile() {
   );
 }
 const Row = ({ k, v }: { k: string; v: React.ReactNode }) => <div className="flex justify-between gap-3"><span className="text-muted shrink-0">{k}</span><span className="text-right font-medium text-zinc-800 min-w-0">{v}</span></div>;
-const Meta = ({ icon, children }: { icon: string; children: ReactNode }) => <span className="inline-flex items-center gap-1.5 min-w-0"><Ic d={icon} className="size-3.5 text-zinc-400" /><span className="truncate">{children}</span></span>;
-function MiniStat({ label, value, icon, tone, valueCls, foot }: { label: string; value: ReactNode; icon: string; tone: string; valueCls?: string; foot?: ReactNode }) {
+const Fact = ({ icon, label, value }: { icon: string; label: string; value: ReactNode }) => (
+  <div className="flex items-start gap-2.5 min-w-0">
+    <span className="mt-0.5 size-7 rounded-lg bg-navy-soft text-navy grid place-items-center shrink-0"><Ic d={icon} className="size-3.5" /></span>
+    <div className="min-w-0 leading-tight"><dt className="text-[10.5px] font-semibold uppercase tracking-wider text-zinc-400">{label}</dt><dd className="text-[13px] font-medium text-zinc-800 truncate" title={typeof value === 'string' ? value : undefined}>{value}</dd></div>
+  </div>
+);
+function Band({ label, value, foot }: { label: string; value: ReactNode; foot?: ReactNode }) {
   return (
-    <Card className="rounded-2xl p-4 shadow-[0_1px_3px_rgba(15,35,65,.06)]">
-      <div className="flex items-center justify-between gap-2"><span className="text-[11.5px] font-semibold uppercase tracking-wider text-muted">{label}</span><span className={cx('size-8 rounded-lg grid place-items-center', tone)}><Ic d={icon} /></span></div>
-      <div className={cx('mt-1.5 text-[20px] font-bold tabular text-navy truncate', valueCls)}>{value}</div>
-      {foot && <div className="mt-1.5">{foot}</div>}
-    </Card>
+    <div className="bg-surface px-4 sm:px-5 py-3.5 min-w-0">
+      <div className="text-[10.5px] font-semibold uppercase tracking-wider text-zinc-500">{label}</div>
+      <div className="mt-1 text-[20px] font-bold tabular text-navy leading-tight truncate">{value}</div>
+      {foot && <div className="mt-1 text-[11.5px] text-muted">{foot}</div>}
+    </div>
   );
 }
 

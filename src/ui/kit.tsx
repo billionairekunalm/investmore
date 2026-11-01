@@ -176,7 +176,7 @@ export function Table<T>({ rows, cols, rowKey, onRow, empty, selectable, selecte
 
 export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { id: T; label: string; count?: number }[]; value: T; onChange: (t: T) => void }) {
   return (
-    <div className="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-line mb-4 -mx-1 px-1">
+    <div className="flex gap-1 overflow-x-auto overflow-y-hidden [scrollbar-width:none] border-b border-line mb-4 -mx-1 px-1">
       {tabs.map((t) => (
         <button key={t.id} onClick={() => onChange(t.id)}
           className={cx('px-3 py-2 -mb-px border-b-2 whitespace-nowrap font-medium transition-colors', value === t.id ? 'border-accent text-ink' : 'border-transparent text-muted hover:text-ink')}>
