@@ -28,6 +28,9 @@ export default function Profit() {
   const canAdd = S.allowed('expenses', 'create', db);
   const history = [...db.withdrawals].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
   const canWithdraw = S.allowed('profit', 'create', db);
+  // withdrawn from the profit of the months shown, so the card drops to ₹0 once the share is taken
+  const [m0, m1] = [range[0].slice(0, 7), range[1].slice(0, 7)];
+  const taken = (name: string) => db.withdrawals.filter((w) => w.founder === name && w.forMonth >= m0 && w.forMonth <= m1).reduce((t, w) => t + w.amount, 0);
 
   return (
     <>
@@ -69,7 +72,8 @@ export default function Profit() {
                 <div className="min-w-0"><div className="font-bold text-[16px] text-ink truncate">{s.name}</div><div className="text-[12.5px] font-semibold" style={{ color }}>{(s.pctBp / 100).toFixed(s.pctBp % 100 ? 2 : 0)}% share</div></div>
               </div>
               <div className="mt-4 text-[11px] font-bold uppercase tracking-wider text-zinc-500">Receives</div>
-              <div className="text-[28px] font-bold tabular text-ink leading-tight">{fmtINR(s.amount)}</div>
+              <div className="text-[28px] font-bold tabular text-ink leading-tight">{fmtINR(Math.max(0, s.amount - taken(s.name)))}</div>
+              {taken(s.name) > 0 && <div className="text-[12px] text-muted tabular">Share {fmtINR(s.amount)} · withdrawn {fmtINR(taken(s.name))}</div>}
             </div>
           );
         })}
