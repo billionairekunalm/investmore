@@ -153,7 +153,7 @@ export function Layout({ children }: { children: ReactNode }) {
               </div>
             )}
             <main className="flex-1 overflow-y-auto">
-              <div className="mx-auto max-w-[1400px] p-4 sm:p-6 pb-24 lg:pb-8">{children}</div>
+              <div className="mx-auto max-w-[1400px] p-4 sm:p-6 pb-32 lg:pb-8">{children}</div>
             </main>
             <MobileTabs items={items} />
           </div>
@@ -164,16 +164,23 @@ export function Layout({ children }: { children: ReactNode }) {
   );
 }
 
+/** Phone bottom bar: a floating, rounded bar with big icons; the open page gets a green pill. */
 function MobileTabs({ items }: { items: typeof NAV }) {
   const pick = ['/', '/students', '/collections', '/batches', '/leads'];
   const tabs = items.filter((i) => pick.includes(i.to)).slice(0, 5);
+  const short: Record<string, string> = { '/': 'Home', '/students': 'Students', '/collections': 'Collect', '/batches': 'Batches', '/leads': 'Leads' };
   return (
-    <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur border-t border-line flex no-print" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      {tabs.map((n) => (
-        <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => cx('flex-1 flex flex-col items-center gap-0.5 py-2 text-[10.5px] font-medium', isActive ? 'text-accent' : 'text-zinc-500')}>
-          <Icon d={n.icon} />{n.label.split(' ')[0]}
-        </NavLink>
-      ))}
+    <nav aria-label="Main" className="lg:hidden fixed bottom-0 inset-x-0 z-30 px-3 pt-2 no-print pointer-events-none" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 10px)' }}>
+      <div className="pointer-events-auto mx-auto max-w-md flex items-stretch gap-1 rounded-[22px] bg-white/95 backdrop-blur-md border border-zinc-200/80 p-1.5 shadow-[0_10px_30px_-10px_rgba(15,35,65,.35)]">
+        {tabs.map((n) => (
+          <NavLink key={n.to} to={n.to} end={n.to === '/'}
+            className={({ isActive }) => cx('flex-1 min-w-0 flex flex-col items-center justify-center gap-1 rounded-2xl py-2 text-[11.5px] font-semibold transition-colors',
+              isActive ? 'bg-[linear-gradient(135deg,#046b23,#0e9f3d)] text-white shadow-[0_6px_14px_-6px_rgba(4,107,35,.8)]' : 'text-zinc-500 active:bg-zinc-100')}>
+            <svg viewBox="0 0 16 16" className="size-[22px]" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d={n.icon} /></svg>
+            <span className="truncate max-w-full px-0.5">{short[n.to] ?? n.label.split(' ')[0]}</span>
+          </NavLink>
+        ))}
+      </div>
     </nav>
   );
 }
