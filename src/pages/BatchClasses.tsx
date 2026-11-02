@@ -505,3 +505,58 @@ export function BatchHistory({ batch }: { batch: Batch }) {
     </div>
   );
 }
+
+/* ===================================== lectures (YouTube) ===================================== */
+/** Admin: assign YouTube lectures to a batch. Only this batch's students see them, inside their app. */
+export function BatchLectures({ batch }: { batch: Batch }) {
+  const db = S.useDB();
+  const run = useRun();
+  const { ask } = useUI();
+  const can = S.allowed('batches', 'edit', db);
+  const list = db.videos.filter((v) => v.batchId === batch.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const [f, setF] = useState<{ id?: string; title: string; url: string; notes: string } | null>(null);
+  const [play, setPlay] = useState<string | null>(null);
+  const vid = f ? S.youtubeId(f.url) : null;
+  const save = () => { if (!f) return; let ok = false; run(() => { S.saveVideo({ ...f, batchId: batch.id }); ok = true; }, f.id ? 'Lecture updated' : 'Lecture added. Students of this batch can watch it now'); if (ok) setF(null); };
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-[13px] text-muted mr-auto">YouTube lectures for <b className="text-ink">{batch.name}</b>. Students of this batch watch them in their app.</p>
+        {S.allowed('batches', 'create', db) && <Button variant="primary" onClick={() => setF({ title: '', url: '', notes: '' })}>+ Add YouTube video</Button>}
+      </div>
+      {!list.length ? <Card><Empty title="No lectures yet" body="Upload the class to YouTube (Unlisted is fine), then add its link here." /></Card> : (
+        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          {list.map((v, i) => (
+            <Card key={v.id} className="rounded-2xl overflow-hidden">
+              <button onClick={() => setPlay(v.videoId)} className="relative block w-full aspect-video bg-black group" aria-label={`Play ${v.title}`}>
+                <img src={`https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`} alt="" className="size-full object-cover opacity-90 group-hover:opacity-100" loading="lazy" />
+                <span className="absolute inset-0 grid place-items-center"><span className="size-12 rounded-full bg-black/60 text-white grid place-items-center text-[20px] group-hover:bg-red-600 transition-colors">▶</span></span>
+                <span className="absolute top-2 left-2 rounded-md bg-black/60 text-white text-[11px] font-semibold px-1.5 py-0.5">#{list.length - i}</span>
+              </button>
+              <div className="p-3">
+                <div className="font-semibold text-ink leading-snug">{v.title}</div>
+                {v.notes && <div className="text-[12.5px] text-muted mt-0.5 line-clamp-2">{v.notes}</div>}
+                <div className="mt-2 flex items-center gap-2 text-[12px] text-muted"><span className="mr-auto">{fmtDate(v.createdAt.slice(0, 10))}</span>
+                  {can && <><Button size="sm" variant="ghost" onClick={() => setF({ id: v.id, title: v.title, url: v.url, notes: v.notes })}>Edit</Button>
+                    <Button size="sm" variant="ghost" onClick={async () => { if (await ask({ title: `Remove "${v.title}"?`, message: 'Students of this batch will no longer see it. The video stays on YouTube.', confirm: 'Remove', danger: true })) run(() => S.deleteVideo(v.id), 'Lecture removed'); }}>Remove</Button></>}
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+      <Modal open={!!f} onClose={() => setF(null)} title={f?.id ? 'Edit lecture' : 'Add YouTube video'}
+        footer={<><Button onClick={() => setF(null)}>Cancel</Button><Button variant="primary" disabled={!f?.title.trim() || !vid} onClick={save}>{f?.id ? 'Save' : 'Add lecture'}</Button></>}>
+        {f && <div className="space-y-3.5">
+          <Field label="YouTube link" required error={f.url && !vid ? 'Paste a YouTube video link' : undefined}><Input autoFocus value={f.url} onChange={(e) => setF({ ...f, url: e.target.value })} placeholder="https://youtu.be/..." /></Field>
+          {vid && <img src={`https://i.ytimg.com/vi/${vid}/hqdefault.jpg`} alt="Video preview" className="w-full max-w-xs aspect-video object-cover rounded-lg border border-line" />}
+          <Field label="Lecture title" required><Input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="e.g. Lecture 3: Support and Resistance" /></Field>
+          <Field label="Note (optional)"><Textarea value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} className="min-h-14" placeholder="What this lecture covers" /></Field>
+        </div>}
+      </Modal>
+      <Modal open={!!play} onClose={() => setPlay(null)} title="Lecture" wide>
+        {play && <div className="aspect-video rounded-lg overflow-hidden bg-black"><iframe src={`https://www.youtube-nocookie.com/embed/${play}?rel=0&modestbranding=1&autoplay=1`} title="Lecture" className="size-full" allow="accelerometer; autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen /></div>}
+      </Modal>
+    </div>
+  );
+}

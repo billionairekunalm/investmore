@@ -44,6 +44,7 @@ export const TABLES: TableSpec[] = [
   { table: 'attendance', key: 'attendance', cols: cols('id', 'batchId', 'date:date', 'present:json') },
   { table: 'class_sessions', key: 'classes', cols: cols('id', 'batchId', 'date:date', 'startTime', 'endTime', 'status', 'notes', 'createdAt:ts') },
   { table: 'class_marks', key: 'marks', cols: cols('id', 'classId', 'studentId', 'status', 'at:ts', 'method', 'markedBy') },
+  { table: 'batch_videos', key: 'videos', cols: cols('id', 'batchId', 'title', 'url', 'videoId', 'notes', 'createdAt:ts', 'addedBy') },
   { table: 'notifications', key: 'notifications', cols: cols('id', 'key', 'at:ts', 'title', 'body', 'link', 'forRoles:json', 'forUser', 'readBy:json', 'phone') },
   { table: 'audit_log', key: 'audit', cols: cols('id', 'at:ts', 'by', 'action', 'entity', 'entityId', 'detail') },
   { table: 'import_jobs', key: 'imports', cols: cols('id', 'at:ts', 'by', 'fileName', 'total:int', 'imported:int', 'duplicates:int', 'invalid:int', 'errors:json') },

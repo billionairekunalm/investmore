@@ -4,7 +4,7 @@ import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Ta
 import { financeFor } from '../domain/finance';
 import type { Batch, BatchStatus } from '../domain/types';
 import { fmtDate, fmtINR, fmtTime, nowIST, todayIST, addDays } from '../domain/util';
-import { BatchAttendance, BatchHistory, BatchStudents, ClassCalendar, ClassModal, batchColor, classLabel, classesOf, defaultClass, roster, stateOf } from './BatchClasses';
+import { BatchAttendance, BatchHistory, BatchLectures, BatchStudents, ClassCalendar, ClassModal, batchColor, classLabel, classesOf, defaultClass, roster, stateOf } from './BatchClasses';
 
 export default function Batches() {
   const db = S.useDB();
@@ -151,7 +151,7 @@ function BatchModal({ batch, onClose }: { batch: Partial<Batch> | null; onClose:
   );
 }
 
-type DTab = 'overview' | 'students' | 'calendar' | 'attendance' | 'history';
+type DTab = 'overview' | 'students' | 'calendar' | 'attendance' | 'history' | 'lectures';
 /** Batch dashboard: overview, students (coloured by attendance), calendar, attendance (with classroom QR) and history. */
 function BatchDetail({ id, onBack, onEdit }: { id: string; onBack: () => void; onEdit: () => void }) {
   const db = S.useDB();
@@ -199,7 +199,7 @@ function BatchDetail({ id, onBack, onEdit }: { id: string; onBack: () => void; o
         </div>
       </Card>
 
-      <Tabs value={tab} onChange={setTab} tabs={[{ id: 'overview', label: 'Overview' }, { id: 'students', label: 'Students', count: students.length }, { id: 'calendar', label: 'Calendar' }, { id: 'attendance', label: 'Attendance' }, { id: 'history', label: 'Attendance history' }]} />
+      <Tabs value={tab} onChange={setTab} tabs={[{ id: 'overview', label: 'Overview' }, { id: 'students', label: 'Students', count: students.length }, { id: 'calendar', label: 'Calendar' }, { id: 'attendance', label: 'Attendance' }, { id: 'history', label: 'Attendance history' }, { id: 'lectures', label: 'Lectures', count: db.videos.filter((v) => v.batchId === id).length }]} />
       {tab === 'overview' && (
         <div className="grid lg:grid-cols-2 gap-4">
           <Card className="rounded-2xl">
@@ -225,6 +225,7 @@ function BatchDetail({ id, onBack, onEdit }: { id: string; onBack: () => void; o
       {tab === 'calendar' && <ClassCalendar batchId={id} />}
       {tab === 'attendance' && <BatchAttendance batch={b} classId={classId} setClassId={setClassId} />}
       {tab === 'history' && <BatchHistory batch={b} />}
+      {tab === 'lectures' && <BatchLectures batch={b} />}
       <ClassModal open={schedule} batchId={id} onClose={() => setSchedule(false)} />
       <ClassModal open={!!openClass} classId={openClass ?? undefined} batchId={id} onClose={() => setOpenClass(null)} onAttendance={goAttendance} />
     </>

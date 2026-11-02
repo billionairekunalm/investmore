@@ -71,11 +71,15 @@ function Academy({ canEdit }: { canEdit: boolean }) {
   const run = useRun();
   const [name, setName] = useState(db.settings.academyName);
   const [inv, setInv] = useState(db.settings.invoice);
+  const [yt, setYt] = useState(db.settings.youtubeChannel ?? '');
   const set = (k: keyof typeof inv) => (e: { target: { value: string } }) => setInv({ ...inv, [k]: e.target.value });
-  const dirty = name !== db.settings.academyName || (Object.keys(inv) as (keyof typeof inv)[]).some((k) => inv[k] !== db.settings.invoice[k]);
+  const dirty = name !== db.settings.academyName || yt.trim() !== (db.settings.youtubeChannel ?? '') || (Object.keys(inv) as (keyof typeof inv)[]).some((k) => inv[k] !== db.settings.invoice[k]);
   return (
     <Section title="Academy details" sub="Shown on invoices, receipts and statements." dirty={dirty && !!name.trim() && canEdit}
-      onSave={() => run(() => S.updateSettings({ academyName: name.trim(), invoice: { ...inv, gstin: inv.gstin.trim().toUpperCase() } }), 'Saved')}>
+      onSave={() => run(() => {
+        if (yt.trim() && !/^https:\/\/(www\.|m\.)?youtube\.com\//i.test(yt.trim())) throw new S.AppError('Use your channel link, e.g. https://www.youtube.com/@yourchannel');
+        S.updateSettings({ academyName: name.trim(), youtubeChannel: yt.trim() || undefined, invoice: { ...inv, gstin: inv.gstin.trim().toUpperCase() } });
+      }, 'Saved')}>
       <div className="grid sm:grid-cols-2 gap-x-4 gap-y-3.5">
         <Field label="Academy name" className="sm:col-span-2"><Input value={name} disabled={!canEdit} onChange={(e) => setName(e.target.value)} /></Field>
         <Field label="Address" className="sm:col-span-2"><Input value={inv.address} disabled={!canEdit} onChange={set('address')} placeholder="Office address, city, PIN" /></Field>
@@ -83,6 +87,7 @@ function Academy({ canEdit }: { canEdit: boolean }) {
         <Field label="Email"><Input value={inv.email} disabled={!canEdit} type="email" onChange={set('email')} /></Field>
         <Field label="GSTIN" hint="Only if GST-registered"><Input value={inv.gstin} disabled={!canEdit} onChange={set('gstin')} /></Field>
         <Field label="Invoice footer note"><Input value={inv.note} disabled={!canEdit} onChange={set('note')} placeholder="e.g. Fees once paid are non-refundable" /></Field>
+        <Field label="YouTube channel" hint="Students get a button to open it in their app" className="sm:col-span-2"><Input value={yt} disabled={!canEdit} onChange={(e) => setYt(e.target.value)} placeholder="https://www.youtube.com/@yourchannel" /></Field>
       </div>
     </Section>
   );

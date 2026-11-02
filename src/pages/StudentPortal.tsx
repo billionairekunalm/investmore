@@ -4,14 +4,15 @@ import { loadPortal, sb } from '../store/cloud';
 import { enablePush, pushState, refreshPush, sendTestReminder, type PushState } from '../lib/push';
 import { TABLES, fromRow } from '../store/schema';
 import { studentFinance } from '../domain/fees';
-import type { Batch, ClassMark, ClassSession, Course, Enrolment, Instalment, Payment, Student } from '../domain/types';
+import type { Batch, BatchVideo, ClassMark, ClassSession, Course, Enrolment, Instalment, Payment, Student } from '../domain/types';
+import { AttendanceTab, CertsTab, CoursesTab, IdCardTab, Ic, TAB_ICONS, type PortalTab } from './PortalTabs';
 import { daysBetween, fmtDate, fmtDateTime, fmtINR, fmtPhone, fmtTime, nowIST, todayIST } from '../domain/util';
-import { Badge, Button, Card, Empty, LogoMark, Modal, Wordmark, cx } from '../ui/kit';
+import { Badge, Button, Card, Empty, Modal, cx } from '../ui/kit';
 
 type Portal = {
   student: Student; course?: Course; batch?: Batch; teacher?: string; instalments: Instalment[]; payments: Payment[];
   enrolments: Enrolment[]; attendance: { date: string; present: boolean }[]; certificates: { id: string; issued_at: string; status: string }[]; academy?: string;
-  classes: ClassSession[]; marks: ClassMark[];
+  classes: ClassSession[]; marks: ClassMark[]; videos: BatchVideo[]; youtubeChannel?: string;
 };
 // QR scans open /attend?t=…; a reminder opens /?class=…  (both survive the sign-in page, which keeps the URL)
 const params = new URLSearchParams(location.search);
@@ -37,6 +38,8 @@ export default function StudentPortal() {
         attendance: p.attendance as Portal['attendance'], certificates: p.certificates as Portal['certificates'], academy: (p.academy as string) ?? undefined,
         classes: ((p.classes as unknown[]) ?? []).map((r) => conv<ClassSession>('class_sessions', r)!),
         marks: ((p.marks as unknown[]) ?? []).map((r) => conv<ClassMark>('class_marks', r)!),
+        videos: ((p.videos as unknown[]) ?? []).map((r) => conv<BatchVideo>('batch_videos', r)!),
+        youtubeChannel: (p.youtubeChannel as string) || undefined,
       });
     }).catch((e) => setErr((e as Error).message));
   };
@@ -47,19 +50,24 @@ export default function StudentPortal() {
   const [win, setWin] = useState({ beforeMins: 15, afterMins: 15 });
   useEffect(() => { void sb!.rpc('attendance_window').then(({ data }) => data && setWin(data as typeof win)); }, []);
 
+  // which main tab is open (remembered on this device); a scanned QR opens Attendance
+  const [tab, setTabState] = useState<PortalTab>(() => { if (attendToken || focusClass) return attendToken ? 'attendance' : 'courses'; try { return (localStorage.getItem('portalTab') as PortalTab) || 'id'; } catch { return 'id'; } });
+  const setTab = (t: PortalTab) => { setTabState(t); try { localStorage.setItem('portalTab', t); } catch { /* */ } };
+
   const top = (
-    <header className="bg-white border-b border-line">
-      <div className="max-w-4xl mx-auto px-4 h-14 flex items-center gap-3">
-        <LogoMark className="size-8" />
-        <Wordmark name={data && data !== 'missing' && data.academy ? data.academy : 'InvestMore'} className="text-[14px]" />
-        <span className="ml-1 rounded-full bg-accent-soft text-accent text-[11px] font-semibold px-2 py-0.5">Student</span>
-        <Button size="sm" variant="ghost" className="ml-auto" onClick={() => S.logout()}>Sign out</Button>
+    <header className="sticky top-0 z-20 bg-white/85 backdrop-blur border-b border-emerald-900/5">
+      <div className="max-w-3xl mx-auto px-4 h-14 flex items-center gap-2.5">
+        <span className="size-8 rounded-xl bg-white border border-emerald-900/10 grid place-items-center overflow-hidden"><img src="/logo-mark.png" alt="" className="w-[85%]" /></span>
+        <div className="leading-tight"><div className="font-bold tracking-[0.14em] text-[13px] text-ink">INVEST<span className="text-accent">MORE</span></div><div className="text-[9.5px] tracking-[0.25em] text-zinc-500">TRAINING ACADEMY</div></div>
+        <button onClick={() => S.logout()} className="ml-auto inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[13px] font-medium text-zinc-600 hover:bg-zinc-100" aria-label="Sign out">
+          <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10" /></svg>Sign out
+        </button>
       </div>
     </header>
   );
-  if (err) return <div className="min-h-full bg-surface">{top}<div className="max-w-4xl mx-auto p-4"><Card><Empty title="Couldn't load your details" body={err} action={<Button onClick={load}>Try again</Button>} /></Card></div></div>;
-  if (data === null) return <div className="min-h-full bg-surface">{top}<p className="text-center text-muted py-16">Loading…</p></div>;
-  if (data === 'missing') return <div className="min-h-full bg-surface">{top}<div className="max-w-4xl mx-auto p-4"><Card><Empty title="No student record found for this login" body="Please contact the academy office." /></Card></div></div>;
+  if (err) return <div className="min-h-full bg-[#f4faf5]">{top}<div className="max-w-4xl mx-auto p-4"><Card><Empty title="Couldn't load your details" body={err} action={<Button onClick={load}>Try again</Button>} /></Card></div></div>;
+  if (data === null) return <div className="min-h-full bg-[#f4faf5]">{top}<p className="text-center text-muted py-16">Loading…</p></div>;
+  if (data === 'missing') return <div className="min-h-full bg-[#f4faf5]">{top}<div className="max-w-4xl mx-auto p-4"><Card><Empty title="No student record found for this login" body="Please contact the academy office." /></Card></div></div>;
 
   const { student: s, course, batch } = data;
   const today = todayIST();
@@ -73,28 +81,48 @@ export default function StudentPortal() {
   const cert = data.certificates.find((c) => c.status === 'Issued');
   const initials = s.name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 
+  const core = { ...data, academy: data.academy };
+  const TABS: [PortalTab, string][] = [['id', 'ID Card'], ['attendance', 'Attendance'], ['courses', 'Courses'], ['certs', 'Certificates & Kits']];
+  const hour = +nowIST().slice(11, 13);
+
   return (
-    <div className="min-h-full bg-surface pb-10">
+    <div className="min-h-full pb-10 bg-[linear-gradient(180deg,#e8f6ec_0px,#f4faf5_260px,#f7f8f7_520px)]">
       {top}
-      <main className="max-w-4xl mx-auto px-4 pt-5 space-y-4">
-        <AttendanceButton classes={data.classes} marks={data.marks} batch={batch?.name} win={win} onOpen={() => setSheet(true)} />
+      <main className="max-w-3xl mx-auto px-4 pt-5 space-y-4">
+        {/* greeting */}
+        <div className="flex items-center gap-3.5">
+          {s.photo ? <img src={s.photo} alt="" className="size-14 rounded-2xl object-cover ring-2 ring-white shadow-md" />
+            : <span className="size-14 rounded-2xl bg-[linear-gradient(135deg,#035a1d,#16b04a)] text-white grid place-items-center text-lg font-bold shadow-md">{initials}</span>}
+          <div className="min-w-0">
+            <div className="text-[13px] text-zinc-500">{hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'},</div>
+            <h1 className="text-[22px] font-bold text-ink leading-tight truncate">{s.name.split(' ')[0]} 👋</h1>
+          </div>
+          <span className="ml-auto shrink-0"><Badge>{s.status}</Badge></span>
+        </div>
+
+        {/* the four main tabs */}
+        <nav aria-label="Student app" className="grid grid-cols-4 gap-2 sticky top-14 z-10 -mx-1 px-1 py-1.5 bg-[#eef8f0]/90 backdrop-blur rounded-2xl">
+          {TABS.map(([id, label]) => (
+            <button key={id} onClick={() => setTab(id)} aria-current={tab === id ? 'page' : undefined}
+              className={cx('flex flex-col items-center justify-center gap-1 rounded-2xl py-2.5 px-1 text-[11.5px] sm:text-[12.5px] font-semibold leading-tight text-center transition-all',
+                tab === id ? 'bg-[linear-gradient(135deg,#046b23,#0e9f3d)] text-white shadow-[0_10px_20px_-10px_rgba(4,107,35,.9)]' : 'bg-white text-emerald-800 border border-emerald-900/10 hover:border-emerald-600/40')}>
+              <span className={cx('size-9 rounded-xl grid place-items-center', tab === id ? 'bg-white/20' : 'bg-emerald-50')}><Ic d={TAB_ICONS[id]} /></span>{label}
+            </button>
+          ))}
+        </nav>
+
+        {tab === 'id' && <IdCardTab p={core} />}
+        {tab === 'attendance' && <AttendanceTab p={core} markButton={<AttendanceButton classes={data.classes} marks={data.marks} batch={batch?.name} win={win} onOpen={() => setSheet(true)} />} />}
+        {tab === 'courses' && <CoursesTab p={core} schedule={<MyClasses classes={data.classes} marks={data.marks} batch={batch?.name} onAttendance={() => { setTab('attendance'); setSheet(true); }} />} />}
+        {tab === 'certs' && <CertsTab p={core} />}
         <AttendanceSheet open={sheet} token={token} setToken={setToken} classes={data.classes} marks={data.marks} onDone={load}
           onClose={() => { setSheet(false); setToken(null); if (location.pathname !== '/') history.replaceState(null, '', '/'); }} />
-        <MyClasses classes={data.classes} marks={data.marks} batch={batch?.name} onAttendance={() => setSheet(true)} />
+
+        {/* below the tabs: as before */}
         <InstallApp />
         <Reminders />
-        {/* who */}
-        <Card className="overflow-hidden rounded-2xl">
-          <div className="h-1.5 bg-gradient-to-r from-navy via-[#173563] to-accent" />
-          <div className="p-5 flex items-center gap-4">
-            {s.photo ? <img src={s.photo} alt="" className="size-16 rounded-full object-cover ring-4 ring-accent-soft" />
-              : <span className="size-16 rounded-full bg-gradient-to-br from-navy to-[#2b5491] text-white grid place-items-center text-xl font-semibold">{initials}</span>}
-            <div className="min-w-0">
-              <h1 className="text-[20px] font-bold text-navy leading-tight">Hello, {s.name.split(' ')[0]}</h1>
-              <p className="text-[13px] text-muted mt-0.5"><b className="text-ink tabular">{s.code}</b> · {course?.name ?? 'Course'} · <Badge>{s.status}</Badge></p>
-            </div>
-          </div>
-          {/* fees at a glance */}
+        <Card className="overflow-hidden rounded-3xl">
+          <h2 className="px-4 pt-4 pb-2 font-bold text-[16px] text-ink">My fees</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-line border-t border-line">
             <Cell label="Total fee" value={fmtINR(f.total)} />
             <Cell label="Paid" value={<span className="text-accent">{fmtINR(f.paid)}</span>} foot={<span className="flex items-center gap-2"><span className="flex-1 max-w-24 h-1.5 rounded-full bg-zinc-200 overflow-hidden"><span className="block h-full bg-accent rounded-full" style={{ width: `${paidPct}%` }} /></span><b className="text-accent">{paidPct}%</b></span>} />
@@ -103,9 +131,9 @@ export default function StudentPortal() {
           </div>
         </Card>
 
-        <div className="grid md:grid-cols-5 gap-4">
+        <div>
           {/* schedule */}
-          <Card className="md:col-span-3 rounded-2xl">
+          <Card className="rounded-3xl">
             <Head title="Fee schedule" />
             {!f.lines.length ? <Empty title="No fee plan yet" /> : (
               <ul className="divide-y divide-line">
@@ -119,23 +147,10 @@ export default function StudentPortal() {
               </ul>
             )}
           </Card>
-          {/* batch */}
-          <Card className="md:col-span-2 rounded-2xl">
-            <Head title="My batch" />
-            <dl className="px-4 pb-4 space-y-2.5 text-[13px]">
-              <Row k="Course" v={course?.name ?? '—'} />
-              <Row k="Batch" v={batch?.name ?? 'Not assigned yet'} />
-              {batch && <><Row k="Days" v={batch.schedule} /><Row k="Time" v={batch.timing} /><Row k="Dates" v={`${fmtDate(batch.startDate)} – ${fmtDate(batch.endDate)}`} /></>}
-              {data.teacher && <Row k="Teacher" v={data.teacher} />}
-              <Row k="Attendance" v={attPct === null ? 'Not marked yet' : `${attPct}% (${present} of ${data.attendance.length})`} />
-              <Row k="Certificate" v={cert ? `Issued ${fmtDate(cert.issued_at.slice(0, 10))}` : s.status === 'Completed' ? 'Coming soon' : 'After you complete the course'} />
-              <Row k="Mobile on file" v={fmtPhone(s.phone)} />
-            </dl>
-          </Card>
         </div>
 
         {/* payments */}
-        <Card className="rounded-2xl">
+        <Card className="rounded-3xl">
           <Head title="My payments" />
           {!pays.length ? <Empty title="No payments yet" /> : (
             <ul className="divide-y divide-line">

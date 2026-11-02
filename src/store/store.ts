@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import type { ClassMark, ClassSession,
+import type { BatchVideo, ClassMark, ClassSession,
   Action, Batch, BookingPolicy, CallOutcome, Certificate, CertificateTemplate, Course, DB, Distribution, DistributionStatus,
   Employee, Expense, ISODate, Withdrawal, Lead, Module, Notification, Paise, Payment, PayMethod, RecurringExpense, Role, Settings, Student, StudentStatus,
 } from '../domain/types';
@@ -54,7 +54,7 @@ export function emptyDB(): DB {
       // Forex Advance: Bikram takes 45%, the other two share the remaining 55% equally
       { id: uid(), name: 'Forex Advance', bookingDefault: 100000, instalments: [300000, 300000, 150000], durationWeeks: 8, status: 'active', shares: [{ name: 'Bikram', pctBp: 4500 }, { name: 'Shekhar', pctBp: 2750 }, { name: 'Sanjeev', pctBp: 2750 }] }],
     batches: [], students: [], enrolments: [], feePlans: [], instalments: [], payments: [], leads: [], calls: [], expenses: [],
-    recurring: [], periods: [], distributions: [], templates: [], certificates: [], attendance: [], classes: [], marks: [], notifications: [], audit: [], imports: [], logins: [], withdrawals: [],
+    recurring: [], periods: [], distributions: [], templates: [], certificates: [], attendance: [], classes: [], marks: [], videos: [], notifications: [], audit: [], imports: [], logins: [], withdrawals: [],
   };
 }
 
@@ -461,6 +461,41 @@ export function markRest(classId: string, studentIds: string[], status: ClassMar
     }
     audit(d, 'attendance.mark', 'class', classId, `${batchName(d, c.batchId)} ${c.date}: ${n} marked ${status}`);
     syncDayAttendance(d, c.batchId, c.date);
+  });
+}
+/** YouTube video id from a watch / youtu.be / shorts / embed / live link (or a bare id). */
+export function youtubeId(url: string): string | null {
+  const u = url.trim();
+  if (/^[\w-]{11}$/.test(u)) return u;
+  const m = u.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/|v\/)|youtu\.be\/)([\w-]{11})/i);
+  return m ? m[1] : null;
+}
+/** Add or edit a lecture for a batch. */
+export function saveVideo(v: Pick<BatchVideo, 'batchId' | 'title' | 'url' | 'notes'> & { id?: string }) {
+  return tx((d) => {
+    guard(d, 'batches', v.id ? 'edit' : 'create');
+    const b = d.batches.find((x) => x.id === v.batchId) ?? fail('Batch not found.');
+    const vid = youtubeId(v.url) ?? fail('Paste a YouTube video link (youtube.com/watch?v=… or youtu.be/…).');
+    const title = v.title.trim() || fail('Give the lecture a title.');
+    if (v.id) {
+      const cur = d.videos.find((x) => x.id === v.id) ?? fail('Lecture not found.');
+      Object.assign(cur, { title, url: v.url.trim(), videoId: vid, notes: v.notes.trim() });
+      audit(d, 'lecture.update', 'batch', b.id, `${b.name}: ${title}`);
+      return cur.id;
+    }
+    if (d.videos.some((x) => x.batchId === b.id && x.videoId === vid)) fail('This video is already added to this batch.');
+    const id = uid();
+    d.videos.push({ id, batchId: b.id, title, url: v.url.trim(), videoId: vid, notes: v.notes.trim(), createdAt: nowISO(), addedBy: me ?? 'system' });
+    audit(d, 'lecture.add', 'batch', b.id, `${b.name}: ${title}`);
+    return id;
+  });
+}
+export function deleteVideo(id: string) {
+  tx((d) => {
+    guard(d, 'batches', 'edit');
+    const v = d.videos.find((x) => x.id === id) ?? fail('Lecture not found.');
+    d.videos = d.videos.filter((x) => x.id !== id);
+    audit(d, 'lecture.remove', 'batch', v.batchId, v.title);
   });
 }
 /** Keeps the older day-level attendance record in step, so student profiles, reports and the portal stay correct. */

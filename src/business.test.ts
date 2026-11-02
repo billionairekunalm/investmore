@@ -456,3 +456,18 @@ describe('founder % always totals 100%', () => {
     expect(rebalanceShares([4000, 3000, 3000], 2, 9000)).toEqual([4000, 0, 6000]); // can't exceed 100%
   });
 });
+
+describe('batch lectures (YouTube)', () => {
+  it('reads the video id from any YouTube link and refuses others / duplicates', () => {
+    for (const u of ['https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'https://youtu.be/dQw4w9WgXcQ?si=x', 'https://youtube.com/shorts/dQw4w9WgXcQ', 'https://www.youtube.com/live/dQw4w9WgXcQ', 'https://m.youtube.com/watch?feature=share&v=dQw4w9WgXcQ'])
+      expect(S.youtubeId(u)).toBe('dQw4w9WgXcQ');
+    expect(S.youtubeId('https://example.com/video')).toBeNull();
+    const b = S.saveBatch({ name: 'TA 01', courseId: course(), teacherId: '', startDate: T, endDate: addDays(T, 30), schedule: 'Mon', timing: '17:00–18:00', capacity: 30, status: 'running' } as never) ?? S.getDB().batches[0].id;
+    const bid = S.getDB().batches[0].id;
+    S.saveVideo({ batchId: bid, title: 'Lecture 1 — Candlesticks', url: 'https://youtu.be/dQw4w9WgXcQ', notes: '' });
+    expect(S.getDB().videos[0]).toMatchObject({ batchId: bid, videoId: 'dQw4w9WgXcQ' });
+    expect(() => S.saveVideo({ batchId: bid, title: 'Again', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', notes: '' })).toThrow(/already added/);
+    expect(() => S.saveVideo({ batchId: bid, title: 'Bad', url: 'https://example.com', notes: '' })).toThrow(/YouTube/);
+    void b;
+  });
+});

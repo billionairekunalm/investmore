@@ -140,6 +140,8 @@ export interface Attendance { id: string; batchId: string; date: ISODate; presen
 /** One scheduled class of a batch. Times are 'HH:MM' in India time (IST). */
 export interface ClassSession { id: string; batchId: string; date: ISODate; startTime: string; endTime: string; status: 'scheduled' | 'cancelled'; notes: string; createdAt: string }
 /** One student's attendance in one class; id = `${classId}:${studentId}`, so there is only ever one record per student per class. */
+/** A YouTube lecture assigned to a batch; only that batch's students see it in their app. */
+export interface BatchVideo { id: string; batchId: string; title: string; url: string; videoId: string; notes: string; createdAt: string; addedBy: string }
 export interface ClassMark { id: string; classId: string; studentId: string; status: 'present' | 'absent'; at: string; method: 'qr' | 'manual' | 'app'; markedBy: string }
 
 export interface Notification {
@@ -171,6 +173,7 @@ export interface Settings {
   certificateAutoIssue: boolean;
   invoice: { address: string; phone: string; email: string; gstin: string; note: string }; // printed on fee invoices
   attendanceWindow?: { beforeMins: number; afterMins: number }; // QR attendance opens this long before a class starts and closes this long after it ends
+  youtubeChannel?: string; // academy's YouTube channel, linked in the student app
   attendanceNoQr?: boolean; // students may mark attendance in the app without scanning (default on)
 }
 
@@ -181,6 +184,6 @@ export interface DB {
   employees: Employee[]; courses: Course[]; batches: Batch[]; students: Student[]; enrolments: Enrolment[];
   feePlans: FeePlan[]; instalments: Instalment[]; payments: Payment[]; leads: Lead[]; calls: CallActivity[];
   expenses: Expense[]; recurring: RecurringExpense[]; periods: FinancialPeriod[]; distributions: Distribution[];
-  templates: CertificateTemplate[]; certificates: Certificate[]; attendance: Attendance[]; classes: ClassSession[]; marks: ClassMark[];
+  templates: CertificateTemplate[]; certificates: Certificate[]; attendance: Attendance[]; classes: ClassSession[]; marks: ClassMark[]; videos: BatchVideo[];
   notifications: Notification[]; audit: AuditLog[]; imports: ImportJob[]; logins: LoginEvent[]; withdrawals: Withdrawal[];
 }
