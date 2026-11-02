@@ -88,7 +88,7 @@ export default function StudentPortal() {
   const initials = s.name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 
   const core = { ...data, academy: data.academy };
-  const TABS: [PortalTab, string][] = [['id', 'ID Card'], ['attendance', 'Attendance'], ['courses', 'Courses'], ['certs', 'Certificates & Kits']];
+  const TABS: [PortalTab, string][] = [['id', 'ID Card'], ['attendance', 'Attendance'], ['courses', 'Courses'], ['certs', 'Certificates']];
   const hour = +nowIST().slice(11, 13);
 
   const openInv = invoiceId ? data.payments.find((x) => x.id === invoiceId) : undefined;
@@ -102,7 +102,7 @@ export default function StudentPortal() {
   );
 
   return (
-    <div className="min-h-full pb-10 bg-[linear-gradient(180deg,#e8f6ec_0px,#f4faf5_260px,#f7f8f7_520px)]">
+    <div className="min-h-full pb-36 bg-[linear-gradient(180deg,#e8f6ec_0px,#f4faf5_260px,#f7f8f7_520px)]">
       {top}
       <main className="max-w-3xl mx-auto px-4 pt-5 space-y-4">
         {/* greeting */}
@@ -116,16 +116,6 @@ export default function StudentPortal() {
           <span className="ml-auto shrink-0"><Badge>{s.status}</Badge></span>
         </div>
 
-        {/* the four main tabs */}
-        <nav aria-label="Student app" className="grid grid-cols-4 gap-2 sticky top-14 z-10 -mx-1 px-1 py-1.5 bg-[#eef8f0]/90 backdrop-blur rounded-2xl">
-          {TABS.map(([id, label]) => (
-            <button key={id} onClick={() => setTab(id)} aria-current={tab === id ? 'page' : undefined}
-              className={cx('flex flex-col items-center justify-center gap-1 rounded-2xl py-2.5 px-1 text-[11.5px] sm:text-[12.5px] font-semibold leading-tight text-center transition-all',
-                tab === id ? 'bg-[linear-gradient(135deg,#046b23,#0e9f3d)] text-white shadow-[0_10px_20px_-10px_rgba(4,107,35,.9)]' : 'bg-white text-emerald-800 border border-emerald-900/10 hover:border-emerald-600/40')}>
-              <span className={cx('size-9 rounded-xl grid place-items-center', tab === id ? 'bg-white/20' : 'bg-emerald-50')}><Ic d={TAB_ICONS[id]} /></span>{label}
-            </button>
-          ))}
-        </nav>
 
         {tab === 'id' && <IdCardTab p={core} />}
         {tab === 'attendance' && <AttendanceTab p={core} markButton={<AttendanceButton classes={data.classes} marks={data.marks} batch={batch?.name} win={win} onOpen={() => setSheet(true)} />} />}
@@ -188,6 +178,20 @@ export default function StudentPortal() {
         </Card>
         <p className="text-center text-[12px] text-muted">Questions about your fees? Contact the academy office.</p>
       </main>
+
+      {/* the four main tabs, at the bottom like a phone app */}
+      <nav aria-label="Student app" className="fixed bottom-0 inset-x-0 z-30 px-3 pt-2 pointer-events-none print:hidden" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 10px)' }}>
+        <div className="pointer-events-auto mx-auto max-w-md grid grid-cols-4 gap-1 rounded-[24px] bg-white/95 backdrop-blur-md border border-emerald-900/10 p-1.5 shadow-[0_12px_32px_-10px_rgba(4,60,25,.45)]">
+          {TABS.map(([id, label]) => (
+            <button key={id} onClick={() => { setTab(id); scrollTo({ top: 0, behavior: 'smooth' }); }} aria-current={tab === id ? 'page' : undefined}
+              className={cx('flex flex-col items-center justify-center gap-1 rounded-[18px] py-2 px-0.5 text-[11.5px] font-semibold leading-tight text-center transition-all',
+                tab === id ? 'bg-[linear-gradient(135deg,#046b23,#0e9f3d)] text-white shadow-[0_8px_16px_-8px_rgba(4,107,35,.9)]' : 'text-zinc-500 active:bg-emerald-50')}>
+              <Ic d={TAB_ICONS[id]} className="size-6" />
+              <span className="truncate max-w-full">{label}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
     </div>
   );
 }
