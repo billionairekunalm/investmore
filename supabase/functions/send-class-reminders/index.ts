@@ -93,7 +93,13 @@ Deno.serve(async (req) => {
         method: 'POST', headers: { Authorization: `Bearer ${bearer}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: {
           token, notification: { title, body }, data: { link, classId: j.class_id ?? '' },
-          webpush: { fcm_options: { link }, notification: { icon: `${site}/icon-512.png`, badge: `${site}/icon-192.png`, tag: `${j.class_id ?? 'test'}-${j.kind}` } },
+          webpush: {
+            // high urgency: delivered straight away even when the phone is asleep and the app is closed (like chat apps);
+            // TTL: if the phone is offline, keep trying until the reminder would be pointless
+            headers: { Urgency: 'high', TTL: String(j.kind === 'soon' ? 1800 : j.kind === 'test' ? 600 : 6 * 3600) },
+            fcm_options: { link },
+            notification: { icon: `${site}/icon-512.png`, badge: `${site}/icon-192.png`, tag: `im-${j.id}`, renotify: true, vibrate: [200, 100, 200] },
+          },
         } }),
       });
       if (res.ok) { ok++; continue; }

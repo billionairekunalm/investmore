@@ -80,6 +80,7 @@ export default function StudentPortal() {
       <main className="max-w-4xl mx-auto px-4 pt-5 space-y-4">
         {attendToken && <AttendPanel token={attendToken} onDone={load} />}
         <MyClasses classes={data.classes} marks={data.marks} batch={batch?.name} />
+        <InstallApp />
         <Reminders />
         {/* who */}
         <Card className="overflow-hidden rounded-2xl">
@@ -262,6 +263,30 @@ function Reminders() {
         {st === 'on' && <Button size="sm" loading={busy} onClick={test}>Send a test</Button>}
       </div>
       {msg && <p className={cx('mt-2 text-[12.5px]', msg.tone === 'ok' ? 'text-accent' : 'text-bad')}>{msg.text}</p>}
+    </Card>
+  );
+}
+
+type InstallEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
+/** Puts the portal on the phone's home screen like an app (needed on iPhone for notifications). Hidden once installed. */
+function InstallApp() {
+  const w = window as unknown as { installPrompt?: InstallEvent };
+  const installed = matchMedia('(display-mode: standalone)').matches || (navigator as unknown as { standalone?: boolean }).standalone === true;
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const [prompt, setPrompt] = useState<InstallEvent | undefined>(w.installPrompt);
+  const [done, setDone] = useState(false);
+  useEffect(() => { const f = () => setPrompt(w.installPrompt); addEventListener('installready', f); return () => removeEventListener('installready', f); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  if (installed || done || (!prompt && !ios)) return null;
+  return (
+    <Card className="rounded-2xl p-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <img src="/icon-192.png" alt="" className="size-10 rounded-xl border border-line" />
+        <div className="flex-1 min-w-[200px]">
+          <div className="font-semibold text-ink">Install the InvestMore app</div>
+          <div className="text-[12.5px] text-muted">{ios ? 'Tap the Share button (square with arrow) below, then "Add to Home Screen". Open the app from your home screen and turn on reminders there.' : 'Add it to your home screen: opens like an app and gets class reminders even when closed.'}</div>
+        </div>
+        {prompt && <Button variant="primary" onClick={async () => { await prompt.prompt(); const r = await prompt.userChoice; if (r.outcome === 'accepted') setDone(true); w.installPrompt = undefined; setPrompt(undefined); }}>Install app</Button>}
+      </div>
     </Card>
   );
 }
