@@ -439,7 +439,7 @@ describe('class schedule & per-class attendance', () => {
     S.setMark(c1, a, 'present'); S.setMark(c1, a, 'present'); S.setMark(c1, z, 'absent');
     expect(S.getDB().marks.filter((m) => m.classId === c1)).toHaveLength(2);
     S.setMark(c1, z, 'present'); // correction
-    expect(S.getDB().audit.some((x) => x.action === 'attendance.correct')).toBe(true);
+    expect(S.getDB().audit.find((x) => x.action === 'attendance.correct')?.detail).toMatch(/absent → present/);
     expect(S.getDB().attendance.find((x) => x.batchId === b && x.date === T)!.present.sort()).toEqual([a, z].sort());
     S.markRest(c2, [a, z], 'absent');
     expect(S.getDB().marks.filter((m) => m.classId === c1 && m.status === 'present')).toHaveLength(2); // class 1 not overwritten

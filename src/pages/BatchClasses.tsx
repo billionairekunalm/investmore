@@ -299,6 +299,9 @@ export function BatchAttendance({ batch, classId, setClassId }: { batch: Batch; 
   const list = classesOf(db, batch.id), c = list.find((x) => x.id === classId);
   const today = todayIST(), now = nowIST();
   const todays = list.find((x) => x.date === today && x.status === 'scheduled');
+  // students' QR scans arrive on the server: pick them up every 10 s while this tab is open
+  // ponytail: pulls all tables; switch to a Supabase realtime subscription on class_marks if it ever feels slow
+  useEffect(() => { if (!cloudEnabled) return; const t = setInterval(() => { if (!document.hidden) void S.refreshNow(); }, 10000); return () => clearInterval(t); }, []);
 
   if (!c) return (
     <Card className="p-6 text-center">
@@ -351,7 +354,7 @@ export function BatchAttendance({ batch, classId, setClassId }: { batch: Batch; 
             {shown.map((r) => <StudentAttCard key={r.s.id} s={r.s} state={r.st} mark={r.m} onSet={can ? (v) => run(() => S.setMark(c.id, r.s.id, v)) : undefined} />)}
           </div>
         )}
-        {cloudEnabled && <p className="text-[12px] text-muted">Students who scan the classroom QR appear here as present. New scans show up when you come back to this page, or press <button className="font-medium text-navy hover:underline" onClick={() => void S.refreshNow()}>Refresh</button>.</p>}
+        {cloudEnabled && <p className="text-[12px] text-muted">Students who scan the classroom QR turn green here by themselves within about 10 seconds. To update now, press <button className="font-medium text-navy hover:underline" onClick={() => void S.refreshNow()}>Refresh</button>.</p>}
       </>}
       {cloudEnabled && can && <QrPanel />}
     </div>

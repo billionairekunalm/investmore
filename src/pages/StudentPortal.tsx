@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import * as S from '../store/store';
 import { loadPortal, sb } from '../store/cloud';
 import { enablePush, pushState, refreshPush, sendTestReminder, type PushState } from '../lib/push';
@@ -6,7 +6,7 @@ import { TABLES, fromRow } from '../store/schema';
 import { studentFinance } from '../domain/fees';
 import type { Batch, ClassMark, ClassSession, Course, Enrolment, Instalment, Payment, Student } from '../domain/types';
 import { daysBetween, fmtDate, fmtDateTime, fmtINR, fmtPhone, fmtTime, nowIST, todayIST } from '../domain/util';
-import { Badge, Button, Card, Empty, LogoMark, Wordmark, cx } from '../ui/kit';
+import { Badge, Button, Card, Empty, LogoMark, Modal, Wordmark, cx } from '../ui/kit';
 
 type Portal = {
   student: Student; course?: Course; batch?: Batch; teacher?: string; instalments: Instalment[]; payments: Payment[];
@@ -42,6 +42,10 @@ export default function StudentPortal() {
   };
   useEffect(load, []);
   useEffect(() => { void refreshPush(); }, []); // keeps this device's reminder registration fresh
+  const [token, setToken] = useState<string | null>(attendToken); // from a scanned classroom QR
+  const [scan, setScan] = useState(false);
+  const [win, setWin] = useState({ beforeMins: 15, afterMins: 15 });
+  useEffect(() => { void sb!.rpc('attendance_window').then(({ data }) => data && setWin(data as typeof win)); }, []);
 
   const top = (
     <header className="bg-white border-b border-line">
@@ -73,8 +77,10 @@ export default function StudentPortal() {
     <div className="min-h-full bg-surface pb-10">
       {top}
       <main className="max-w-4xl mx-auto px-4 pt-5 space-y-4">
-        {attendToken && <AttendPanel token={attendToken} onDone={load} />}
-        <MyClasses classes={data.classes} marks={data.marks} batch={batch?.name} />
+        {token ? <AttendPanel token={token} onDone={load} onClose={() => { setToken(null); history.replaceState(null, '', '/'); }} />
+          : <ClassNow classes={data.classes} marks={data.marks} batch={batch?.name} win={win} onScan={() => setScan(true)} />}
+        <MyClasses classes={data.classes} marks={data.marks} batch={batch?.name} onScan={() => setScan(true)} />
+        <QrScanner open={scan} onClose={() => setScan(false)} onToken={(t) => { setScan(false); setToken(t); }} />
         <InstallApp />
         <Reminders />
         {/* who */}
@@ -166,7 +172,7 @@ function Cell({ label, value, foot }: { label: string; value: ReactNode; foot?: 
 }
 
 /** Opened from the classroom QR: shows the class that is open now and marks the student present (checked by the server). */
-function AttendPanel({ token, onDone }: { token: string; onDone: () => void }) {
+function AttendPanel({ token, onDone, onClose }: { token: string; onDone: () => void; onClose: () => void }) {
   type Info = { ok: boolean; reason?: string; batch?: string; date?: string; start?: string; end?: string; already?: boolean; at?: string };
   const [info, setInfo] = useState<Info | null>(null);
   const [busy, setBusy] = useState(false);
@@ -181,7 +187,6 @@ function AttendPanel({ token, onDone }: { token: string; onDone: () => void }) {
     if (error || !r?.ok) return setInfo({ ok: false, reason: error?.message ?? r?.reason });
     setDone({ at: r.at!, already: !!r.already }); onDone();
   };
-  const close = () => history.replaceState(null, '', '/');
   return (
     <Card className="rounded-2xl overflow-hidden border-2 border-accent/40">
       <div className="p-5 text-center">
@@ -205,13 +210,13 @@ function AttendPanel({ token, onDone }: { token: string; onDone: () => void }) {
             <Button variant="primary" className="mt-4 h-12 px-8 text-[16px]" loading={busy} onClick={mark}>Mark my attendance</Button>
           </>
         )}
-        <button onClick={close} className="block mx-auto mt-4 text-[12.5px] text-muted hover:text-ink">Close</button>
+        <button onClick={onClose} className="block mx-auto mt-4 text-[12.5px] text-muted hover:text-ink">Close</button>
       </div>
     </Card>
   );
 }
 
-function MyClasses({ classes, marks, batch }: { classes: ClassSession[]; marks: ClassMark[]; batch?: string }) {
+function MyClasses({ classes, marks, batch, onScan }: { classes: ClassSession[]; marks: ClassMark[]; batch?: string; onScan: () => void }) {
   const now = nowIST();
   const upcoming = classes.filter((c) => c.status === 'scheduled' && `${c.date}T${c.endTime}` > now).slice(0, 5);
   const focus = focusClass ? classes.find((c) => c.id === focusClass) : undefined;
@@ -220,7 +225,7 @@ function MyClasses({ classes, marks, batch }: { classes: ClassSession[]; marks: 
   if (!list.length) return null;
   return (
     <Card className="rounded-2xl">
-      <Head title="My classes" />
+      <div className="flex items-center justify-between pr-4"><Head title="My classes" /><Button size="sm" onClick={onScan}>📷 Scan QR</Button></div>
       <ul className="divide-y divide-line">
         {list.map((c) => {
           const m = marks.find((x) => x.classId === c.id), live = `${c.date}T${c.startTime}` <= now && `${c.date}T${c.endTime}` > now;
@@ -283,5 +288,77 @@ function InstallApp() {
         {prompt && <Button variant="primary" onClick={async () => { await prompt.prompt(); const r = await prompt.userChoice; if (r.outcome === 'accepted') setDone(true); w.installPrompt = undefined; setPrompt(undefined); }}>Install app</Button>}
       </div>
     </Card>
+  );
+}
+
+/** While a class of mine is open for attendance (and I'm not marked yet), a big prompt to scan the classroom QR. */
+function ClassNow({ classes, marks, batch, win, onScan }: { classes: ClassSession[]; marks: ClassMark[]; batch?: string; win: { beforeMins: number; afterMins: number }; onScan: () => void }) {
+  const [, tick] = useState(0);
+  useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 30000); return () => clearInterval(t); }, []);
+  const now = Date.now();
+  const at = (d: string, t: string) => Date.parse(`${d}T${t}:00+05:30`);
+  const open = classes.find((c) => c.status === 'scheduled' && now >= at(c.date, c.startTime) - win.beforeMins * 60000 && now <= at(c.date, c.endTime) + win.afterMins * 60000);
+  if (!open || marks.some((m) => m.classId === open.id && m.status === 'present')) return null;
+  return (
+    <Card className="rounded-2xl overflow-hidden border-2 border-accent/40">
+      <div className="p-5 text-center">
+        <div className="text-[12px] font-semibold uppercase tracking-wider text-accent">Your class is on</div>
+        <h2 className="mt-1 text-[19px] font-bold text-navy">{batch ?? 'Class'}</h2>
+        <p className="text-[13.5px] text-zinc-700">{fmtTime(open.startTime)} – {fmtTime(open.endTime)}</p>
+        <Button variant="primary" className="mt-4 h-12 px-8 text-[16px]" onClick={onScan}>📷 Scan classroom QR</Button>
+        <p className="mt-2 text-[12px] text-muted">Scan the QR code in the classroom to mark your attendance.</p>
+      </div>
+    </Card>
+  );
+}
+
+/** Camera scanner for the classroom QR (works inside the installed app too). Only our /attend links are accepted. */
+function QrScanner({ open, onClose, onToken }: { open: boolean; onClose: () => void; onToken: (t: string) => void }) {
+  const video = useRef<HTMLVideoElement>(null);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    if (!open) return;
+    setErr('');
+    let stream: MediaStream | undefined, stop = false;
+    const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+    void (async () => {
+      try {
+        const { default: jsQR } = await import('jsqr');
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+        if (stop) return stream.getTracks().forEach((t) => t.stop());
+        const v = video.current!; v.srcObject = stream; await v.play();
+        const look = () => {
+          if (stop) return;
+          if (v.videoWidth) {
+            const k = Math.min(1, 720 / Math.max(v.videoWidth, v.videoHeight));
+            canvas.width = Math.round(v.videoWidth * k); canvas.height = Math.round(v.videoHeight * k);
+            ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+            const code = jsQR(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
+            if (code?.data) {
+              try {
+                const u = new URL(code.data);
+                const t = u.pathname === '/attend' ? u.searchParams.get('t') : null;
+                if (t) { stop = true; onToken(t); return; }
+              } catch { /* not a link */ }
+              setErr('This is not the classroom attendance QR code.');
+            }
+          }
+          setTimeout(look, 250);
+        };
+        look();
+      } catch (e) {
+        setErr((e as Error).name === 'NotAllowedError' ? 'Camera permission is blocked. Allow the camera for this app in your phone settings, or scan the QR with your phone camera.' : 'Could not open the camera on this device.');
+      }
+    })();
+    return () => { stop = true; stream?.getTracks().forEach((t) => t.stop()); };
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <Modal open={open} onClose={onClose} title="Scan classroom QR">
+      <div className="relative overflow-hidden rounded-xl bg-black aspect-square">
+        <video ref={video} playsInline muted className="absolute inset-0 size-full object-cover" />
+        <div className="absolute inset-[18%] rounded-2xl border-4 border-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,.35)]" />
+      </div>
+      <p className={cx('mt-3 text-center text-[13px]', err ? 'text-bad' : 'text-muted')}>{err || 'Point the camera at the QR code in the classroom.'}</p>
+    </Modal>
   );
 }

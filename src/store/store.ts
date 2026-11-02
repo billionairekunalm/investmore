@@ -439,11 +439,12 @@ export function setMark(classId: string, studentId: string, status: ClassMark['s
     if (c.status === 'cancelled') fail('This class was cancelled.');
     const s = d.students.find((x) => x.id === studentId) ?? fail('Student not found.');
     const id = `${classId}:${studentId}`, cur = d.marks.find((m) => m.id === id);
-    if ((cur?.status ?? null) === status) return;
+    const before = cur?.status ?? null;
+    if (before === status) return;
     if (status === null) d.marks = d.marks.filter((m) => m.id !== id);
     else if (cur) Object.assign(cur, { status, at: nowISO(), method: 'manual', markedBy: me ?? 'system' });
     else d.marks.push({ id, classId, studentId, status, at: nowISO(), method: 'manual', markedBy: me ?? 'system' });
-    audit(d, cur ? 'attendance.correct' : 'attendance.mark', 'student', studentId, `${s.name} · ${batchName(d, c.batchId)} ${c.date} ${c.startTime}: ${cur?.status ?? 'not marked'} → ${status ?? 'not marked'}`);
+    audit(d, before ? 'attendance.correct' : 'attendance.mark', 'student', studentId, `${s.name} · ${batchName(d, c.batchId)} ${c.date} ${c.startTime}: ${before ?? 'not marked'} → ${status ?? 'not marked'}`);
     syncDayAttendance(d, c.batchId, c.date);
   });
 }
