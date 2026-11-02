@@ -15,8 +15,18 @@ export default function Batches() {
   // list or cards; remembered on this device
   const [view, setViewState] = useState<'list' | 'cards'>(() => { try { return localStorage.getItem('batchesView') === 'cards' ? 'cards' : 'list'; } catch { return 'list'; } });
   const setView = (v: 'list' | 'cards') => { setViewState(v); try { localStorage.setItem('batchesView', v); } catch { /* */ } };
-  const batches = me.role === 'teacher' ? db.batches.filter((b) => b.teacherId === me.id) : db.batches;
+  const mine = me.role === 'teacher' ? db.batches.filter((b) => b.teacherId === me.id) : db.batches;
   const enrolled = (id: string) => db.students.filter((s) => s.batchId === id && s.status === 'Active').length;
+  // grouped by course; inside a course: running, upcoming, completed, cancelled — newest start first
+  const [courseF, setCourseF] = useState('');
+  const [showPast, setShowPast] = useState(false);
+  const RANK: Record<BatchStatus, number> = { running: 0, upcoming: 1, completed: 2, cancelled: 3 };
+  const sorted = [...mine].sort((a, b) => RANK[a.status] - RANK[b.status] || b.startDate.localeCompare(a.startDate));
+  const past = (b: Batch) => b.status === 'completed' || b.status === 'cancelled';
+  const batches = sorted.filter((b) => (!courseF || b.courseId === courseF) && (showPast || !past(b)));
+  const pastCount = sorted.filter((b) => (!courseF || b.courseId === courseF) && past(b)).length;
+  const courseIds = [...new Set(mine.map((b) => b.courseId))].sort((a, b) => (db.courses.find((c) => c.id === a)?.name ?? '').localeCompare(db.courses.find((c) => c.id === b)?.name ?? ''));
+  const groups = courseIds.map((cid) => ({ cid, name: db.courses.find((c) => c.id === cid)?.name ?? 'Other', list: batches.filter((b) => b.courseId === cid) })).filter((g) => g.list.length);
   if (open && db.batches.some((b) => b.id === open)) return <><BatchDetail id={open} onBack={() => setOpen(null)} onEdit={() => setEdit(db.batches.find((b) => b.id === open)!)} /><BatchModal batch={edit} onClose={() => setEdit(null)} /></>;
   if (calendar) return (
     <>
@@ -28,8 +38,17 @@ export default function Batches() {
   return (
     <>
       <PageHeader title="Batches" sub={me.role === 'teacher' ? 'Batches assigned to you' : undefined} actions={<><Button onClick={() => setCalendar(true)}>📅 Calendar</Button>{S.allowed('batches', 'create', db) && <Button variant="primary" onClick={() => setEdit({ status: 'upcoming', capacity: 30, courseId: db.courses[0]?.id, startDate: todayIST(), endDate: addDays(todayIST(), 56), schedule: 'Mon–Fri', timing: '10:00–12:00' })}>+ New batch</Button>}</>} />
-      <div className="flex items-center justify-between gap-3 mb-3">
-        <span className="text-[12.5px] text-muted"><b className="text-navy tabular">{batches.length}</b> batch{batches.length === 1 ? '' : 'es'}</span>
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="flex flex-wrap gap-1.5">
+          {[['', 'All courses', mine.length] as const, ...courseIds.map((cid) => [cid, db.courses.find((c) => c.id === cid)?.name ?? 'Other', mine.filter((b) => b.courseId === cid).length] as const)].map(([v, l, n]) => (
+            <button key={v || 'all'} onClick={() => setCourseF(v)} aria-pressed={courseF === v}
+              className={cx('h-8 px-3 rounded-full border text-[13px] font-medium transition-colors', courseF === v ? 'bg-navy border-navy text-white' : 'bg-white border-line text-zinc-600 hover:border-navy/40 hover:text-navy')}>
+              {l} <span className={cx('tabular', courseF === v ? 'text-white/70' : 'text-zinc-400')}>{n}</span>
+            </button>
+          ))}
+        </div>
+        {pastCount > 0 && <label className="ml-1 inline-flex items-center gap-1.5 text-[12.5px] text-zinc-600 cursor-pointer"><input type="checkbox" className="size-4 accent-[var(--color-accent)]" checked={showPast} onChange={(e) => setShowPast(e.target.checked)} />Show completed ({pastCount})</label>}
+        <span className="flex-1" />
         <div role="group" aria-label="View" className="flex p-0.5 rounded-lg bg-zinc-100/80 border border-line">
           {([['list', 'List', 'M2 4h12M2 8h12M2 12h12'], ['cards', 'Cards', 'M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM9 9h5v5H9z']] as const).map(([v, l, d]) => (
             <button key={v} onClick={() => setView(v)} aria-pressed={view === v} className={cx('inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[12.5px] font-medium transition-colors', view === v ? 'bg-white text-navy shadow-sm' : 'text-zinc-500 hover:text-navy')}>
@@ -38,24 +57,38 @@ export default function Batches() {
           ))}
         </div>
       </div>
-      {view === 'cards' ? (
-        !batches.length ? <Card><Empty title="No batches yet" body="Create a batch to assign students and track attendance." /></Card> : (
-          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {batches.map((b) => <BatchCard key={b.id} b={b} enrolled={enrolled(b.id)} onOpen={() => setOpen(b.id)} />)}
-          </div>
-        )
-      ) : <Card>
-        <Table rows={batches} rowKey={(b) => b.id} onRow={(b) => setOpen(b.id)} empty={<Empty title="No batches yet" body="Create a batch to assign students and track attendance." />} cols={[
-          { key: 'id', label: 'ID', render: (b) => <span className="text-muted">{b.id}</span> },
-          { key: 'n', label: 'Batch', render: (b) => <span className="font-medium">{b.name}</span>, sort: (b) => b.name },
-          { key: 'c', label: 'Course', render: (b) => db.courses.find((c) => c.id === b.courseId)?.name },
-          { key: 't', label: 'Teacher', render: (b) => S.empName(b.teacherId, db) },
-          { key: 'd', label: 'Dates', render: (b) => `${fmtDate(b.startDate)} – ${fmtDate(b.endDate)}`, sort: (b) => b.startDate },
-          { key: 'tm', label: 'Schedule', render: (b) => `${b.schedule} · ${b.timing}` },
-          { key: 'e', label: 'Enrolled', render: (b) => { const n = enrolled(b.id); return <span className={n >= b.capacity ? 'text-bad font-medium' : ''}>{n}/{b.capacity}</span>; } },
-          { key: 's', label: 'Status', render: (b) => <Badge>{b.status}</Badge> },
-        ]} />
-      </Card>}
+      {!groups.length ? <Card><Empty title={mine.length ? 'No running or upcoming batches' : 'No batches yet'} body={mine.length ? 'Tick "Show completed" to see finished batches.' : 'Create a batch to assign students and track attendance.'} /></Card> : (
+        <div className="space-y-6">
+          {groups.map((g) => {
+            const students = g.list.reduce((t, b) => t + enrolled(b.id), 0);
+            return (
+              <section key={g.cid}>
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-2.5 pb-2 border-b border-line">
+                  <h2 className="text-[16px] font-bold text-navy">{g.name}</h2>
+                  <span className="text-[12.5px] text-muted">{g.list.length} batch{g.list.length === 1 ? '' : 'es'} · {students} student{students === 1 ? '' : 's'}
+                    {g.list.some((b) => b.status === 'running') && <> · <b className="text-emerald-700 font-semibold">{g.list.filter((b) => b.status === 'running').length} running</b></>}</span>
+                </div>
+                {view === 'cards' ? (
+                  <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {g.list.map((b) => <BatchCard key={b.id} b={b} enrolled={enrolled(b.id)} onOpen={() => setOpen(b.id)} />)}
+                  </div>
+                ) : (
+                  <Card>
+                    <Table rows={g.list} rowKey={(b) => b.id} onRow={(b) => setOpen(b.id)} cols={[
+                      { key: 'n', label: 'Batch', render: (b) => <span className="font-medium">{b.name}</span>, sort: (b) => b.name },
+                      { key: 'tm', label: 'Timing', render: (b) => `${b.schedule} · ${b.timing}` },
+                      { key: 't', label: 'Teacher', render: (b) => S.empName(b.teacherId, db) },
+                      { key: 'd', label: 'Dates', render: (b) => `${fmtDate(b.startDate)} – ${fmtDate(b.endDate)}`, sort: (b) => b.startDate },
+                      { key: 'e', label: 'Students', className: 'text-right', render: (b) => { const n = enrolled(b.id); return <span className={cx('tabular', n >= b.capacity && 'text-bad font-medium')}>{n}/{b.capacity}</span>; } },
+                      { key: 's', label: 'Status', render: (b) => <Badge>{b.status}</Badge> },
+                    ]} />
+                  </Card>
+                )}
+              </section>
+            );
+          })}
+        </div>
+      )}
       <BatchModal batch={edit} onClose={() => setEdit(null)} />
     </>
   );
