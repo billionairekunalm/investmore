@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import * as S from '../store/store';
-import { hasEmployees, loginIdOf, sb, setupAdmin, signInWithId } from '../store/cloud';
+import { hasEmployees, loginIdOf, sb, setupAdmin, signInWithId, studentSignup } from '../store/cloud';
 import { Button, Field, Input, cx, useRun } from '../ui/kit';
 import { ROLES } from '../domain/types';
 
@@ -49,12 +49,14 @@ const Msg = ({ tone, children }: { tone: 'bad' | 'ok'; children: ReactNode }) =>
 /** Shows first-run admin setup until the academy exists, then the normal sign-in. */
 function SignInOrSetup({ error }: { error?: string }) {
   const [first, setFirst] = useState<boolean | null>(null);
+  const [signup, setSignup] = useState(false);
   useEffect(() => { hasEmployees().then((h) => setFirst(!h)).catch(() => setFirst(false)); }, []);
   if (first === null) return <p className="text-muted text-center py-10">Loading…</p>;
-  return first ? <CreateAdmin onDone={() => setFirst(false)} /> : <SignInForm error={error} />;
+  if (first) return <CreateAdmin onDone={() => setFirst(false)} />;
+  return signup ? <StudentSignup onBack={() => setSignup(false)} /> : <SignInForm error={error} onSignup={() => setSignup(true)} />;
 }
 
-function SignInForm({ error }: { error?: string }) {
+function SignInForm({ error, onSignup }: { error?: string; onSignup: () => void }) {
   const [who, setWhoState] = useState<Who>(() => { try { return (localStorage.getItem('loginAs') as Who) || 'student'; } catch { return 'student'; } });
   const [id, setId] = useState('');
   const [pw, setPw] = useState('');
@@ -92,9 +94,40 @@ function SignInForm({ error }: { error?: string }) {
       </Field>
       {msg && <Msg tone={msg.tone}>{msg.text}</Msg>}
       <Button type="submit" variant="primary" className="w-full" loading={busy} disabled={!id.trim() || !pw}>Sign in as {w.label.toLowerCase()}</Button>
-      <div className="pt-1 text-center text-[12.5px] text-muted leading-relaxed">
-        No login yet, or forgot your password?<br />
-        {who === 'student' ? 'Ask the academy office. They create your login.' : 'Ask your admin to create or reset it.'}
+      <p className="text-center text-[12px] text-muted">Forgot your password? {who === 'student' ? 'Ask the academy office.' : 'Ask your admin.'}</p>
+      <div className="pt-3 border-t border-line text-center text-[13px] text-zinc-600">
+        New student? <button type="button" onClick={onSignup} className="font-semibold text-accent hover:underline">Sign up as a student</button>
+      </div>
+    </form>
+  );
+}
+
+/** Enrolled students create their own login: student ID + the mobile number given at admission. */
+function StudentSignup({ onBack }: { onBack: () => void }) {
+  const [f, setF] = useState({ code: '', phone: '', pw: '', pw2: '' });
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const ok = !!f.code.trim() && f.phone.replace(/\D/g, '').length >= 10 && f.pw.length >= 8 && f.pw2.length > 0;
+  const go = async () => {
+    setBusy(true); setMsg(null);
+    try {
+      if (f.pw !== f.pw2) throw new Error('The two passwords do not match.');
+      const email = await studentSignup(f.code, f.phone, f.pw);
+      await S.enterCloud(email);
+    } catch (e) { setMsg((e as Error).message); }
+    setBusy(false);
+  };
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); if (ok) void go(); }} className="space-y-3">
+      <Title sub="Use the student ID and mobile number from your admission.">Student sign up</Title>
+      <Field label="Student ID"><Input autoCapitalize="characters" autoFocus value={f.code} onChange={(e) => setF({ ...f, code: e.target.value })} placeholder="e.g. IMNOV0001" /></Field>
+      <Field label="Mobile number"><Input inputMode="tel" autoComplete="tel" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} placeholder="10-digit mobile" /></Field>
+      <Field label="Create password" hint="At least 8 characters"><Input type="password" autoComplete="new-password" value={f.pw} onChange={(e) => setF({ ...f, pw: e.target.value })} /></Field>
+      <Field label="Confirm password"><Input type="password" autoComplete="new-password" value={f.pw2} onChange={(e) => setF({ ...f, pw2: e.target.value })} /></Field>
+      {msg && <Msg tone="bad">{msg}</Msg>}
+      <Button type="submit" variant="primary" className="w-full" loading={busy} disabled={!ok}>Sign up</Button>
+      <div className="pt-3 border-t border-line text-center text-[13px] text-zinc-600">
+        Already have a login? <button type="button" onClick={onBack} className="font-semibold text-accent hover:underline">Sign in</button>
       </div>
     </form>
   );

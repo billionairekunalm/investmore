@@ -181,7 +181,14 @@ export async function setStudentLogin(studentId: string, password: string): Prom
   if (error) throw new Error(error.message);
   return String(data);
 }
-export const staffEmail = (loginId: string) => idEmail(loginId, 'staff');
+/** A student creates their own login with student ID + admission mobile number, then is signed in. */
+export async function studentSignup(code: string, phone: string, password: string): Promise<string> {
+  const { data, error } = await sb!.rpc('student_signup', { p_code: code.trim(), p_phone: phone, p_password: password });
+  if (error) throw new Error(error.message);
+  await signIn(String(data), password);
+  return String(data);
+}
+export const staffEmail =(loginId: string) => idEmail(loginId, 'staff');
 /** Super Admin: create or reset an employee's login (the employee must already be saved with email = staffEmail(id)). */
 export async function setStaffLogin(employeeId: string, password: string): Promise<string> {
   await flushSync();
