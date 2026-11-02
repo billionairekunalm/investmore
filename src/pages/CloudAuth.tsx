@@ -5,10 +5,10 @@ import { Button, Field, Input, cx, useRun } from '../ui/kit';
 import { ROLES } from '../domain/types';
 
 type Who = 'student' | 'staff' | 'admin';
-const WHO: { id: Who; label: string; icon: string; field: string; placeholder: string; hint: string }[] = [
-  { id: 'student', label: 'Student', icon: 'M12 3 2 8l10 5 10-5-10-5Zm-6 7.5V15c0 1.7 2.7 3 6 3s6-1.3 6-3v-4.5', field: 'Student ID', placeholder: 'e.g. IMNOV0001', hint: 'Your student ID is on your fee receipt.' },
-  { id: 'staff', label: 'Staff', icon: 'M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm13 9v-1a4 4 0 0 0-3-3.9M16 3.1a3.5 3.5 0 0 1 0 6.8', field: 'Staff login ID', placeholder: 'e.g. rahul', hint: 'Given to you by your admin.' },
-  { id: 'admin', label: 'Admin', icon: 'M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Zm-3 10 2 2 4-4', field: 'Admin login ID', placeholder: 'e.g. investmore', hint: 'The main academy login.' },
+const WHO: { id: Who; label: string; icon: string; field: string; hint: string }[] = [
+  { id: 'student', label: 'Student', icon: 'M12 3 2 8l10 5 10-5-10-5Zm-6 7.5V15c0 1.7 2.7 3 6 3s6-1.3 6-3v-4.5', field: 'Student ID', hint: 'Your student ID is on your fee receipt.' },
+  { id: 'staff', label: 'Staff', icon: 'M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm13 9v-1a4 4 0 0 0-3-3.9M16 3.1a3.5 3.5 0 0 1 0 6.8', field: 'Staff login ID', hint: 'Given to you by your admin.' },
+  { id: 'admin', label: 'Admin', icon: 'M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Zm-3 10 2 2 4-4', field: 'Admin login ID', hint: 'The main academy login.' },
 ];
 const Icon = ({ d, className = 'size-4' }: { d: string; className?: string }) => (
   <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d={d} /></svg>
@@ -56,13 +56,13 @@ function SignInOrSetup({ error }: { error?: string }) {
 }
 
 function SignInForm({ error, first, onSignup }: { error?: string; first: boolean; onSignup: () => void }) {
-  const [who, setWhoState] = useState<Who>(() => { if (first) return 'admin'; try { return (localStorage.getItem('loginAs') as Who) || 'student'; } catch { return 'student'; } });
-  const [id, setId] = useState(first ? 'investmore' : '');
+  const [who, setWho0] = useState<Who>('student'); // Student first; nothing pre-filled
+  const [id, setId] = useState('');
   const [pw, setPw] = useState('');
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ tone: 'bad' | 'ok'; text: string } | null>(error ? { tone: 'bad', text: error } : null);
-  const setWho = (x: Who) => { setWhoState(x); setMsg(null); try { localStorage.setItem('loginAs', x); } catch { /* */ } };
+  const setWho = (x: Who) => { setWho0(x); setMsg(null); };
   const w = WHO.find((x) => x.id === who) ?? WHO[0];
   const go = async () => {
     setBusy(true); setMsg(null);
@@ -90,7 +90,7 @@ function SignInForm({ error, first, onSignup }: { error?: string; first: boolean
         ))}
       </div>
       <Field label={w.field} hint={w.hint}>
-        <Input autoComplete="username" autoCapitalize="none" autoFocus value={id} onChange={(e) => setId(e.target.value)} placeholder={w.placeholder} />
+        <Input autoComplete="username" autoCapitalize="none" autoFocus value={id} onChange={(e) => setId(e.target.value)} />
       </Field>
       <Field label="Password">
         <div className="relative">
@@ -126,8 +126,8 @@ function StudentSignup({ onBack }: { onBack: () => void }) {
   return (
     <form onSubmit={(e) => { e.preventDefault(); if (ok) void go(); }} className="space-y-3">
       <Title sub="Use the student ID and mobile number from your admission.">Student sign up</Title>
-      <Field label="Student ID"><Input autoCapitalize="characters" autoFocus value={f.code} onChange={(e) => setF({ ...f, code: e.target.value })} placeholder="e.g. IMNOV0001" /></Field>
-      <Field label="Mobile number"><Input inputMode="tel" autoComplete="tel" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} placeholder="10-digit mobile" /></Field>
+      <Field label="Student ID"><Input autoCapitalize="characters" autoFocus value={f.code} onChange={(e) => setF({ ...f, code: e.target.value })} /></Field>
+      <Field label="Mobile number"><Input inputMode="tel" autoComplete="tel" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
       <Field label="Create password" hint="At least 8 characters"><Input type="password" autoComplete="new-password" value={f.pw} onChange={(e) => setF({ ...f, pw: e.target.value })} /></Field>
       <Field label="Confirm password"><Input type="password" autoComplete="new-password" value={f.pw2} onChange={(e) => setF({ ...f, pw2: e.target.value })} /></Field>
       {msg && <Msg tone="bad">{msg}</Msg>}
