@@ -125,7 +125,8 @@ export interface Distribution {
   payments: { id: string; at: ISODate; shareName: string; amount: Paise; by: string }[]; createdAt: string;
 }
 
-export interface TemplateField { key: 'name' | 'course' | 'date' | 'certId' | 'batch'; x: number; y: number; size: number }
+/** For 'photo', x/y is the photo's centre and size is its width in % of the page width. */
+export interface TemplateField { key: 'name' | 'course' | 'date' | 'certId' | 'batch' | 'photo'; x: number; y: number; size: number }
 export interface CertificateTemplate {
   id: string; name: string; fileType: 'image/png' | 'image/jpeg' | 'application/pdf'; data: string; fields: TemplateField[]; createdAt: string;
 }

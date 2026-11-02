@@ -36,8 +36,8 @@ function Issue({ eligible, preselect }: { eligible: ReturnType<typeof S.getDB>['
     setBusy(true);
     try {
       const t = db.templates.find((x) => x.id === tpl)!;
-      const items = certs.map((cert) => ({ tpl: t, cert }));
-      if (items.length === 1) saveBlob(await certificatePdf(t, items[0].cert), `${items[0].cert.id}.pdf`);
+      const items = certs.map((cert) => ({ tpl: t, cert, photo: db.students.find((x) => x.id === cert.studentId)?.photo }));
+      if (items.length === 1) saveBlob(await certificatePdf(t, items[0].cert, items[0].photo), `${items[0].cert.id}.pdf`);
       else saveBlob(await zipPdfs(items), `certificates-${todayIST()}.zip`, 'application/zip');
       S.logCertificateEvent(certs.map((c) => c.id), 'downloaded');
     } catch (e) { toast(`PDF generation failed: ${(e as Error).message}`, 'bad'); }
@@ -67,7 +67,9 @@ function Issued() {
   const { ask, toast } = useUI();
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
-  const items = (ids: string[]) => db.certificates.filter((c) => ids.includes(c.id) && c.status === 'Issued').map((cert) => ({ cert, tpl: db.templates.find((t) => t.id === cert.templateId)! })).filter((x) => x.tpl);
+  // the photo comes from the student's profile at the moment the PDF is made
+  const items = (ids: string[]) => db.certificates.filter((c) => ids.includes(c.id) && c.status === 'Issued')
+    .map((cert) => ({ cert, tpl: db.templates.find((t) => t.id === cert.templateId)!, photo: db.students.find((x) => x.id === cert.studentId)?.photo })).filter((x) => x.tpl);
   const act = async (fn: () => Promise<void>, ids: string[]) => { setBusy(true); try { await fn(); S.logCertificateEvent(ids, 'downloaded'); } catch (e) { toast((e as Error).message, 'bad'); } setBusy(false); };
   const ids = [...sel];
   return (
@@ -88,7 +90,7 @@ function Issued() {
           { key: 'h', label: 'History', render: (c) => <span className="text-xs text-muted">{c.history.length} events</span> },
           { key: 'x', label: '', render: (c) => c.status === 'Issued' && (
             <div className="flex gap-1">
-              <Button size="sm" onClick={() => act(async () => { const it = items([c.id])[0]; saveBlob(await certificatePdf(it.tpl, c), `${c.id}.pdf`); }, [c.id])}>PDF</Button>
+              <Button size="sm" onClick={() => act(async () => { const it = items([c.id])[0]; saveBlob(await certificatePdf(it.tpl, c, it.photo), `${c.id}.pdf`); }, [c.id])}>PDF</Button>
               {S.allowed('certificates', 'delete', db) && <Button size="sm" variant="ghost" onClick={async () => { const r = await ask({ title: `Revoke ${c.id}?`, input: 'Reason', confirm: 'Revoke', danger: true }); if (r) run(() => S.revokeCertificate(c.id, r), 'Certificate revoked'); }}>Revoke</Button>}
             </div>
           ) },
@@ -149,7 +151,7 @@ function TemplateEditor({ initial, onClose }: { initial: Partial<CertificateTemp
   };
   const fields = t.fields ?? [];
   const setField = (k: TemplateField['key'], patch: Partial<TemplateField>) => setT({ ...t, fields: fields.map((f) => (f.key === k ? { ...f, ...patch } : f)) });
-  const toggle = (k: TemplateField['key']) => setT({ ...t, fields: fields.some((f) => f.key === k) ? fields.filter((f) => f.key !== k) : [...fields, { key: k, x: 0.5, y: 0.5, size: 18 }] });
+  const toggle = (k: TemplateField['key']) => setT({ ...t, fields: fields.some((f) => f.key === k) ? fields.filter((f) => f.key !== k) : [...fields, k === 'photo' ? { key: k, x: 0.5, y: 0.28, size: 13 } : { key: k, x: 0.5, y: 0.5, size: 18 }] });
   const doPreview = async () => {
     try { const b = await certificatePdf(t as CertificateTemplate, sample); setPreview(URL.createObjectURL(new Blob([b as BlobPart], { type: 'application/pdf' }))); }
     catch (e) { toast(`Could not render: ${(e as Error).message}`, 'bad'); }
@@ -174,7 +176,10 @@ function TemplateEditor({ initial, onClose }: { initial: Partial<CertificateTemp
               setField(active, { x: +((e.clientX - r.left) / r.width).toFixed(3), y: +((e.clientY - r.top) / r.height).toFixed(3) });
             }}>
               <img src={t.data} alt="" className="w-full block" draggable={false} />
-              {fields.map((f) => (
+              {fields.map((f) => f.key === 'photo' ? (
+                <span key={f.key} className={cx('absolute -translate-x-1/2 -translate-y-1/2 grid place-items-center bg-zinc-200/90 text-zinc-500 rounded-sm border-2 border-white', f.key === active ? 'ring-2 ring-accent' : 'ring-1 ring-zinc-400/60')}
+                  style={{ left: `${f.x * 100}%`, top: `${f.y * 100}%`, width: `${f.size}cqw`, height: `${f.size * 1.2}cqw`, fontSize: `${f.size / 6}cqw` }}>Photo</span>
+              ) : (
                 <span key={f.key} className={cx('absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap font-serif px-1 rounded', f.key === active ? 'ring-2 ring-accent bg-accent/10' : 'ring-1 ring-zinc-400/60')}
                   style={{ left: `${f.x * 100}%`, top: `${f.y * 100}%`, fontSize: `${f.size / 10}cqw` }}>
                   {fieldValue(f.key, sample)}
@@ -197,13 +202,13 @@ function TemplateEditor({ initial, onClose }: { initial: Partial<CertificateTemp
                   <div className="grid grid-cols-3 gap-1.5 mt-2">
                     <Input type="number" step="0.01" min={0} max={1} value={f.x} onChange={(e) => setField(k, { x: +e.target.value })} title="X (0–1)" />
                     <Input type="number" step="0.01" min={0} max={1} value={f.y} onChange={(e) => setField(k, { y: +e.target.value })} title="Y (0–1)" />
-                    <Input type="number" min={6} max={120} value={f.size} onChange={(e) => setField(k, { size: +e.target.value })} title="Size" />
+                    <Input type="number" min={k === 'photo' ? 5 : 6} max={k === 'photo' ? 40 : 120} value={f.size} onChange={(e) => setField(k, { size: +e.target.value })} title={k === 'photo' ? 'Photo width (% of page)' : 'Size'} />
                   </div>
                 )}
               </div>
             );
           })}
-          <p className="text-[11px] text-muted">X / Y are fractions of the page from the top-left (text is centred on X). Size is relative to page width.</p>
+          <p className="text-[11px] text-muted">X / Y are fractions of the page from the top-left (text is centred on X). Size is relative to page width; for the photo it is its width in % of the page. The photo comes from the student's profile.</p>
         </div>
       </div>
     </Modal>
