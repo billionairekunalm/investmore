@@ -45,7 +45,6 @@ const NAV: { to: string; label: string; mod: Module; icon: string }[] = [
   { to: '/kits', label: 'Kits', mod: 'students', icon: 'M2 5.5 8 2.5l6 3v5L8 13.5l-6-3zM2 5.5 8 8.5l6-3M8 8.5v5' },
   { to: '/notifications', label: 'Notifications', mod: 'notifications', icon: 'M4 6.5a4 4 0 0 1 8 0c0 4 1.5 5.5 1.5 5.5h-11S4 10.5 4 6.5ZM6.5 14h3' },
   { to: '/profit', label: 'Salary & Profit', mod: 'profit', icon: 'M8 1.5A6.5 6.5 0 1 0 14.5 8H8z M10 1.7V6h4.3A6.5 6.5 0 0 0 10 1.7Z' },
-  { to: '/reports', label: 'Reports & Analytics', mod: 'reports', icon: 'M2 14V2M2 14h12M5 11V8M8 11V5M11 11V7' },
   { to: '/courses', label: 'Courses', mod: 'settings', icon: 'M2 3h4.5A1.5 1.5 0 0 1 8 4.5V14a1.5 1.5 0 0 0-1.5-1.5H2zM14 3H9.5A1.5 1.5 0 0 0 8 4.5V14a1.5 1.5 0 0 1 1.5-1.5H14z' },
   { to: '/certificates', label: 'Certificates', mod: 'certificates', icon: 'M2 2.5h12v8H2zM6 13.5l2-1.5 2 1.5v-3H6z' },
   { to: '/employees', label: 'Employees', mod: 'employees', icon: 'M6 7a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM1.5 13.5a4.5 4.5 0 0 1 9 0M11 2.5a2.5 2.5 0 0 1 0 4.5M12.5 9.5a4.5 4.5 0 0 1 2 4' },

@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import * as S from '../store/store';
 import { cloudEnabled } from '../store/cloud';
@@ -8,6 +8,7 @@ import { useRange } from '../ui/shell';
 import { financeFor, periodFigures } from '../domain/finance';
 import { addDays, fmtDate, fmtINR, fmtINRShort, fmtMonth, inRange, monthOf, monthRange, monthsBetween, RANGE_LABELS, todayIST } from '../domain/util';
 import type { DB } from '../domain/types';
+import { ReportsPanel } from './Reports';
 
 export const C = { brand: '#028a02', brandSoft: '#b9e3b6', ink: '#181818', info: '#2563eb', green: '#05b200', orange: '#ea7a2b', red: '#dc2626', gray: '#a1a1aa', grid: '#f0f0f2' };
 const axis = { fontSize: 11, fill: '#71717a' };
@@ -77,6 +78,8 @@ export function useAnalytics(db: DB, range: [string, string]) {
 const firstActivity = (db: DB) => [...db.students.map((s) => s.admissionDate), ...db.payments.map((p) => p.date), ...db.expenses.map((e) => e.date)].sort()[0] ?? todayIST();
 
 export default function Dashboard() {
+  const [sp] = useSearchParams();
+  useEffect(() => { if (sp.get('r') || sp.get('view') || location.hash === '#reports') setTimeout(() => document.getElementById('reports')?.scrollIntoView({ behavior: 'smooth' }), 150); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const db = S.useDB();
   const { key, range } = useRange();
   const nav = useNavigate();
@@ -145,7 +148,7 @@ export default function Dashboard() {
           <Card>
             <CardHeader title="Revenue vs expenses" sub="Monthly revenue (after refunds & GST) against approved expenses" />
             <Chart>
-              <BarChart data={a.monthly} onClick={(e: any) => e?.activePayload && nav(`/reports?r=revenue&m=${e.activePayload[0].payload.ym}`)}>
+              <BarChart data={a.monthly} onClick={(e: any) => e?.activePayload && nav(`/?r=revenue#reports`)}>
                 <CartesianGrid vertical={false} stroke={C.grid} /><XAxis dataKey="label" tick={axis} axisLine={false} tickLine={false} interval={0} /><YAxis tickFormatter={money} tick={axis} axisLine={false} tickLine={false} width={56} />
                 <Tooltip {...tip} formatter={(v: number) => fmtINR(v)} cursor={{ fill: '#f4f4f5' }} /><Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
                 <Bar dataKey="revenue" name="Revenue" fill={C.brand} radius={[4, 4, 0, 0]} maxBarSize={28} className="cursor-pointer" />
@@ -168,6 +171,8 @@ export default function Dashboard() {
           </Chart>
         </Card>
       </div>
+
+      {S.allowed('reports', 'view', db) && <ReportsPanel />}
     </>
   );
 }

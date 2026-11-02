@@ -45,7 +45,8 @@ function instRows(db: DB, t: string) {
   return db.students.filter((s) => s.status === 'Active' || s.status === 'Inactive').flatMap((s) => financeFor(db, s.id, t).lines.filter((l) => l.remaining > 0).map((l) => ({ Student: s.name, 'Student ID': s.code, Mobile: s.phone, Instalment: l.label, 'Due date': l.dueDate, 'Amount ₹': r(l.amount), 'Paid ₹': r(l.paid), 'Remaining ₹': r(l.remaining), status: l.status })));
 }
 
-export default function Reports() {
+/** Reports & analytics, shown at the bottom of the Dashboard (old /reports links land here too). */
+export function ReportsPanel() {
   const db = S.useDB();
   const { key, range } = useRange();
   const [sp, setSp] = useSearchParams();
@@ -60,21 +61,24 @@ export default function Reports() {
   const cols = Object.keys(rows[0] ?? {}).map((k) => ({ key: k, label: k, render: (row: Row) => (typeof row[k] === 'number' && k.includes('₹') ? row[k].toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) : row[k]), className: typeof rows[0][k] === 'number' ? 'text-right tabular' : '', sort: (row: Row) => row[k] }));
   return (
     <>
-      <PageHeader title="Reports & analytics" sub={`${RANGE_LABELS[key]}${key === 'all' ? '' : ` · ${fmtDate(range[0])} – ${fmtDate(range[1])}`} — change with the date selector at the top.`} />
-      <Tabs tabs={[{ id: 'analytics', label: 'Analytics' }, { id: 'reports', label: 'Reports' }]} value={view} onChange={(v) => setSp(v === 'reports' ? { view: 'reports' } : {})} />
+      <div id="reports" className="scroll-mt-20 mt-8 mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-[18px] font-bold tracking-tight text-navy">Reports & analytics</h2>
+        <span className="text-[12.5px] text-muted">{RANGE_LABELS[key]}{key === 'all' ? '' : ` · ${fmtDate(range[0])} – ${fmtDate(range[1])}`}</span>
+      </div>
+      <Tabs tabs={[{ id: 'analytics', label: 'Analytics' }, { id: 'reports', label: 'Reports' }]} value={view} onChange={(v) => setSp(v === 'reports' ? { view: 'reports' } : {}, { replace: true, preventScrollReset: true })} />
       {view === 'analytics' ? <VisualAnalytics range={range} /> : (
-      <div className="grid lg:grid-cols-[220px_1fr] gap-4 items-start">
+      <div className="grid lg:grid-cols-[220px_minmax(0,1fr)] gap-4 items-start">
         <Card className="p-2">
           {groups.map((g) => (
             <div key={g} className="mb-2">
               <div className="px-2 pt-2 pb-1 text-[11px] uppercase tracking-wide text-muted">{g}</div>
               {visible.filter((x) => x.group === g).map((x) => (
-                <button key={x.id} onClick={() => setSp({ r: x.id })} className={cx('w-full text-left px-2 py-1.5 rounded-md', x.id === cur.id ? 'bg-accent-soft text-accent font-medium' : 'hover:bg-surface')}>{x.label}</button>
+                <button key={x.id} onClick={() => setSp({ r: x.id }, { replace: true, preventScrollReset: true })} className={cx('w-full text-left px-2 py-1.5 rounded-md', x.id === cur.id ? 'bg-accent-soft text-accent font-medium' : 'hover:bg-surface')}>{x.label}</button>
               ))}
             </div>
           ))}
         </Card>
-        <Card>
+        <Card className="min-w-0 overflow-hidden">
           <CardHeader title={cur.label} sub={`${rows.length} rows`} right={canExport && rows.length > 0 && (
             <div className="flex gap-1.5">
               <Button size="sm" onClick={() => downloadXLSX(rows, name)}>Excel</Button>

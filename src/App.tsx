@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import * as S from './store/store';
 import { Button, Card, Field, Input, UIProvider, useRun, NoAccess } from './ui/kit';
@@ -14,7 +14,6 @@ import Batches from './pages/Batches';
 import Certificates from './pages/Certificates';
 import Expenses from './pages/Expenses';
 import Profit from './pages/Profit';
-import Reports from './pages/Reports';
 import Employees from './pages/Employees';
 import Notifications from './pages/Notifications';
 import Settings from './pages/Settings';
@@ -58,7 +57,7 @@ export default function App() {
                   <Route path="/certificates" element={guard('certificates', <Certificates />)} />
                   <Route path="/expenses" element={guard('expenses', <Expenses />)} />
                   <Route path="/profit" element={guard('profit', <Profit />)} />
-                  <Route path="/reports" element={guard('reports', <Reports />)} />
+                  <Route path="/reports" element={<ReportsRedirect />} />
                   <Route path="/employees" element={guard('employees', <Employees />)} />
                   <Route path="/notifications" element={<Notifications />} />
                   <Route path="/settings" element={guard('settings', <Settings />)} />
@@ -116,4 +115,10 @@ function SignIn() {
       </div>
     </div>
   );
+}
+
+/** Reports & analytics now live at the bottom of the Dashboard; old links keep working. */
+function ReportsRedirect() {
+  const { search } = useLocation();
+  return <Navigate to={`/${search || '?view=reports'}#reports`} replace />;
 }
