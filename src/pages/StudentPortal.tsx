@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import * as S from '../store/store';
 import { loadPortal, sb } from '../store/cloud';
-import { enablePush, onForegroundPush, pushState, refreshPush, sendTestReminder, type PushState } from '../lib/push';
+import { enablePush, pushState, refreshPush, sendTestReminder, type PushState } from '../lib/push';
 import { TABLES, fromRow } from '../store/schema';
 import { studentFinance } from '../domain/fees';
 import type { Batch, ClassMark, ClassSession, Course, Enrolment, Instalment, Payment, Student } from '../domain/types';
@@ -41,12 +41,7 @@ export default function StudentPortal() {
     }).catch((e) => setErr((e as Error).message));
   };
   useEffect(load, []);
-  useEffect(() => {
-    void refreshPush();
-    let off: (() => void) | undefined;
-    void onForegroundPush().then((u) => { off = u; }); // reminders show as real notifications even while this page is open
-    return () => off?.();
-  }, []);
+  useEffect(() => { void refreshPush(); }, []); // keeps this device's reminder registration fresh
 
   const top = (
     <header className="bg-white border-b border-line">

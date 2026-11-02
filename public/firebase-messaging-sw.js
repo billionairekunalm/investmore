@@ -1,27 +1,31 @@
-// Firebase Cloud Messaging: receives class reminders when the site is in the background or closed.
-// The reminder carries a notification + link, so Firebase shows it and opens the link on click.
-importScripts('https://www.gstatic.com/firebasejs/13.1.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/13.1.0/firebase-messaging-compat.js');
+// Class reminders (Firebase Cloud Messaging web push).
+// Our own push handler: every reminder is ALWAYS shown as a phone/computer notification — app open, closed
+// or phone locked. (No Firebase script here; the page only uses Firebase to get this device's push token.)
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 
-firebase.initializeApp({
-  apiKey: 'AIzaSyCBw2cV_bf0IK7HZWgXuUbnft4JFasEvag',
-  authDomain: 'investmore-754b0.firebaseapp.com',
-  projectId: 'investmore-754b0',
-  storageBucket: 'investmore-754b0.firebasestorage.app',
-  messagingSenderId: '832536186835',
-  appId: '1:832536186835:web:36dd20dd912c4bf36da926',
+self.addEventListener('push', (e) => {
+  let p = {};
+  try { p = e.data ? e.data.json() : {}; } catch { p = { notification: { body: e.data ? e.data.text() : '' } }; }
+  const n = p.notification || {}, d = p.data || {};
+  const link = (p.fcmOptions && p.fcmOptions.link) || d.link || n.click_action || '/';
+  e.waitUntil(self.registration.showNotification(n.title || d.title || 'InvestMore class reminder', {
+    body: n.body || d.body || '',
+    icon: n.icon || '/icon-512.png',
+    badge: '/icon-192.png',
+    tag: n.tag || p.fcmMessageId || String(Date.now()),
+    renotify: true,
+    vibrate: [200, 100, 200],
+    data: { link },
+  }));
 });
-firebase.messaging();
 
-// Tapping a reminder that the open site showed (see onForegroundPush): open / focus the class page.
-// Firebase's own notifications carry FCM_MSG and are opened by Firebase itself.
+// Tap: open (or focus) the app on that class.
 self.addEventListener('notificationclick', (e) => {
-  const link = e.notification.data && !e.notification.data.FCM_MSG ? e.notification.data.link : null;
-  if (!link) return;
   e.notification.close();
-  e.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
-    const url = new URL(link, self.location.origin).href;
-    for (const c of list) if (c.url.startsWith(self.location.origin) && 'focus' in c) { c.navigate(url); return c.focus(); }
-    return clients.openWindow(url);
+  const url = new URL((e.notification.data && e.notification.data.link) || '/', self.location.origin).href;
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+    for (const c of list) if (c.url.startsWith(self.location.origin) && 'focus' in c) return c.focus().then((w) => (w && 'navigate' in w ? w.navigate(url) : w));
+    return self.clients.openWindow(url);
   }));
 });

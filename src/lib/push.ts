@@ -38,7 +38,8 @@ export async function pushState(): Promise<PushState> {
 async function register(): Promise<void> {
   const f = await messaging();
   if (!f || !VAPID_KEY) throw new Error('Notifications are not available in this browser.');
-  const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/firebase-cloud-messaging-push-scope' });
+  const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/firebase-cloud-messaging-push-scope', updateViaCache: 'none' });
+  await reg.update().catch(() => undefined); // pick up a newer worker straight away
   const token = await f.m.getToken(f.msg, { vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
   if (!token) throw new Error('Could not turn on notifications. Please try again.');
   const { error } = await sb!.rpc('save_push_token', { p_token: token, p_user_agent: navigator.userAgent });
@@ -55,22 +56,6 @@ export async function enablePush(): Promise<void> {
 /** Already allowed earlier: refresh the token quietly (tokens change over time). */
 export async function refreshPush() { if ((await pushState()) === 'on') await register().catch(() => undefined); }
 
-/**
- * While the site is open, Firebase hands the reminder to the page instead of showing it, so we show it ourselves
- * as a normal phone / desktop notification (same look as when the site is closed). Returns an unsubscribe function.
- */
-export async function onForegroundPush() {
-  const f = await messaging();
-  if (!f) return () => undefined;
-  return f.m.onMessage(f.msg, async (p) => {
-    const reg = (await navigator.serviceWorker.getRegistration('/firebase-cloud-messaging-push-scope')) ?? (await navigator.serviceWorker.ready);
-    const link = (p.fcmOptions?.link ?? p.data?.link) as string | undefined;
-    await reg.showNotification(p.notification?.title ?? 'Class reminder', {
-      body: p.notification?.body ?? '', icon: '/icon-512.png', badge: '/icon-192.png',
-      tag: p.messageId, data: { link: link ?? '/' },
-    });
-  });
-}
 
 export async function sendTestReminder() {
   const { error } = await sb!.rpc('send_test_reminder');
