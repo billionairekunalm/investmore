@@ -12,11 +12,11 @@ export const Wordmark = ({ name, className }: { name: string; className?: string
   name.trim().toLowerCase() === 'investmore'
     ? <span className={cx('font-bold uppercase tracking-[0.14em] text-ink', className)}>Invest<span className="text-accent">More</span></span>
     : <span className={cx('font-semibold', className)}>{name}</span>;
-/** Invoice / receipt header: the full logo, large, with "Training Academy" underneath. */
+/** Invoice / receipt header: the IM mark, large, with "Training Academy" underneath. */
 export const DocBrand = () => (
   <div className="inline-flex flex-col items-center">
-    <img src="/logo-full.png" alt="InvestMore" className="h-28 sm:h-32 w-auto mix-blend-multiply" />
-    <div className="mt-1 text-[13px] font-bold uppercase tracking-[0.32em] text-navy">Training Academy</div>
+    <img src="/logo-mark.png" alt="InvestMore" className="h-40 sm:h-44 w-auto -my-4 mix-blend-multiply" />
+    <div className="text-[15px] font-bold uppercase tracking-[0.3em] text-navy">Training Academy</div>
   </div>
 );
 /** Faint IM mark in the middle of a printed document (the parent must be `relative`). */
