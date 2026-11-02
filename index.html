@@ -9,52 +9,51 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icon-192.png" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
-    <link rel="preload" as="image" href="/logo-mark.png" />
     <title>InvestMore</title>
-    <!-- Splash screen: plain HTML/CSS so it shows instantly, before the app loads. main.tsx fades it out. -->
+    <!-- Splash screen: plain HTML/CSS (logo embedded) so it starts the instant the app opens. main.tsx fades it out. -->
     <style>
       #splash { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; overflow: hidden;
-        background: radial-gradient(120% 80% at 50% 38%, #ffffff 0%, #f2fbf4 45%, #e3f5e8 100%);
-        font-family: Inter, system-ui, sans-serif; transition: opacity .55s ease, transform .55s ease; }
-      #splash.out { opacity: 0; transform: scale(1.04); pointer-events: none; }
+        background: radial-gradient(110% 75% at 50% 40%, #ffffff 0%, #f5fbf6 50%, #eaf6ed 100%);
+        font-family: Inter, system-ui, -apple-system, sans-serif; transition: opacity .7s cubic-bezier(.4,0,.2,1); }
+      #splash.out { opacity: 0; pointer-events: none; }
       #splash .stage { position: relative; display: grid; justify-items: center; }
-      #splash .glow { position: absolute; top: 64px; left: 50%; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%;
-        background: radial-gradient(circle, rgba(14,159,61,.28) 0%, rgba(14,159,61,0) 65%); animation: sp-glow 2.4s ease-in-out infinite; }
-      #splash .ring { position: absolute; top: 64px; left: 50%; width: 128px; height: 128px; margin: -64px 0 0 -64px; border-radius: 34px;
-        border: 2px solid rgba(4,107,35,.35); opacity: 0; animation: sp-ring 1.6s cubic-bezier(.2,.7,.2,1) .35s forwards; }
-      #splash .ring.r2 { animation-delay: .6s; }
-      #splash .card { position: relative; width: 128px; height: 128px; border-radius: 34px; background: #fff; display: grid; place-items: center; overflow: hidden;
-        box-shadow: 0 22px 50px -18px rgba(4,90,30,.55), 0 0 0 1px rgba(4,60,25,.06);
-        opacity: 0; transform: scale(.55) rotate(-8deg); filter: blur(6px); animation: sp-pop .9s cubic-bezier(.2,1.35,.35,1) .1s forwards; }
-      #splash .card img { width: 86%; height: 86%; object-fit: contain; }
-      #splash .card::after { content: ''; position: absolute; inset: -40%; transform: translateX(-120%) rotate(25deg);
-        background: linear-gradient(90deg, transparent 35%, rgba(255,255,255,.85) 50%, transparent 65%); animation: sp-shine 1.1s ease .85s forwards; }
-      #splash .name { margin-top: 26px; font-weight: 800; font-size: 26px; letter-spacing: .32em; color: #111; padding-left: .32em;
-        opacity: 0; transform: translateY(14px); animation: sp-up .7s cubic-bezier(.2,.8,.2,1) .6s forwards; }
-      #splash .name b { color: #079b2f; font-weight: 800; }
-      #splash .tag { margin-top: 8px; font-weight: 600; font-size: 11px; letter-spacing: .48em; color: #6b7280; padding-left: .48em;
-        opacity: 0; animation: sp-fade .7s ease .95s forwards; }
-      #splash .bar { margin-top: 34px; width: 120px; height: 3px; border-radius: 3px; background: rgba(4,107,35,.12); overflow: hidden; opacity: 0; animation: sp-fade .4s ease 1.1s forwards; }
-      #splash .bar i { display: block; width: 40%; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #046b23, #16b04a); animation: sp-load 1.1s ease-in-out infinite; }
-      @keyframes sp-pop { 60% { opacity: 1; filter: blur(0); transform: scale(1.08) rotate(2deg); } 100% { opacity: 1; filter: blur(0); transform: scale(1) rotate(0); } }
-      @keyframes sp-ring { 0% { opacity: .9; transform: scale(1); } 100% { opacity: 0; transform: scale(2.3); } }
-      @keyframes sp-shine { to { transform: translateX(120%) rotate(25deg); } }
-      @keyframes sp-up { to { opacity: 1; transform: none; } }
-      @keyframes sp-fade { to { opacity: 1; } }
-      @keyframes sp-glow { 0%, 100% { transform: scale(.92); opacity: .8; } 50% { transform: scale(1.08); opacity: 1; } }
-      @keyframes sp-load { 0% { transform: translateX(-100%); } 100% { transform: translateX(260%); } }
-      @media (prefers-reduced-motion: reduce) { #splash *, #splash *::after { animation-duration: .01s !important; animation-delay: 0s !important; } }
+      /* one soft glow that breathes slowly behind the logo */
+      #splash .glow { position: absolute; top: 60px; left: 50%; width: 240px; height: 240px; margin: -120px 0 0 -120px; border-radius: 50%;
+        background: radial-gradient(circle, rgba(16,150,60,.16) 0%, rgba(16,150,60,0) 68%);
+        animation: sp-breathe 3.2s ease-in-out infinite; }
+      #splash .card { position: relative; width: 120px; height: 120px; border-radius: 32px; background: #fff; display: grid; place-items: center; overflow: hidden;
+        box-shadow: 0 18px 44px -20px rgba(4,80,30,.45), 0 0 0 1px rgba(4,60,25,.05);
+        animation: sp-in 1.1s cubic-bezier(.16,1,.3,1) both; }
+      #splash .card img { width: 84%; height: 84%; object-fit: contain; }
+      /* a slow, faint light passing across the logo */
+      #splash .card::after { content: ''; position: absolute; inset: -50%; transform: translateX(-130%) rotate(20deg);
+        background: linear-gradient(90deg, transparent 40%, rgba(255,255,255,.55) 50%, transparent 60%);
+        animation: sp-shine 2.2s cubic-bezier(.45,0,.25,1) .5s both; }
+      #splash .name { margin-top: 24px; font-weight: 700; font-size: 24px; color: #141414; letter-spacing: .5em; padding-left: .5em;
+        animation: sp-name 1.3s cubic-bezier(.16,1,.3,1) .15s both; }
+      #splash .name b { color: #0a8f30; font-weight: 700; }
+      #splash .tag { margin-top: 9px; font-weight: 500; font-size: 10.5px; letter-spacing: .5em; padding-left: .5em; color: #7a8079;
+        animation: sp-fade 1.2s ease .45s both; }
+      #splash .line { margin-top: 30px; width: 44px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, rgba(10,143,48,0), #0a8f30, rgba(10,143,48,0));
+        animation: sp-line 1.6s ease-in-out .6s infinite both; }
+      @keyframes sp-in { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
+      @keyframes sp-name { from { opacity: 0; letter-spacing: .7em; padding-left: .7em; } to { opacity: 1; letter-spacing: .32em; padding-left: .32em; } }
+      @keyframes sp-fade { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes sp-shine { to { transform: translateX(130%) rotate(20deg); } }
+      @keyframes sp-breathe { 0%, 100% { transform: scale(.94); opacity: .75; } 50% { transform: scale(1.06); opacity: 1; } }
+      @keyframes sp-line { 0% { opacity: .2; transform: scaleX(.4); } 50% { opacity: 1; transform: scaleX(1.6); } 100% { opacity: .2; transform: scaleX(.4); } }
+      @media (prefers-reduced-motion: reduce) { #splash *, #splash *::after { animation: none !important; } }
       @media print { #splash { display: none; } }
     </style>
   </head>
   <body>
     <div id="splash" role="status" aria-label="Loading InvestMore">
       <div class="stage">
-        <span class="glow"></span><span class="ring"></span><span class="ring r2"></span>
-        <div class="card"><img src="/logo-mark.png" alt="" /></div>
+        <span class="glow"></span>
+        <div class="card"><img alt="" src="data:image/webp;base64,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" /></div>
         <div class="name">INVEST<b>MORE</b></div>
         <div class="tag">TRAINING ACADEMY</div>
-        <div class="bar"><i></i></div>
+        <span class="line"></span>
       </div>
     </div>
     <!-- safety: never leave the splash up if loading fails -->
