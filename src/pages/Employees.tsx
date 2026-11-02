@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import * as S from '../store/store';
-import { Badge, Button, Card, CardHeader, Checkbox, Empty, Field, Input, Modal, PageHeader, Select, Table, Tabs, useRun } from '../ui/kit';
+import { cloudEnabled, loginIdOf, setStaffLogin, staffEmail, staffLoginExists } from '../store/cloud';
+import { Badge, Button, Card, CardHeader, Checkbox, Empty, Field, Input, Modal, PageHeader, Select, Table, Tabs, useRun, useUI } from '../ui/kit';
 import { ACTIONS, MODULES } from '../domain/permissions';
 import { ROLES, type Action, type Employee, type Module, type Role } from '../domain/types';
 import { fmtDateTime, fmtPhone } from '../domain/util';
@@ -19,7 +20,7 @@ export default function Employees() {
           <Table rows={db.employees} rowKey={(e) => e.id} onRow={(e) => S.allowed('employees', 'edit', db) && setEdit(e)} cols={[
             { key: 'n', label: 'Name', render: (e) => <span className="font-medium">{e.name}</span>, sort: (e) => e.name },
             { key: 'r', label: 'Role', render: (e) => roleLabel(e.role), sort: (e) => e.role },
-            { key: 'p', label: 'Mobile', render: (e) => fmtPhone(e.phone) }, { key: 'm', label: 'Email', render: (e) => e.email || '—' },
+            { key: 'p', label: 'Mobile', render: (e) => fmtPhone(e.phone) }, { key: 'm', label: cloudEnabled ? 'Login ID / email' : 'Email', render: (e) => e.email ? loginIdOf(e.email) : '—' },
             { key: 'l', label: 'Leads', render: (e) => db.leads.filter((l) => l.assignedTo === e.id).length },
             { key: 'll', label: 'Last login', render: (e) => fmtDateTime(db.logins.find((x) => x.userId === e.id)?.at) },
             { key: 's', label: 'Status', render: (e) => <Badge tone={e.active ? 'green' : 'gray'}>{e.active ? 'Active' : 'Inactive'}</Badge> },
@@ -56,6 +57,9 @@ function EmployeeModal({ emp, onClose }: { emp: Partial<Employee> | null; onClos
         <Field label="Role"><Select value={e.role ?? 'caller'} onChange={(x) => setE({ ...e, role: x.target.value as Role })} options={roles.map((r) => ({ value: r.id, label: r.label }))} /></Field>
         <div className="sm:col-span-2"><Checkbox checked={e.active ?? true} onChange={(x) => setE({ ...e, active: x.target.checked })} label="Active (can sign in)" /></div>
       </div>
+      {cloudEnabled && me.role === 'super_admin' && (e.id
+        ? <StaffLogin id={e.id} />
+        : <p className="mt-4 text-[12.5px] text-muted">Save the employee first, then open them again to give a login ID and password.</p>)}
     </Modal>
   );
 }
@@ -94,5 +98,49 @@ function Permissions() {
         </table>
       </div>
     </Card>
+  );
+}
+
+/** Super Admin gives this employee a login ID + password; they then see only what their role allows. */
+function StaffLogin({ id }: { id: string }) {
+  const db = S.useDB();
+  const me = S.useMe()!;
+  const { toast } = useUI();
+  const emp = db.employees.find((x) => x.id === id)!;
+  const current = /@staff\.investmore\.invalid$/i.test(emp.email) ? loginIdOf(emp.email) : '';
+  const self = id === me.id; // changing your own login ID would sign you out for good
+  const [loginId, setLoginId] = useState(current || emp.name.trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9._-]/g, ''));
+  const [pw, setPw] = useState('');
+  const [has, setHas] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { staffLoginExists(id).then(setHas).catch(() => setHas(null)); }, [id, emp.email]);
+  const validId = /^[A-Za-z0-9._-]{3,40}$/.test(loginId.trim());
+  const save = async () => {
+    setBusy(true);
+    try {
+      const email = staffEmail(loginId);
+      if (email !== emp.email.toLowerCase()) S.saveEmployee({ ...emp, email });
+      const lid = await setStaffLogin(id, pw);
+      setPw(''); setHas(true);
+      toast(`Login ready — Login ID ${lid}`, 'ok');
+    } catch (e) { toast((e as Error).message, 'bad'); }
+    setBusy(false);
+  };
+  return (
+    <div className="mt-5 rounded-xl border border-line bg-surface/60 p-4">
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div><div className="font-semibold text-[14px]">Login</div><div className="text-[12px] text-muted">They sign in on the login page with this ID and see only their role's pages.</div></div>
+        {has !== null && <Badge tone={has ? 'green' : 'gray'}>{has ? 'Login active' : 'No login yet'}</Badge>}
+      </div>
+      <div className="grid sm:grid-cols-[1fr_1fr_auto] gap-2 items-end">
+        <Field label="Login ID" error={loginId && !validId ? '3-40 letters or numbers' : undefined}>
+          <Input autoCapitalize="none" value={loginId} disabled={self && !!current} onChange={(x) => setLoginId(x.target.value.trim())} />
+        </Field>
+        <Field label={has ? 'New password' : 'Password'} error={pw && pw.length < 8 ? 'At least 8 characters' : undefined}>
+          <Input type="text" autoComplete="new-password" value={pw} onChange={(x) => setPw(x.target.value)} />
+        </Field>
+        <Button variant="primary" loading={busy} disabled={!validId || pw.length < 8} onClick={save}>{has ? 'Reset password' : 'Create login'}</Button>
+      </div>
+    </div>
   );
 }

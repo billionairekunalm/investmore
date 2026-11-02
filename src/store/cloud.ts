@@ -154,10 +154,12 @@ export const loginIdOf = (email?: string | null) => (email && /\.investmore\.inv
 const looksLikeStudentId = (id: string) => /^IM[A-Z]{3}\d{4,}$/i.test(id.trim()) || /^STU-\d+$/i.test(id.trim());
 
 /** Sign in with a login ID (student ID or staff ID) or, for older accounts, an email. Returns the session email. */
-export async function signInWithId(loginId: string, password: string): Promise<string> {
+export async function signInWithId(loginId: string, password: string, as?: 'student' | 'staff'): Promise<string> {
   const id = loginId.trim();
   if (id.includes('@')) { await signIn(id, password); return id; }
-  const order: ('student' | 'staff')[] = looksLikeStudentId(id) ? ['student', 'staff'] : ['staff', 'student'];
+  // try the chosen kind first; the other one too, so picking the wrong tab still works
+  const first = as ?? (looksLikeStudentId(id) ? 'student' : 'staff');
+  const order: ('student' | 'staff')[] = first === 'student' ? ['student', 'staff'] : ['staff', 'student'];
   for (const kind of order) {
     const { error } = await sb!.auth.signInWithPassword({ email: idEmail(id, kind), password });
     if (!error) return idEmail(id, kind);
@@ -178,6 +180,19 @@ export async function setStudentLogin(studentId: string, password: string): Prom
   const { data, error } = await sb!.rpc('set_student_login', { p_student_id: studentId, p_password: password });
   if (error) throw new Error(error.message);
   return String(data);
+}
+export const staffEmail = (loginId: string) => idEmail(loginId, 'staff');
+/** Super Admin: create or reset an employee's login (the employee must already be saved with email = staffEmail(id)). */
+export async function setStaffLogin(employeeId: string, password: string): Promise<string> {
+  await flushSync();
+  const { data, error } = await sb!.rpc('set_staff_login', { p_employee_id: employeeId, p_password: password });
+  if (error) throw new Error(error.message);
+  return String(data);
+}
+export async function staffLoginExists(employeeId: string): Promise<boolean> {
+  const { data, error } = await sb!.rpc('staff_login_exists', { p_employee_id: employeeId });
+  if (error) throw new Error(error.message);
+  return !!data;
 }
 export async function studentLoginExists(studentId: string): Promise<boolean> {
   const { data, error } = await sb!.rpc('student_login_exists', { p_student_id: studentId });

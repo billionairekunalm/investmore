@@ -262,6 +262,7 @@ export function saveEmployee(e: Omit<Employee, 'id' | 'createdAt'> & { id?: stri
     if (!e.name.trim()) fail('Name is required.');
     const phone = normalizePhone(e.phone) ?? fail('Enter a valid 10-digit mobile number.');
     if (d.employees.some((x) => x.phone === phone && x.id !== e.id)) fail('Another employee already uses this mobile number.');
+    if (e.email.trim() && d.employees.some((x) => x.id !== e.id && x.email.toLowerCase() === e.email.trim().toLowerCase())) fail('Another employee already uses this email / login ID.');
     if (e.id) {
       const cur = d.employees.find((x) => x.id === e.id)!;
       if (cur.role === 'super_admin' && (e.role !== 'super_admin' || !e.active) && d.employees.filter((x) => x.role === 'super_admin' && x.active).length === 1)
