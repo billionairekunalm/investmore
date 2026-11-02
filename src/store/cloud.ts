@@ -201,6 +201,12 @@ export async function staffLoginExists(employeeId: string): Promise<boolean> {
   if (error) throw new Error(error.message);
   return !!data;
 }
+/** Super Admin only: the password staff last set for this student ('' if none, or the student chose their own). */
+export async function studentPassword(studentId: string): Promise<string> {
+  const { data, error } = await sb!.rpc('student_password', { p_student_id: studentId });
+  if (error) throw new Error(error.message);
+  return data ? String(data) : '';
+}
 export async function studentLoginExists(studentId: string): Promise<boolean> {
   const { data, error } = await sb!.rpc('student_login_exists', { p_student_id: studentId });
   if (error) throw new Error(error.message);

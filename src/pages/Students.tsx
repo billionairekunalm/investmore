@@ -6,7 +6,7 @@ import { CallButton, useCall } from '../ui/shell';
 import { PaymentModal } from '../ui/modals';
 import { UploadBox } from './Admissions';
 import { aadhaarUrl, removeAadhaar, storeAadhaar } from '../lib/aadhaarFiles';
-import { cloudEnabled, setStudentLogin, studentLoginExists } from '../store/cloud';
+import { cloudEnabled, setStudentLogin, studentLoginExists, studentPassword } from '../store/cloud';
 import { financeFor } from '../domain/finance';
 import { GENDERS, PAY_METHODS, STUDENT_STATUSES, type DB, type IdDocument, type PayMethod, type Student, type StudentStatus } from '../domain/types';
 import { daysBetween, fmtDate, fmtDateTime, fmtINR, fmtPhone, parseRupees, todayIST } from '../domain/util';
@@ -670,18 +670,34 @@ function LoginPicker({ open, onClose }: { open: boolean; onClose: () => void }) 
   );
 }
 
+const EyeButton = ({ shown, onClick }: { shown: boolean; onClick: () => void }) => (
+  <button type="button" onClick={onClick} aria-label={shown ? 'Hide password' : 'Show password'} title={shown ? 'Hide password' : 'Show password'}
+    className="size-8 grid place-items-center rounded-md text-zinc-500 hover:text-navy hover:bg-surface">
+    <svg viewBox="0 0 24 24" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" />{shown && <path d="M3 3l18 18" />}
+    </svg>
+  </button>
+);
+
 function StudentLogin({ id, bare }: { id: string; bare?: boolean }) {
   const db = S.useDB();
   const { toast } = useUI();
   const s = db.students.find((x) => x.id === id)!;
   const [has, setHas] = useState<boolean | null>(null);
   const [pw, setPw] = useState('');
+  const [current, setCurrent] = useState(''); // password the office last set (Super Admin only)
+  const [showNew, setShowNew] = useState(false);
+  const [showCur, setShowCur] = useState(false);
   const [busy, setBusy] = useState(false);
   const can = S.allowed('students', 'edit', db);
-  useEffect(() => { studentLoginExists(id).then(setHas).catch(() => setHas(null)); }, [id]);
+  const admin = S.useMe()?.role === 'super_admin';
+  useEffect(() => {
+    studentLoginExists(id).then(setHas).catch(() => setHas(null));
+    if (admin) studentPassword(id).then(setCurrent).catch(() => setCurrent(''));
+  }, [id, admin]);
   const save = async () => {
     setBusy(true);
-    try { await setStudentLogin(id, pw); setHas(true); setPw(''); toast(has ? 'Password reset' : `Login created — Login ID ${s.code}`, 'ok'); }
+    try { await setStudentLogin(id, pw); setHas(true); setCurrent(pw); setPw(''); toast(has ? 'Password changed' : `Login created — Login ID ${s.code}`, 'ok'); }
     catch (e) { toast((e as Error).message, 'bad'); }
     setBusy(false);
   };
@@ -697,13 +713,24 @@ function StudentLogin({ id, bare }: { id: string; bare?: boolean }) {
       </div>
       <dl className="mt-4 grid sm:grid-cols-2 gap-3">
         <div><dt className="text-xs text-muted">Login ID</dt><dd className="font-semibold tabular text-[15px]">{s.code}</dd></div>
+        {admin && has && (
+          <div><dt className="text-xs text-muted">Current password</dt>
+            <dd className="flex items-center gap-1.5 font-semibold text-[15px]">
+              {current ? <><span className="tabular">{showCur ? current : '•'.repeat(Math.min(current.length, 12))}</span><EyeButton shown={showCur} onClick={() => setShowCur(!showCur)} /></>
+                : <span className="text-[12.5px] font-normal text-muted">Set by the student</span>}
+            </dd>
+          </div>
+        )}
       </dl>
       {can && (
         <div className="mt-4 flex flex-wrap items-end gap-2">
           <Field label={has ? 'New password' : 'Password'} className="w-full sm:w-64" error={pw && pw.length < 8 ? 'At least 8 characters' : undefined}>
-            <Input type="text" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} />
+            <div className="relative">
+              <Input type={showNew ? 'text' : 'password'} autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} className="pr-10" />
+              <span className="absolute right-1 top-1/2 -translate-y-1/2"><EyeButton shown={showNew} onClick={() => setShowNew(!showNew)} /></span>
+            </div>
           </Field>
-          <Button variant="primary" loading={busy} disabled={pw.length < 8} onClick={save}>{has ? 'Reset password' : 'Create login'}</Button>
+          <Button variant="primary" loading={busy} disabled={pw.length < 8} onClick={save}>{has ? 'Set new password' : 'Create login'}</Button>
         </div>
       )}
     </Wrap>

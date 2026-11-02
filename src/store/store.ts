@@ -173,10 +173,22 @@ function tx<T>(fn: (d: DB) => T): T {
   return out;
 }
 
-const next = (d: DB, prefix: string, pad = 4) => `${prefix}-${String((d.counters[prefix] = (d.counters[prefix] ?? 0) + 1)).padStart(pad, '0')}`;
+/**
+ * Highest number already used for this kind of ID anywhere in the data (id, receiptNo, code), so a lost or
+ * stale counter (another device, a fresh sync) can never hand out an ID that already exists.
+ * ponytail: scans every record per new ID; fine for thousands of rows, keep a per-prefix max if it ever gets slow.
+ */
+function highest(d: DB, re: RegExp) {
+  let max = 0;
+  for (const v of Object.values(d)) if (Array.isArray(v)) for (const r of v as Record<string, unknown>[])
+    for (const k of ['id', 'receiptNo', 'code']) { const m = typeof r[k] === 'string' && re.exec(r[k] as string); if (m) max = Math.max(max, +m[1]); }
+  return max;
+}
+const bump = (d: DB, key: string, re: RegExp) => (d.counters[key] = Math.max(d.counters[key] ?? 0, highest(d, re)) + 1);
+const next = (d: DB, prefix: string, pad = 4) => `${prefix}-${String(bump(d, prefix, new RegExp(`^${prefix}-(\\d+)$`))).padStart(pad, '0')}`;
 const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 /** Student ID = IM + admission month + running serial, e.g. IMNOV0001, IMNOV0002, IMDEC0003. The serial never resets, so IDs stay unique across years. */
-export const studentCode = (d: DB, admissionDate: ISODate) => `IM${MON[+admissionDate.slice(5, 7) - 1]}${String((d.counters.IM = (d.counters.IM ?? 0) + 1)).padStart(4, '0')}`;
+export const studentCode = (d: DB, admissionDate: ISODate) => `IM${MON[+admissionDate.slice(5, 7) - 1]}${String(bump(d, 'IM', /^IM[A-Z]{3}(\d+)$/)).padStart(4, '0')}`;
 function audit(d: DB, action: string, entity: string, entityId: string, detail = '') {
   d.audit.unshift({ id: uid(), at: nowISO(), by: me ?? 'system', action, entity, entityId, detail });
 }

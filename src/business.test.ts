@@ -358,3 +358,20 @@ describe('founder split by course', () => {
     expect(S.getDB().courses.find((c) => c.name === 'Forex Advance')!.shares![0].name).toBe('Bikram Singh');
   });
 });
+
+describe('IDs never repeat, even when the counter is lost', () => {
+  it('student ID and receipt numbers continue after the highest existing one', () => {
+    const a = admit('9876500011');
+    pay(a, 500);
+    const d = S.getDB();
+    d.counters = {}; // e.g. synced from a device whose counter was empty
+    const b = admit('9876500012');
+    pay(b, 500);
+    const codes = S.getDB().students.map((s) => s.code);
+    expect(new Set(codes).size).toBe(codes.length);
+    const receipts = S.getDB().payments.map((p) => p.receiptNo).filter(Boolean);
+    expect(new Set(receipts).size).toBe(receipts.length);
+    const txns = S.getDB().payments.map((p) => p.id);
+    expect(new Set(txns).size).toBe(txns.length);
+  });
+});
