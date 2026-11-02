@@ -211,7 +211,7 @@ function Cell({ label, value, foot }: { label: string; value: ReactNode; foot?: 
 
 function MyClasses({ classes, marks, batch, onAttendance }: { classes: ClassSession[]; marks: ClassMark[]; batch?: string; onAttendance: () => void }) {
   const now = nowIST();
-  const upcoming = classes.filter((c) => c.status === 'scheduled' && `${c.date}T${c.endTime}` > now).slice(0, 5);
+  const upcoming = classes.filter((c) => c.status === 'scheduled' && `${c.date}T${c.endTime}` > now).slice(0, 2); // only the next 2 classes
   const focus = focusClass ? classes.find((c) => c.id === focusClass) : undefined;
   useEffect(() => { if (focus) document.getElementById(`class-${focus.id}`)?.scrollIntoView({ block: 'center' }); }, [focus?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const list = focus && !upcoming.some((c) => c.id === focus.id) ? [focus, ...upcoming] : upcoming;
