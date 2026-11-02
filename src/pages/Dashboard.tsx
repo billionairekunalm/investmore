@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import * as S from '../store/store';
+import { cloudEnabled } from '../store/cloud';
 import { Button, Card, CardHeader, Empty, PageHeader, cx } from '../ui/kit';
 import { useRange } from '../ui/shell';
 import { financeFor, periodFigures } from '../domain/finance';
@@ -90,7 +91,7 @@ export default function Dashboard() {
         <div className="flex gap-2 justify-center flex-wrap">
           <Button variant="primary" onClick={() => nav('/admissions')}>New admission</Button>
           <Button onClick={() => nav('/leads?view=import')}>Import leads</Button>
-          {S.currentUser()?.role === 'super_admin' && <Button onClick={() => nav('/settings?tab=data')}>Load demo data</Button>}
+          {!cloudEnabled && S.currentUser()?.role === 'super_admin' && <Button onClick={() => nav('/settings?tab=backup')}>Add sample data</Button>}
         </div>} /></Card>
     </>
   );
