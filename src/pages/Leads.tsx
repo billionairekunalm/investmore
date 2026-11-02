@@ -7,11 +7,11 @@ import { LeadModal } from '../ui/modals';
 import { AdmissionForm } from './Admissions';
 import { callingQueue, checkImport, guessMapping, IMPORT_FIELDS, roundRobin, TIER_LABELS, type ImportCheck, type ImportField } from '../domain/leads';
 import { LEAD_SOURCES, type Lead } from '../domain/types';
-import { fmtDate, fmtDateTime, fmtPhone, inRange, todayIST } from '../domain/util';
+import { addDays, fmtDate, fmtDateTime, fmtPhone, inRange, todayIST } from '../domain/util';
 import { downloadCSV, readSheet } from '../lib/export';
 import { useRange } from '../ui/shell';
 
-type View = 'pipeline' | 'list' | 'calling' | 'import' | 'performance';
+type View = 'pipeline' | 'list' | 'calling' | 'calendar' | 'import' | 'performance';
 
 export default function Leads() {
   const db = S.useDB();
@@ -47,6 +47,7 @@ export default function Leads() {
 
   const tabs: { id: View; label: string; count?: number }[] = [
     { id: 'calling', label: "Today's calls", count: queue.filter((l) => l.tier <= 4).length },
+    { id: 'calendar', label: 'Calendar' },
     { id: 'list', label: isManager ? 'All leads' : 'My leads', count: leads.length },
     ...(isManager ? [{ id: 'pipeline' as View, label: 'Board' }] : []),
     ...(S.allowed('leads', 'create', db) && isManager ? [{ id: 'import' as View, label: 'Import' }] : []),
@@ -74,6 +75,7 @@ export default function Leads() {
       </div>
       <Tabs tabs={tabs} value={view} onChange={setView} />
       {view === 'calling' && <>{filters}<CallingQueue leads={filtered} onOpen={(id) => { sp.set('lead', id); setSp(sp); }} /></>}
+      {view === 'calendar' && <>{filters}<FollowUpCalendar leads={filtered} onOpen={(id) => { sp.set('lead', id); setSp(sp); }} /></>}
       {view === 'pipeline' && <>{filters}<Pipeline leads={filtered} onOpen={(id) => { sp.set('lead', id); setSp(sp); }} /></>}
       {view === 'list' && <>{filters}<LeadList leads={filtered} onOpen={(id) => { sp.set('lead', id); setSp(sp); }} /></>}
       {view === 'import' && <ImportLeads />}
@@ -217,6 +219,62 @@ function CallSession({ onClose, onOpen }: { onClose: () => void; onOpen: (id: st
         </div>
       )}
     </Modal>
+  );
+}
+
+// ------------------------------------------------------------------ follow-up calendar
+/** Who to call on which day: follow-up dates of open leads on a month calendar; tap a day for its call list. */
+function FollowUpCalendar({ leads, onOpen }: { leads: Lead[]; onOpen: (id: string) => void }) {
+  const today = todayIST();
+  const [month, setMonth] = useState(today.slice(0, 7));
+  const [day, setDay] = useState(today);
+  const open = leads.filter((l) => l.nextFollowUp && !['Converted', 'Lost'].includes(l.status));
+  const byDay = new Map<string, Lead[]>();
+  for (const l of open) byDay.set(l.nextFollowUp!, [...(byDay.get(l.nextFollowUp!) ?? []), l]);
+  const missed = open.filter((l) => l.nextFollowUp! < today);
+  const first = `${month}-01`;
+  const start = addDays(first, -((new Date(`${first}T00:00:00Z`).getUTCDay() + 6) % 7)); // Monday on/before the 1st
+  const days = Array.from({ length: 42 }, (_, i) => addDays(start, i));
+  const weeks = days[35].slice(0, 7) === month ? 6 : 5;
+  const shift = (n: number) => { const [y, m] = month.split('-').map(Number); setMonth(new Date(Date.UTC(y, m - 1 + n, 1)).toISOString().slice(0, 7)); };
+  const label = new Intl.DateTimeFormat('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${first}T00:00:00Z`));
+  const list = day === 'missed' ? missed : byDay.get(day) ?? [];
+  const dayName = day === 'missed' ? 'Missed follow-ups' : day === today ? 'Today' : new Intl.DateTimeFormat('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${day}T00:00:00Z`));
+
+  return (
+    <div className="space-y-4">
+      <Card className="rounded-2xl overflow-hidden">
+        <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-line">
+          <Button size="sm" variant="ghost" aria-label="Previous month" onClick={() => shift(-1)}>‹</Button>
+          <Button size="sm" onClick={() => { setMonth(today.slice(0, 7)); setDay(today); }}>Today</Button>
+          <Button size="sm" variant="ghost" aria-label="Next month" onClick={() => shift(1)}>›</Button>
+          <h3 className="font-semibold text-navy text-[15px] mr-auto">{label}</h3>
+          {missed.length > 0 && <button onClick={() => setDay('missed')} className={cx('h-8 px-3 rounded-full text-[12.5px] font-semibold border', day === 'missed' ? 'bg-bad text-white border-bad' : 'bg-bad-soft text-bad border-bad/20')}>{missed.length} missed</button>}
+        </div>
+        <div className="grid grid-cols-7 bg-surface/60 border-b border-line">{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => <div key={d} className="px-1.5 py-1.5 text-[10.5px] sm:text-[11px] font-semibold uppercase tracking-wider text-muted text-center sm:text-left">{d}</div>)}</div>
+        <div className="grid grid-cols-7">
+          {days.slice(0, weeks * 7).map((d) => {
+            const items = byDay.get(d) ?? [], other = d.slice(0, 7) !== month, past = d < today, sel = d === day;
+            return (
+              <button key={d} onClick={() => setDay(d)} aria-pressed={sel}
+                className={cx('min-h-16 sm:min-h-24 border-b border-r border-line p-1 sm:p-1.5 text-left align-top transition-colors', other && 'bg-zinc-50/70', sel ? 'bg-accent-soft ring-2 ring-inset ring-accent/40' : 'hover:bg-surface')}>
+                <span className={cx('inline-grid place-items-center size-6 rounded-full text-[12px] tabular', d === today ? 'bg-accent text-white font-bold' : other ? 'text-zinc-400' : 'text-zinc-700')}>{+d.slice(8)}</span>
+                {items.length > 0 && <>
+                  <span className={cx('mt-0.5 block w-fit rounded-md px-1.5 text-[11px] font-bold tabular', past ? 'bg-bad-soft text-bad' : d === today ? 'bg-warn-soft text-warn' : 'bg-accent-soft text-accent')}>{items.length} call{items.length === 1 ? '' : 's'}</span>
+                  <span className="hidden sm:block mt-0.5 space-y-0.5">{items.slice(0, 2).map((l) => <span key={l.id} className="block truncate text-[11px] text-zinc-600">{l.name}</span>)}{items.length > 2 && <span className="block text-[10.5px] text-muted">+{items.length - 2} more</span>}</span>
+                </>}
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+      <Card className="overflow-hidden">
+        <div className="flex items-baseline gap-2 px-4 pt-3.5 pb-2 border-b border-line">
+          <h3 className="font-semibold text-navy">{dayName}</h3><span className="text-[12.5px] text-muted tabular">{list.length} to call</span>
+        </div>
+        {!list.length ? <Empty title="No follow-ups on this day" body="Pick another day on the calendar." /> : <div className="divide-y divide-line">{list.map((l) => <LeadCard key={l.id} l={l} onOpen={() => onOpen(l.id)} />)}</div>}
+      </Card>
+    </div>
   );
 }
 
