@@ -6,7 +6,7 @@ import { useRange } from '../ui/shell';
 import { expenseAmount, founderSplit, periodFigures } from '../domain/finance';
 import { PAY_METHODS, type PayMethod } from '../domain/types';
 import { resizeImage } from '../lib/ocr';
-import { downloadXLSX, printTable } from '../lib/export';
+import { downloadXLSX } from '../lib/export';
 import { addDays, fmtDate, fmtINR, fmtMonth, inRange, monthOf, monthRange, parseRupees, RANGE_LABELS, todayIST } from '../domain/util';
 
 const SALARY = ['Fixed Salaries', 'Commissions'];
@@ -317,7 +317,7 @@ function FounderDownload({ founder, color, range, label }: { founder: ReturnType
   const file = `${founder.name}-statement-${range[0]}-to-${range[1]}`.replace(/[^\w-]+/g, '_');
   const go = (kind: 'pdf' | 'xlsx') => {
     setOpen(false);
-    if (kind === 'pdf') printTable(`${founder.name} — founder statement`, `${db.settings.academyName} · ${period} · Share ${fmtINR(founder.amount)} · Received ${fmtINR(got)}`, rows());
+    if (kind === 'pdf') window.open(`/founder-statement?${new URLSearchParams({ name: founder.name, from: range[0], to: range[1], label })}`, '_blank'); // printable page with logo + watermark
     else void downloadXLSX(rows(), file);
   };
   return (

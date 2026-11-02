@@ -23,6 +23,7 @@ import Invoices from './pages/Invoices';
 import Kits from './pages/Kits';
 import Courses from './pages/Courses';
 import WithdrawalReceipt from './pages/WithdrawalReceipt';
+import FounderStatement from './pages/FounderStatement';
 import CloudAuth from './pages/CloudAuth';
 import StudentPortal from './pages/StudentPortal';
 
@@ -39,6 +40,7 @@ export default function App() {
           <Routes>
             <Route path="/receipt/:id" element={guard('fees', <Receipt />)} />
             <Route path="/withdrawal/:id" element={guard('profit', <WithdrawalReceipt />)} />
+            <Route path="/founder-statement" element={guard('profit', <FounderStatement />)} />
             <Route path="*" element={
               <Layout>
                 <Routes>
