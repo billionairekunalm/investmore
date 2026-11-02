@@ -12,3 +12,16 @@ firebase.initializeApp({
   appId: '1:832536186835:web:36dd20dd912c4bf36da926',
 });
 firebase.messaging();
+
+// Tapping a reminder that the open site showed (see onForegroundPush): open / focus the class page.
+// Firebase's own notifications carry FCM_MSG and are opened by Firebase itself.
+self.addEventListener('notificationclick', (e) => {
+  const link = e.notification.data && !e.notification.data.FCM_MSG ? e.notification.data.link : null;
+  if (!link) return;
+  e.notification.close();
+  e.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+    const url = new URL(link, self.location.origin).href;
+    for (const c of list) if (c.url.startsWith(self.location.origin) && 'focus' in c) { c.navigate(url); return c.focus(); }
+    return clients.openWindow(url);
+  }));
+});

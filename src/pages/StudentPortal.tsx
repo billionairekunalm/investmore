@@ -41,11 +41,10 @@ export default function StudentPortal() {
     }).catch((e) => setErr((e as Error).message));
   };
   useEffect(load, []);
-  const [banner, setBanner] = useState<{ title: string; body: string } | null>(null);
   useEffect(() => {
     void refreshPush();
     let off: (() => void) | undefined;
-    void onForegroundPush((title, body) => setBanner({ title, body })).then((u) => { off = u; });
+    void onForegroundPush().then((u) => { off = u; }); // reminders show as real notifications even while this page is open
     return () => off?.();
   }, []);
 
@@ -79,12 +78,6 @@ export default function StudentPortal() {
     <div className="min-h-full bg-surface pb-10">
       {top}
       <main className="max-w-4xl mx-auto px-4 pt-5 space-y-4">
-        {banner && (
-          <div role="status" className="rounded-xl border border-accent/30 bg-accent-soft px-4 py-3 flex items-start gap-3">
-            <span className="text-[18px]">🔔</span><div className="flex-1"><div className="font-semibold text-ink">{banner.title}</div><div className="text-[13px] text-zinc-700">{banner.body}</div></div>
-            <button onClick={() => setBanner(null)} className="text-muted hover:text-ink" aria-label="Close">✕</button>
-          </div>
-        )}
         {attendToken && <AttendPanel token={attendToken} onDone={load} />}
         <MyClasses classes={data.classes} marks={data.marks} batch={batch?.name} />
         <Reminders />

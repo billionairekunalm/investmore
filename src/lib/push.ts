@@ -55,11 +55,21 @@ export async function enablePush(): Promise<void> {
 /** Already allowed earlier: refresh the token quietly (tokens change over time). */
 export async function refreshPush() { if ((await pushState()) === 'on') await register().catch(() => undefined); }
 
-/** While the site is open, show reminders as a normal notification too. Returns an unsubscribe function. */
-export async function onForegroundPush(show: (title: string, body: string, link?: string) => void) {
+/**
+ * While the site is open, Firebase hands the reminder to the page instead of showing it, so we show it ourselves
+ * as a normal phone / desktop notification (same look as when the site is closed). Returns an unsubscribe function.
+ */
+export async function onForegroundPush() {
   const f = await messaging();
   if (!f) return () => undefined;
-  return f.m.onMessage(f.msg, (p) => show(p.notification?.title ?? 'Class reminder', p.notification?.body ?? '', (p.fcmOptions?.link ?? p.data?.link) as string | undefined));
+  return f.m.onMessage(f.msg, async (p) => {
+    const reg = (await navigator.serviceWorker.getRegistration('/firebase-cloud-messaging-push-scope')) ?? (await navigator.serviceWorker.ready);
+    const link = (p.fcmOptions?.link ?? p.data?.link) as string | undefined;
+    await reg.showNotification(p.notification?.title ?? 'Class reminder', {
+      body: p.notification?.body ?? '', icon: '/icon-512.png', badge: '/icon-192.png',
+      tag: p.messageId, data: { link: link ?? '/' },
+    });
+  });
 }
 
 export async function sendTestReminder() {
