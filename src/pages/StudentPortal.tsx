@@ -62,11 +62,11 @@ export default function StudentPortal() {
 
   const top = (
     <header className="sticky top-0 z-20 bg-white/85 backdrop-blur border-b border-emerald-900/5">
-      <div className="max-w-3xl mx-auto px-4 h-14 flex items-center gap-2.5">
-        <span className="size-8 rounded-xl bg-white border border-emerald-900/10 grid place-items-center overflow-hidden"><img src="/logo-mark.png" alt="" className="w-[85%]" /></span>
-        <div className="leading-tight"><div className="font-bold tracking-[0.14em] text-[13px] text-ink">INVEST<span className="text-accent">MORE</span></div><div className="text-[9.5px] tracking-[0.25em] text-zinc-500">TRAINING ACADEMY</div></div>
-        <button onClick={() => S.logout()} className="ml-auto inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[13px] font-medium text-zinc-600 hover:bg-zinc-100" aria-label="Sign out">
-          <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10" /></svg>Sign out
+      <div className="max-w-3xl mx-auto px-4 h-[72px] flex items-center gap-3">
+        <span className="size-12 rounded-2xl bg-white border border-emerald-900/10 shadow-sm grid place-items-center overflow-hidden"><img src="/logo-mark.png" alt="InvestMore" className="w-[86%]" /></span>
+        <div className="leading-tight min-w-0"><div className="font-extrabold tracking-[0.12em] text-[18px] text-ink">INVEST<span className="text-accent">MORE</span></div><div className="mt-0.5 text-[10.5px] font-semibold tracking-[0.28em] text-zinc-500">TRAINING ACADEMY</div></div>
+        <button onClick={() => S.logout()} title="Sign out" className="ml-auto shrink-0 inline-flex items-center justify-center gap-1.5 size-11 sm:size-auto sm:h-10 sm:px-3.5 rounded-full border border-zinc-200 bg-white text-[13px] font-medium text-zinc-600 hover:bg-zinc-50" aria-label="Sign out">
+          <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10" /></svg><span className="hidden sm:inline">Sign out</span>
         </button>
       </div>
     </header>
