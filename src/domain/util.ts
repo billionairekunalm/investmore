@@ -35,6 +35,21 @@ export function parseRupees(s: string): Paise | null {
 const istFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' });
 export const todayIST = (now = new Date()): ISODate => istFmt.format(now);
 export const nowISO = () => new Date().toISOString();
+const istTime = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+/** Current India time as 'YYYY-MM-DDTHH:MM' — compares directly with a class's `${date}T${time}`. */
+export const nowIST = (now = new Date()) => `${todayIST(now)}T${istTime.format(now)}`;
+/** '17:00' → '5:00 PM' */
+export const fmtTime = (t: string) => { const [h, m] = t.split(':').map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`; };
+export const minutesOf = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+export const timeOf = (mins: number) => `${String(Math.floor(mins / 60) % 24).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+/** A batch's usual class time from its timing text ('17:00–18:00', '5:00-6:00 PM' style); falls back to 10:00–11:00. */
+export function batchTimes(timing: string): [string, string] {
+  const m = timing.match(/(\d{1,2}):(\d{2})\s*(am|pm)?\s*[–—-]\s*(\d{1,2}):(\d{2})\s*(am|pm)?/i);
+  if (!m) return ['10:00', '11:00'];
+  const to24 = (h: number, ap?: string) => (ap ? (ap.toLowerCase() === 'pm' ? (h % 12) + 12 : h % 12) : h);
+  const ap2 = m[6], ap1 = m[3] ?? ap2;
+  return [timeOf(to24(+m[1], ap1) * 60 + +m[2]), timeOf(to24(+m[4], ap2) * 60 + +m[5])];
+}
 export function addDays(d: ISODate, n: number): ISODate {
   const dt = new Date(d + 'T00:00:00Z');
   dt.setUTCDate(dt.getUTCDate() + n);

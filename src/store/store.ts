@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import type {
+import type { ClassMark, ClassSession,
   Action, Batch, BookingPolicy, CallOutcome, Certificate, CertificateTemplate, Course, DB, Distribution, DistributionStatus,
   Employee, Expense, ISODate, Withdrawal, Lead, Module, Notification, Paise, Payment, PayMethod, RecurringExpense, Role, Settings, Student, StudentStatus,
 } from '../domain/types';
@@ -54,7 +54,7 @@ export function emptyDB(): DB {
       // Forex Advance: Bikram takes 45%, the other two share the remaining 55% equally
       { id: uid(), name: 'Forex Advance', bookingDefault: 100000, instalments: [300000, 300000, 150000], durationWeeks: 8, status: 'active', shares: [{ name: 'Bikram', pctBp: 4500 }, { name: 'Shekhar', pctBp: 2750 }, { name: 'Sanjeev', pctBp: 2750 }] }],
     batches: [], students: [], enrolments: [], feePlans: [], instalments: [], payments: [], leads: [], calls: [], expenses: [],
-    recurring: [], periods: [], distributions: [], templates: [], certificates: [], attendance: [], notifications: [], audit: [], imports: [], logins: [], withdrawals: [],
+    recurring: [], periods: [], distributions: [], templates: [], certificates: [], attendance: [], classes: [], marks: [], notifications: [], audit: [], imports: [], logins: [], withdrawals: [],
   };
 }
 
@@ -134,6 +134,8 @@ export async function enterCloud(email: string) {
 }
 let lastPull = Date.now();
 /** Pick up other staff members' changes when the window regains focus (only when nothing local is waiting to upload). */
+/** Pull now (e.g. to see students' QR attendance); skipped while local changes are still uploading. */
+export const refreshNow = () => { lastPull = 0; return refreshFromCloud(); };
 async function refreshFromCloud() {
   if (cloud.phase !== 'ready' || getSyncStatus().state !== 'saved' || Date.now() - lastPull < 30000) return;
   lastPull = Date.now();
@@ -388,6 +390,85 @@ export function markAttendance(batchId: string, date: ISODate, present: string[]
     if (a) a.present = present; else d.attendance.push({ id: uid(), batchId, date, present });
     audit(d, 'attendance.mark', 'batch', batchId, `${date}: ${present.length} present`);
   });
+}
+
+// ---------------------------------------------------------------------------------------------
+// class schedule & per-class attendance
+// ---------------------------------------------------------------------------------------------
+export const DEFAULT_ATTENDANCE_WINDOW = { beforeMins: 15, afterMins: 15 };
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+/** Schedule a class, or edit / reschedule one. Reminders for the batch's students are (re)planned by the database. */
+export function saveClass(c: Pick<ClassSession, 'batchId' | 'date' | 'startTime' | 'endTime' | 'notes'> & { id?: string }) {
+  return tx((d) => {
+    guard(d, 'batches', c.id ? 'edit' : 'create');
+    const b = d.batches.find((x) => x.id === c.batchId) ?? fail('Choose a batch.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(c.date)) fail('Choose the class date.');
+    if (!HHMM.test(c.startTime) || !HHMM.test(c.endTime)) fail('Enter start and end time.');
+    if (c.endTime <= c.startTime) fail('End time must be after the start time.');
+    const clash = d.classes.find((x) => x.id !== c.id && x.batchId === c.batchId && x.date === c.date && x.status === 'scheduled' && x.startTime < c.endTime && c.startTime < x.endTime);
+    if (clash) fail(`${b.name} already has a class at ${clash.startTime}–${clash.endTime} that day.`);
+    const notes = c.notes.trim();
+    if (c.id) {
+      const cur = d.classes.find((x) => x.id === c.id) ?? fail('Class not found.');
+      const moved = cur.date !== c.date || cur.startTime !== c.startTime || cur.endTime !== c.endTime;
+      Object.assign(cur, { batchId: c.batchId, date: c.date, startTime: c.startTime, endTime: c.endTime, notes });
+      audit(d, moved ? 'class.reschedule' : 'class.update', 'class', cur.id, `${b.name} ${c.date} ${c.startTime}–${c.endTime}`);
+      return cur.id;
+    }
+    const id = uid();
+    d.classes.push({ id, batchId: c.batchId, date: c.date, startTime: c.startTime, endTime: c.endTime, status: 'scheduled', notes, createdAt: nowISO() });
+    audit(d, 'class.schedule', 'class', id, `${b.name} ${c.date} ${c.startTime}–${c.endTime}`);
+    return id;
+  });
+}
+export function setClassStatus(id: string, status: ClassSession['status'], reason = '') {
+  tx((d) => {
+    guard(d, 'batches', 'edit');
+    const c = d.classes.find((x) => x.id === id) ?? fail('Class not found.');
+    if (status === 'cancelled' && !reason.trim()) fail('Give a reason for cancelling.');
+    c.status = status;
+    audit(d, status === 'cancelled' ? 'class.cancel' : 'class.restore', 'class', id, `${batchName(d, c.batchId)} ${c.date}${reason ? ` — ${reason}` : ''}`);
+    syncDayAttendance(d, c.batchId, c.date);
+  });
+}
+/** Mark / correct one student for one class: present, absent, or null to clear. Every change is logged. */
+export function setMark(classId: string, studentId: string, status: ClassMark['status'] | null) {
+  tx((d) => {
+    guard(d, 'batches', 'edit');
+    const c = d.classes.find((x) => x.id === classId) ?? fail('Class not found.');
+    if (c.status === 'cancelled') fail('This class was cancelled.');
+    const s = d.students.find((x) => x.id === studentId) ?? fail('Student not found.');
+    const id = `${classId}:${studentId}`, cur = d.marks.find((m) => m.id === id);
+    if ((cur?.status ?? null) === status) return;
+    if (status === null) d.marks = d.marks.filter((m) => m.id !== id);
+    else if (cur) Object.assign(cur, { status, at: nowISO(), method: 'manual', markedBy: me ?? 'system' });
+    else d.marks.push({ id, classId, studentId, status, at: nowISO(), method: 'manual', markedBy: me ?? 'system' });
+    audit(d, cur ? 'attendance.correct' : 'attendance.mark', 'student', studentId, `${s.name} · ${batchName(d, c.batchId)} ${c.date} ${c.startTime}: ${cur?.status ?? 'not marked'} → ${status ?? 'not marked'}`);
+    syncDayAttendance(d, c.batchId, c.date);
+  });
+}
+/** Mark everyone not yet marked in a class as present or absent. */
+export function markRest(classId: string, studentIds: string[], status: ClassMark['status']) {
+  tx((d) => {
+    guard(d, 'batches', 'edit');
+    const c = d.classes.find((x) => x.id === classId) ?? fail('Class not found.');
+    let n = 0;
+    for (const sid of studentIds) {
+      const id = `${classId}:${sid}`;
+      if (d.marks.some((m) => m.id === id)) continue;
+      d.marks.push({ id, classId, studentId: sid, status, at: nowISO(), method: 'manual', markedBy: me ?? 'system' }); n++;
+    }
+    audit(d, 'attendance.mark', 'class', classId, `${batchName(d, c.batchId)} ${c.date}: ${n} marked ${status}`);
+    syncDayAttendance(d, c.batchId, c.date);
+  });
+}
+/** Keeps the older day-level attendance record in step, so student profiles, reports and the portal stay correct. */
+function syncDayAttendance(d: DB, batchId: string, date: ISODate) {
+  const ids = new Set(d.classes.filter((c) => c.batchId === batchId && c.date === date && c.status === 'scheduled').map((c) => c.id));
+  if (!ids.size) return;
+  const present = [...new Set(d.marks.filter((m) => ids.has(m.classId) && m.status === 'present').map((m) => m.studentId))];
+  const a = d.attendance.find((x) => x.batchId === batchId && x.date === date);
+  if (a) a.present = present; else if (present.length) d.attendance.push({ id: uid(), batchId, date, present });
 }
 
 // ---------------------------------------------------------------------------------------------

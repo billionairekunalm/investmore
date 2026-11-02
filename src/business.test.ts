@@ -3,7 +3,7 @@ import * as S from './store/store';
 import { buildSchedule } from './domain/fees';
 import { splitProfit, periodFigures, financeFor, founderSplit } from './domain/finance';
 import { checkImport, callingQueue } from './domain/leads';
-import { normalizePhone, todayIST, addDays, uid, monthOf } from './domain/util';
+import { normalizePhone, todayIST, addDays, uid, monthOf, batchTimes } from './domain/util';
 import { can, defaultPermissions } from './domain/permissions';
 
 const T = todayIST();
@@ -410,5 +410,40 @@ describe('course fee includes the booking, and can be changed per student', () =
     expect(S.courseFee(S.getDB().courses[0])).toBe(1000000);
     const id = admit('9876500025');
     expect(financeFor(S.getDB(), id, T).total).toBe(1000000);
+  });
+});
+
+describe('class schedule & per-class attendance', () => {
+  const batch = () => S.saveBatch({ name: 'TA Batch 01', courseId: course(), teacherId: '', startDate: T, endDate: addDays(T, 60), schedule: 'Mon–Fri', timing: '17:00–18:00', capacity: 30, status: 'running' } as never);
+  it('reads the usual class time from batch timing text', () => {
+    expect(batchTimes('17:00–18:00')).toEqual(['17:00', '18:00']);
+    expect(batchTimes('5:00-6:30 PM')).toEqual(['17:00', '18:30']);
+    expect(batchTimes('Morning')).toEqual(['10:00', '11:00']);
+  });
+  it('schedules, refuses bad times and clashes, reschedules and cancels', () => {
+    const b = S.getDB().batches[0]?.id ?? (batch(), S.getDB().batches[0].id);
+    const id = S.saveClass({ batchId: b, date: addDays(T, 1), startTime: '17:00', endTime: '18:00', notes: '' });
+    expect(() => S.saveClass({ batchId: b, date: addDays(T, 1), startTime: '18:00', endTime: '17:00', notes: '' })).toThrow(/after the start/);
+    expect(() => S.saveClass({ batchId: b, date: addDays(T, 1), startTime: '17:30', endTime: '18:30', notes: '' })).toThrow(/already has a class/);
+    S.saveClass({ id, batchId: b, date: addDays(T, 2), startTime: '16:00', endTime: '17:00', notes: 'moved' });
+    expect(S.getDB().classes.find((c) => c.id === id)).toMatchObject({ date: addDays(T, 2), startTime: '16:00', notes: 'moved' });
+    expect(() => S.setClassStatus(id, 'cancelled')).toThrow(/reason/);
+    S.setClassStatus(id, 'cancelled', 'holiday');
+    expect(S.getDB().classes.find((c) => c.id === id)!.status).toBe('cancelled');
+  });
+  it('one record per student per class, corrections logged, day record kept in step, old classes untouched', () => {
+    batch(); const b = S.getDB().batches[0].id;
+    const a = admit('9876500031', { batchId: b }), z = admit('9876500032', { batchId: b });
+    const c1 = S.saveClass({ batchId: b, date: T, startTime: '09:00', endTime: '10:00', notes: '' });
+    const c2 = S.saveClass({ batchId: b, date: addDays(T, 1), startTime: '09:00', endTime: '10:00', notes: '' });
+    S.setMark(c1, a, 'present'); S.setMark(c1, a, 'present'); S.setMark(c1, z, 'absent');
+    expect(S.getDB().marks.filter((m) => m.classId === c1)).toHaveLength(2);
+    S.setMark(c1, z, 'present'); // correction
+    expect(S.getDB().audit.some((x) => x.action === 'attendance.correct')).toBe(true);
+    expect(S.getDB().attendance.find((x) => x.batchId === b && x.date === T)!.present.sort()).toEqual([a, z].sort());
+    S.markRest(c2, [a, z], 'absent');
+    expect(S.getDB().marks.filter((m) => m.classId === c1 && m.status === 'present')).toHaveLength(2); // class 1 not overwritten
+    S.setMark(c1, a, null);
+    expect(S.getDB().attendance.find((x) => x.batchId === b && x.date === T)!.present).toEqual([z]);
   });
 });
