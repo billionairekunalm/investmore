@@ -10,7 +10,6 @@ import { LEAD_SOURCES, type Lead } from '../domain/types';
 import { fmtDate, fmtDateTime, fmtPhone, inRange, todayIST } from '../domain/util';
 import { downloadCSV, readSheet } from '../lib/export';
 import { useRange } from '../ui/shell';
-import { StatTile } from './Dashboard';
 
 type View = 'pipeline' | 'list' | 'calling' | 'import' | 'performance';
 
@@ -18,7 +17,7 @@ export default function Leads() {
   const db = S.useDB();
   const me = S.useMe()!;
   const [sp, setSp] = useSearchParams();
-  const view = (sp.get('view') as View) || (me.role === 'caller' ? 'calling' : 'pipeline');
+  const view = (sp.get('view') as View) || 'calling';
   const setView = (v: View) => { sp.set('view', v); setSp(sp, { replace: true }); };
   const [q, setQ] = useState('');
   const [fCaller, setFCaller] = useState('');
@@ -35,36 +34,46 @@ export default function Leads() {
     (!q || l.name.toLowerCase().includes(q.toLowerCase()) || l.phone.includes(q) || l.id.toLowerCase().includes(q.toLowerCase()) || l.campaign.toLowerCase().includes(q.toLowerCase())) &&
     (!fCaller || l.assignedTo === fCaller) && (!fSource || l.source === fSource) && (!fStatus || l.status === fStatus));
 
-  // follow-ups due as of today (same rule as the calling queue): open leads with a follow-up date today or earlier
+  // the day at a glance (same rules as the calling list)
   const today = todayIST();
-  const due = leads.filter((l) => l.nextFollowUp && l.nextFollowUp <= today && l.status !== 'Converted' && l.status !== 'Lost');
-  const dueToday = due.filter((l) => l.nextFollowUp === today).length;
+  const queue = callingQueue(leads, today);
+  const myCallsToday = db.calls.filter((c) => c.entity === 'lead' && c.at.slice(0, 10) === today && (isManager || c.by === me.id)).length;
+  const glance: [string, number, string][] = [
+    ['Follow-ups due', queue.filter((l) => l.tier <= 2).length, 'text-bad'],
+    ['Hot leads', queue.filter((l) => l.tier === 3).length, 'text-warn'],
+    ['New, not called', queue.filter((l) => l.tier === 4).length, 'text-navy'],
+    ['Calls made today', myCallsToday, 'text-accent'],
+  ];
 
   const tabs: { id: View; label: string; count?: number }[] = [
-    { id: 'calling', label: 'Calling queue', count: callingQueue(leads, todayIST()).filter((l) => l.tier <= 2).length },
-    { id: 'pipeline', label: 'Pipeline' }, { id: 'list', label: 'All leads', count: leads.length },
+    { id: 'calling', label: "Today's calls", count: queue.filter((l) => l.tier <= 4).length },
+    { id: 'list', label: isManager ? 'All leads' : 'My leads', count: leads.length },
+    ...(isManager ? [{ id: 'pipeline' as View, label: 'Board' }] : []),
     ...(S.allowed('leads', 'create', db) && isManager ? [{ id: 'import' as View, label: 'Import' }] : []),
-    ...(isManager ? [{ id: 'performance' as View, label: 'Team performance' }] : []),
+    ...(isManager ? [{ id: 'performance' as View, label: 'Team' }] : []),
   ];
   const filters = (
     <div className="flex flex-wrap gap-2 mb-3">
-      <SearchInput value={q} onChange={setQ} placeholder="Search name, mobile, campaign" className="w-full sm:w-64" />
+      <SearchInput value={q} onChange={setQ} placeholder="Search name or mobile" className="w-full sm:w-72" />
       {isManager && <Select value={fCaller} onChange={(e) => setFCaller(e.target.value)} placeholder="All callers" options={callers.map((c) => ({ value: c.id, label: c.name }))} className="w-40" />}
-      <Select value={fSource} onChange={(e) => setFSource(e.target.value)} placeholder="All sources" options={LEAD_SOURCES} className="w-36" />
-      {view !== 'pipeline' && <Select value={fStatus} onChange={(e) => setFStatus(e.target.value)} placeholder="All statuses" options={db.settings.leadStatuses} className="w-36" />}
+      {view === 'list' && <Select value={fStatus} onChange={(e) => setFStatus(e.target.value)} placeholder="All statuses" options={db.settings.leadStatuses} className="w-36" />}
+      {view === 'list' && isManager && <Select value={fSource} onChange={(e) => setFSource(e.target.value)} placeholder="All sources" options={LEAD_SOURCES} className="w-36" />}
     </div>
   );
 
   return (
     <>
-      <PageHeader title="Leads CRM" sub={`${leads.length} leads${me.role === 'caller' ? ' assigned to you' : ''}`}
+      <PageHeader title="Leads" sub={`${leads.length} leads${me.role === 'caller' ? ' assigned to you' : ''}`}
         actions={S.allowed('leads', 'create', db) && <Button variant="primary" onClick={() => setAdding(true)}>+ New lead</Button>} />
-      <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-5">
-        <StatTile color="#0f766e" icon="phone" label="Follow-ups due" scope="As of today" value={due.length} to="/leads?view=calling"
-          subs={[['Due today', dueToday], ['Missed earlier', due.length - dueToday]]} />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+        {glance.map(([k, v, tone]) => (
+          <div key={k} className="rounded-2xl border border-line bg-white px-4 py-3 shadow-[0_1px_3px_rgba(15,35,65,.05)]">
+            <div className="text-[12px] font-medium text-muted">{k}</div><div className={cx('text-[26px] font-bold tabular leading-tight', tone)}>{v}</div>
+          </div>
+        ))}
       </div>
       <Tabs tabs={tabs} value={view} onChange={setView} />
-      {view === 'calling' && <CallingQueue leads={filtered} filters={filters} onOpen={(id) => { sp.set('lead', id); setSp(sp); }} />}
+      {view === 'calling' && <>{filters}<CallingQueue leads={filtered} onOpen={(id) => { sp.set('lead', id); setSp(sp); }} /></>}
       {view === 'pipeline' && <>{filters}<Pipeline leads={filtered} onOpen={(id) => { sp.set('lead', id); setSp(sp); }} /></>}
       {view === 'list' && <>{filters}<LeadList leads={filtered} onOpen={(id) => { sp.set('lead', id); setSp(sp); }} /></>}
       {view === 'import' && <ImportLeads />}
@@ -75,35 +84,139 @@ export default function Leads() {
   );
 }
 
-function CallingQueue({ leads, filters, onOpen }: { leads: Lead[]; filters: React.ReactNode; onOpen: (id: string) => void }) {
+// ------------------------------------------------------------------ today's calls (caller-first)
+const ago = (iso?: string) => {
+  if (!iso) return '';
+  const m = Math.round((Date.now() - Date.parse(iso)) / 60000);
+  return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : m < 2880 ? 'yesterday' : `${Math.round(m / 1440)} days ago`;
+};
+const STATUS_DOT: Record<string, string> = { Hot: '#dc2626', Warm: '#ea7a2b', 'Call Later': '#2563eb', Connected: '#0d9488', New: '#7c3aed', 'Not Contacted': '#a1a1aa', Cold: '#64748b' };
+const lastCallOf = (db: ReturnType<typeof S.getDB>, id: string) => db.calls.find((c) => c.entity === 'lead' && c.entityId === id); // newest first
+
+/** One lead, laid out for a caller: who, how to reach, what happened last time, what's next — and a big Call button. */
+function LeadCard({ l, onOpen }: { l: Lead & { tier?: number }; onOpen: () => void }) {
   const db = S.useDB();
-  const q = callingQueue(leads, todayIST());
   const { log } = useCall();
+  const today = todayIST();
+  const last = lastCallOf(db, l.id);
+  const overdue = l.nextFollowUp && l.nextFollowUp < today;
+  const initials = l.name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+  const target = { entity: 'lead' as const, id: l.id, name: l.name, phone: l.phone };
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3.5 hover:bg-surface/60">
+      <button onClick={onOpen} className="flex items-start gap-3 text-left min-w-0 flex-1">
+        <span className="size-11 shrink-0 rounded-full grid place-items-center text-white font-semibold text-[14px]" style={{ background: STATUS_DOT[l.status] ?? '#0a8f30' }}>{initials}</span>
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="font-semibold text-[15px] text-ink">{l.name}</span>
+            <Badge>{l.status}</Badge>
+          </span>
+          <span className="block text-[13.5px] font-medium tabular text-zinc-700 mt-0.5">{fmtPhone(l.phone)} <span className="text-zinc-400 font-normal">· {l.source}{l.campaign ? ` / ${l.campaign}` : ''}</span></span>
+          <span className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[12.5px]">
+            <span className="text-zinc-500">{last ? <>Last: <b className="font-medium text-zinc-700">{last.outcome}</b> · {ago(last.at)}</> : 'Never called'}</span>
+            {l.nextFollowUp && <span className={overdue ? 'text-bad font-semibold' : l.nextFollowUp === today ? 'text-warn font-semibold' : 'text-zinc-500'}>↻ {overdue ? `Follow-up was ${fmtDate(l.nextFollowUp)}` : l.nextFollowUp === today ? 'Follow-up today' : `Follow-up ${fmtDate(l.nextFollowUp)}`}</span>}
+          </span>
+          {l.notes && <span className="block mt-1 text-[12.5px] text-zinc-500 italic truncate">“{l.notes}”</span>}
+        </span>
+      </button>
+      <div className="flex gap-2 sm:shrink-0 pl-14 sm:pl-0">
+        <CallButton size="md" target={target} />
+        <Button onClick={() => log(target)}>Log</Button>
+      </div>
+    </div>
+  );
+}
+
+function CallingQueue({ leads, onOpen }: { leads: Lead[]; onOpen: (id: string) => void }) {
+  const db = S.useDB();
+  const today = todayIST();
+  const q = callingQueue(leads, today);
+  const [showOther, setShowOther] = useState(false);
+  const [session, setSession] = useState(false);
+  const groups: [string, string, (Lead & { tier: number })[]][] = [
+    ['Follow-ups due', 'Call these first — they were promised a call back', q.filter((l) => l.tier <= 2)],
+    ['Hot leads', 'Very interested — close them', q.filter((l) => l.tier === 3)],
+    ['New leads', 'Never called yet', q.filter((l) => l.tier === 4)],
+  ];
+  const other = q.filter((l) => l.tier === 5);
+  const toCall = q.filter((l) => l.tier <= 4 && (l.lastCallAt ?? '').slice(0, 10) !== today);
   return (
     <>
-      {filters}
-      <Card>
-        {!q.length ? <Empty title="Queue is clear" body="No open leads match these filters. New and imported leads appear here automatically." /> : (
-          <div className="divide-y divide-line">
-            {q.map((l) => (
-              <div key={l.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 hover:bg-surface/60">
-                <div className="w-1 self-stretch rounded-full" style={{ background: ['', '#dc2626', '#ea7a2b', '#028a02', '#a1a1aa', '#e4e4e7'][l.tier] }} />
-                <button onClick={() => onOpen(l.id)} className="text-left min-w-0 flex-1 basis-48">
-                  <div className="font-medium">{l.name} <span className="text-muted font-normal">· {fmtPhone(l.phone)}</span></div>
-                  <div className="text-xs text-muted mt-0.5">{TIER_LABELS[l.tier]} · {l.source}{l.campaign && ` / ${l.campaign}`} · {S.empName(l.assignedTo, db)}</div>
-                </button>
-                <div className="text-xs text-muted w-40"><div>Last: {l.lastCallAt ? fmtDateTime(l.lastCallAt) : 'never called'}</div><div>Next: {l.nextFollowUp ? fmtDate(l.nextFollowUp) : '—'}</div></div>
-                <Badge>{l.status}</Badge>
-                <div className="flex gap-1.5">
-                  <CallButton target={{ entity: 'lead', id: l.id, name: l.name, phone: l.phone }} />
-                  <Button size="sm" variant="ghost" onClick={() => log({ entity: 'lead', id: l.id, name: l.name, phone: l.phone })}>Log</Button>
-                </div>
-              </div>
-            ))}
+      {q.length > 0 && (
+        <div className="mb-4 rounded-2xl border border-accent/20 bg-[linear-gradient(135deg,#f0faf2,#ffffff)] p-4 flex flex-wrap items-center gap-3">
+          <div className="mr-auto">
+            <div className="font-semibold text-ink text-[15px]">{toCall.length ? `${toCall.length} lead${toCall.length === 1 ? '' : 's'} to call now` : 'All priority calls done for today 🎉'}</div>
+            <div className="text-[12.5px] text-muted">One lead at a time: call, save the result, and the next one comes up.</div>
           </div>
-        )}
-      </Card>
+          <Button variant="primary" className="h-11 px-5 text-[15px]" disabled={!toCall.length} onClick={() => setSession(true)}>▶ Start calling</Button>
+        </div>
+      )}
+      {!q.length ? <Card><Empty title="No one to call" body="New and imported leads appear here automatically." /></Card> : (
+        <div className="space-y-4">
+          {groups.filter(([, , list]) => list.length).map(([title, sub, list]) => (
+            <Card key={title} className="overflow-hidden">
+              <div className="flex items-baseline gap-2 px-4 pt-3.5 pb-2 border-b border-line">
+                <h3 className="font-semibold text-navy">{title}</h3><span className="text-[12.5px] text-muted tabular">{list.length}</span>
+                <span className="ml-auto text-[12px] text-muted hidden sm:block">{sub}</span>
+              </div>
+              <div className="divide-y divide-line">{list.map((l) => <LeadCard key={l.id} l={l} onOpen={() => onOpen(l.id)} />)}</div>
+            </Card>
+          ))}
+          {other.length > 0 && (
+            <Card className="overflow-hidden">
+              <button onClick={() => setShowOther(!showOther)} className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-surface/60">
+                <h3 className="font-semibold text-navy">Other open leads</h3><span className="text-[12.5px] text-muted tabular">{other.length}</span>
+                <span className="ml-auto text-[13px] font-medium text-accent">{showOther ? 'Hide' : 'Show'}</span>
+              </button>
+              {showOther && <div className="divide-y divide-line border-t border-line">{other.map((l) => <LeadCard key={l.id} l={l} onOpen={() => onOpen(l.id)} />)}</div>}
+            </Card>
+          )}
+        </div>
+      )}
+      {session && <CallSession onClose={() => setSession(false)} onOpen={onOpen} />}
     </>
+  );
+}
+
+/** "Start calling": one lead at a time. Saving the result moves to the next lead not yet called today. */
+function CallSession({ onClose, onOpen }: { onClose: () => void; onOpen: (id: string) => void }) {
+  const db = S.useDB();
+  const { log } = useCall();
+  const today = todayIST();
+  const [skipped, setSkipped] = useState<string[]>([]);
+  const [done, setDone] = useState(0);
+  const list = callingQueue(S.visibleLeads(db), today).filter((l) => l.tier <= 4 && (l.lastCallAt ?? '').slice(0, 10) !== today && !skipped.includes(l.id));
+  const l = list[0];
+  const [seen, setSeen] = useState<string | undefined>(l?.id);
+  if (l && seen !== l.id) { if (seen) setDone((n) => n + 1); setSeen(l.id); } // previous lead got its result saved
+  const calls = l ? db.calls.filter((c) => c.entity === 'lead' && c.entityId === l.id).slice(0, 3) : [];
+  const target = l && { entity: 'lead' as const, id: l.id, name: l.name, phone: l.phone };
+  return (
+    <Modal open onClose={onClose} title={<span>Calling session <span className="text-muted font-normal text-[13px]">· {done} done · {list.length} left</span></span>}
+      footer={l ? <>
+        <Button variant="ghost" className="mr-auto" onClick={() => { setSkipped([...skipped, l.id]); setSeen(undefined); }}>Skip →</Button>
+        <Button onClick={() => { onClose(); onOpen(l.id); }}>Full details</Button>
+        <Button variant="primary" onClick={() => log(target!)}>Save result</Button>
+      </> : <Button variant="primary" onClick={onClose}>Done</Button>}>
+      {!l ? <Empty title="That's everyone for now 🎉" body={`${done} call${done === 1 ? '' : 's'} saved in this session.`} /> : (
+        <div className="space-y-4">
+          <div className="text-center">
+            <span className="inline-block"><Badge>{TIER_LABELS[l.tier]}</Badge></span>
+            <div className="mt-2 text-[24px] font-bold text-navy leading-tight">{l.name}</div>
+            <a href={`tel:+91${l.phone}`} className="block mt-1 text-[22px] font-semibold tabular text-accent">{fmtPhone(l.phone)}</a>
+            <div className="mt-1 text-[13px] text-muted">{l.status} · {l.source}{l.campaign ? ` / ${l.campaign}` : ''}{l.interest ? ` · ${l.interest}` : ''}</div>
+          </div>
+          <div className="flex justify-center"><CallButton size="md" label="Call now" target={target!} /></div>
+          {l.notes && <div className="rounded-xl bg-surface border border-line p-3 text-[13px] text-zinc-700"><div className="text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">Last note</div>{l.notes}</div>}
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-muted mb-1.5">Earlier calls</div>
+            {!calls.length ? <p className="text-[13px] text-muted">First call to this lead.</p> : (
+              <ul className="space-y-1.5">{calls.map((c) => <li key={c.id} className="flex items-center gap-2 text-[13px]"><Badge>{c.outcome}</Badge><span className="text-muted">{ago(c.at)} · {S.empName(c.by, db)}</span>{c.notes && <span className="text-zinc-600 truncate">— {c.notes}</span>}</li>)}</ul>
+            )}
+          </div>
+        </div>
+      )}
+    </Modal>
   );
 }
 
@@ -170,16 +283,13 @@ function LeadList({ leads, onOpen }: { leads: Lead[]; onOpen: (id: string) => vo
       <Table rows={leads} rowKey={(l) => l.id} onRow={(l) => onOpen(l.id)} selectable={me.role !== 'caller'} selected={sel} onSelect={setSel}
         empty={<Empty title="No leads" body="Add a lead or import a spreadsheet to get started." />}
         cols={[
-          { key: 'id', label: 'ID', render: (l) => <span className="text-muted">{l.id}</span>, sort: (l) => l.id },
-          { key: 'name', label: 'Name', render: (l) => <span className="font-medium">{l.name}</span>, sort: (l) => l.name },
-          { key: 'phone', label: 'Mobile', render: (l) => fmtPhone(l.phone) },
-          { key: 'src', label: 'Source', render: (l) => <>{l.source}{l.campaign && <span className="text-muted"> · {l.campaign}</span>}</>, sort: (l) => l.source },
+          { key: 'name', label: 'Lead', sort: (l) => l.name, render: (l) => <div className="leading-tight"><div className="font-medium">{l.name}</div><div className="text-[12px] text-muted tabular">{fmtPhone(l.phone)}</div></div> },
           { key: 'status', label: 'Status', render: (l) => <Badge>{l.status}</Badge>, sort: (l) => l.status },
-          { key: 'int', label: 'Interest', render: (l) => l.interest },
-          { key: 'who', label: 'Caller', render: (l) => S.empName(l.assignedTo, db) },
-          { key: 'last', label: 'Last call', render: (l) => (l.lastCallAt ? fmtDateTime(l.lastCallAt) : '—'), sort: (l) => l.lastCallAt ?? '' },
-          { key: 'next', label: 'Follow-up', render: (l) => <span className={l.nextFollowUp && l.nextFollowUp < todayIST() ? 'text-bad' : ''}>{fmtDate(l.nextFollowUp)}</span>, sort: (l) => l.nextFollowUp ?? '9' },
-          { key: 'c', label: 'Created', render: (l) => fmtDate(l.createdAt.slice(0, 10)), sort: (l) => l.createdAt },
+          { key: 'src', label: 'Source', render: (l) => <span className="text-zinc-600">{l.source}</span>, sort: (l) => l.source },
+          { key: 'last', label: 'Last call', sort: (l) => l.lastCallAt ?? '', render: (l) => { const c = lastCallOf(db, l.id); return c ? <div className="leading-tight"><div>{c.outcome}</div><div className="text-[12px] text-muted">{ago(c.at)}</div></div> : <span className="text-muted">Never</span>; } },
+          { key: 'next', label: 'Follow-up', render: (l) => <span className={l.nextFollowUp && l.nextFollowUp < todayIST() ? 'text-bad font-medium' : ''}>{l.nextFollowUp ? fmtDate(l.nextFollowUp) : '—'}</span>, sort: (l) => l.nextFollowUp ?? '9' },
+          ...(me.role !== 'caller' ? [{ key: 'who', label: 'Caller', render: (l: Lead) => S.empName(l.assignedTo, db) }] : []),
+          { key: 'call', label: '', className: 'text-right', render: (l) => <span onClick={(e) => e.stopPropagation()}><CallButton target={{ entity: 'lead', id: l.id, name: l.name, phone: l.phone }} /></span> },
         ]} />
     </Card>
   );
@@ -206,8 +316,12 @@ function LeadDetail({ id, onClose, onEdit }: { id: string; onClose: () => void; 
           <Button onClick={() => log({ entity: 'lead', id, name: l.name, phone: l.phone })}>Log call</Button>
           {S.allowed('admissions', 'create', db) && <Button variant="primary" onClick={() => setConvert(true)}>Convert to student</Button>}
         </> : student && <a href={`/students/${student.id}`} className="text-accent font-medium">Open student {student.code} →</a>}>
+        <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-accent/20 bg-[linear-gradient(135deg,#f0faf2,#ffffff)] p-4">
+          <div className="mr-auto"><a href={`tel:+91${l.phone}`} className="text-[22px] font-bold tabular text-accent">{fmtPhone(l.phone)}</a>
+            <div className="text-[12.5px] text-muted">{calls[0] ? `Last: ${calls[0].outcome} · ${ago(calls[0].at)}` : 'Never called'}{l.nextFollowUp ? ` · Follow-up ${fmtDate(l.nextFollowUp)}` : ''}</div></div>
+          {l.status !== 'Converted' && <CallButton size="md" label="Call now" target={{ entity: 'lead', id, name: l.name, phone: l.phone }} />}
+        </div>
         <div className="grid sm:grid-cols-3 gap-4 mb-5">
-          <Info k="Mobile" v={<span className="flex items-center gap-2">{fmtPhone(l.phone)} <CallButton target={{ entity: 'lead', id, name: l.name, phone: l.phone }} /></span>} />
           <Info k="Email" v={l.email || '—'} />
           <Info k="Source" v={`${l.source}${l.campaign ? ` · ${l.campaign}` : ''}`} />
           <Info k="Assigned caller" v={S.empName(l.assignedTo, db)} />
@@ -216,8 +330,6 @@ function LeadDetail({ id, onClose, onEdit }: { id: string; onClose: () => void; 
           <Info k="Status" v={l.status === 'Converted' ? <Badge>Converted</Badge> : (
             <Select value={l.status} onChange={(e) => (e.target.value === 'Converted' ? setConvert(true) : run(() => S.setLeadStatus(id, e.target.value), 'Status updated'))} options={db.settings.leadStatuses} className="h-8" />
           )} />
-          <Info k="Next follow-up" v={fmtDate(l.nextFollowUp)} />
-          <Info k="Last call" v={l.lastCallAt ? fmtDateTime(l.lastCallAt) : '—'} />
         </div>
         {l.notes && <div className="rounded-lg bg-surface border border-line p-3 mb-5 text-zinc-700 whitespace-pre-wrap">{l.notes}</div>}
         <h4 className="font-semibold mb-2">Call history</h4>

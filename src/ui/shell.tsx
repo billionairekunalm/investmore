@@ -23,7 +23,9 @@ export function CallButton({ target, size = 'sm', label = 'Call' }: { target: Ca
   const { start } = useCall();
   return (
     <a href={`tel:+91${target.phone}`} onClick={(e) => { e.stopPropagation(); start(target); }}
-      className={cx('inline-flex items-center gap-1.5 rounded-lg border border-line bg-white font-medium hover:bg-ok-soft hover:text-ok hover:border-ok/30', size === 'sm' ? 'h-7 px-2.5 text-[12.5px]' : 'h-9 px-3.5')}>
+      className={cx('inline-flex items-center justify-center gap-1.5 rounded-lg font-medium', size === 'sm'
+        ? 'h-7 px-2.5 text-[12.5px] border border-line bg-white hover:bg-ok-soft hover:text-ok hover:border-ok/30'
+        : 'h-10 px-4 text-[14px] font-semibold text-white bg-[linear-gradient(135deg,#046b23,#0e9f3d)] shadow-[0_6px_14px_-6px_rgba(4,107,35,.7)] hover:brightness-110')}>
       <PhoneIcon /> {label}
     </a>
   );
