@@ -89,16 +89,11 @@ export default function Profit() {
                   </div>
                 ))}
               </div>
-              {/* what this founder actually received (withdrawals, by date paid) */}
-              <div className="mt-3 grid grid-cols-3 gap-1.5">
-                {([[key === 'all' ? 'All time' : RANGE_LABELS[key], range], ['This year', [`${todayIST().slice(0, 4)}-01-01`, todayIST()]], ['Till now', null]] as const).map(([l, rg]) => (
-                  <div key={l} className="rounded-lg bg-white/85 border px-2 py-1.5 min-w-0" style={{ borderColor: `color-mix(in srgb, ${color} 22%, white)` }}>
-                    <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 truncate" title={`Received · ${l}`}>{l}</div>
-                    <div className="text-[13px] font-bold tabular text-ink truncate">{fmtINR(received(s.name, rg as [string, string] | null))}</div>
-                  </div>
-                ))}
+              {/* everything this founder has received so far (all withdrawals paid) */}
+              <div className="mt-3 rounded-lg bg-white/85 border px-3 py-2 flex items-baseline justify-between gap-2" style={{ borderColor: `color-mix(in srgb, ${color} 22%, white)` }}>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Total received till now</span>
+                <b className="text-[15px] tabular text-ink">{fmtINR(received(s.name, null))}</b>
               </div>
-              <div className="mt-1 text-[10.5px] text-muted">Amount received (withdrawals paid)</div>
             </div>
           );
         })}
