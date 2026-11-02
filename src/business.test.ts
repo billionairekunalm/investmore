@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import * as S from './store/store';
 import { buildSchedule } from './domain/fees';
-import { splitProfit, periodFigures, financeFor, founderSplit } from './domain/finance';
+import { splitProfit, periodFigures, financeFor, founderSplit, rebalanceShares } from './domain/finance';
 import { checkImport, callingQueue } from './domain/leads';
 import { normalizePhone, todayIST, addDays, uid, monthOf, batchTimes } from './domain/util';
 import { can, defaultPermissions } from './domain/permissions';
@@ -445,5 +445,14 @@ describe('class schedule & per-class attendance', () => {
     expect(S.getDB().marks.filter((m) => m.classId === c1 && m.status === 'present')).toHaveLength(2); // class 1 not overwritten
     S.setMark(c1, a, null);
     expect(S.getDB().attendance.find((x) => x.batchId === b && x.date === T)!.present).toEqual([z]);
+  });
+});
+
+describe('founder % always totals 100%', () => {
+  it('Bikram 40% → Shekhar & Sanjeev 30% each; others keep Bikram fixed', () => {
+    expect(rebalanceShares([3500, 3250, 3250], 0, 4000)).toEqual([4000, 3000, 3000]);
+    expect(rebalanceShares([4500, 2750, 2750], 0, 3333)).toEqual([3333, 3333, 3334]);
+    expect(rebalanceShares([4000, 3000, 3000], 1, 2000)).toEqual([4000, 2000, 4000]);
+    expect(rebalanceShares([4000, 3000, 3000], 2, 9000)).toEqual([4000, 0, 6000]); // can't exceed 100%
   });
 });

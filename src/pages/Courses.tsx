@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import * as S from '../store/store';
 import { Badge, Button, Card, Empty, Field, Input, Modal, PageHeader, Select, Textarea, cx, useRun, useUI } from '../ui/kit';
 import { effectivePayments } from '../domain/fees';
+import { rebalanceShares } from '../domain/finance';
 import type { Course, CourseStatus, Share } from '../domain/types';
 import { fmtDate, fmtINR, parseRupees } from '../domain/util';
 
@@ -79,6 +80,13 @@ function CourseCard({ c, onEdit }: { c: Course; onEdit?: () => void }) {
 const Fact = ({ k, v }: { k: string; v: string }) => <div><dt className="text-[10.5px] font-semibold uppercase tracking-wider text-zinc-400">{k}</dt><dd className="font-semibold text-zinc-800 tabular">{v}</dd></div>;
 
 type ShareRow = { name: string; pct: string };
+/** Typing one founder's % re-shares the rest so the total stays 100% (see rebalanceShares). */
+export function balance<R extends { pct: string }>(rows: R[], i: number, typed: string): R[] {
+  const v = parseFloat(typed);
+  if (typed.trim() === '' || isNaN(v) || /\.$/.test(typed)) return rows.map((x, j) => (j === i ? { ...x, pct: typed } : x)); // still typing
+  const bps = rebalanceShares(rows.map((r) => Math.round((parseFloat(r.pct) || 0) * 100)), i, v * 100);
+  return rows.map((x, j) => ({ ...x, pct: j === i ? typed : String(bps[j] / 100) }));
+}
 function CourseForm({ id, onClose }: { id: string | 'new' | null; onClose: () => void }) {
   const db = S.useDB();
   const run = useRun();
@@ -178,7 +186,7 @@ function CourseForm({ id, onClose }: { id: string | 'new' | null; onClose: () =>
               <div key={i} className="flex items-center gap-2">
                 <Input aria-label="Founder name" value={r.name} placeholder="Name" onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />
                 <div className="relative w-28 shrink-0">
-                  <Input aria-label="Share %" inputMode="decimal" value={r.pct} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, pct: e.target.value } : x)))} className="w-28 pr-7 text-right" />
+                  <Input aria-label="Share %" inputMode="decimal" value={r.pct} onChange={(e) => setRows(balance(rows, i, e.target.value))} className="w-28 pr-7 text-right" />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted">%</span>
                 </div>
                 {rows.length > 1 && <Button size="sm" variant="ghost" aria-label="Remove founder" onClick={() => setRows(rows.filter((_, j) => j !== i))}>✕</Button>}

@@ -4,6 +4,7 @@ import * as S from '../store/store';
 import { Badge, Button, Card, CardHeader, Empty, Field, Input, PageHeader, SearchInput, Table, Tabs, useRun, useUI, cx } from '../ui/kit';
 import { fmtDateTime } from '../domain/util';
 import { loadDemo } from '../lib/demo';
+import { balance } from './Courses';
 
 type Tab = 'general' | 'fees' | 'profit' | 'crm' | 'automation' | 'audit' | 'privacy' | 'data';
 
@@ -108,7 +109,7 @@ function Shares() {
         {rows.map((r, i) => (
           <div key={i} className="flex gap-2">
             <Input value={r.name} disabled={!isSA} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />
-            <Input value={r.pct} disabled={!isSA} className="w-24" onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, pct: e.target.value } : x)))} />
+            <Input value={r.pct} disabled={!isSA} className="w-24" onChange={(e) => setRows(balance(rows, i, e.target.value))} />
             <span className="self-center text-muted">%</span>
             {isSA && rows.length > 1 && <Button variant="ghost" onClick={() => setRows(rows.filter((_, j) => j !== i))}>×</Button>}
           </div>

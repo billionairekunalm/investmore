@@ -6,6 +6,7 @@ import { useRange } from '../ui/shell';
 import { expenseAmount, founderSplit, periodFigures } from '../domain/finance';
 import { PAY_METHODS, type PayMethod } from '../domain/types';
 import { resizeImage } from '../lib/ocr';
+import { downloadXLSX, printTable } from '../lib/export';
 import { addDays, fmtDate, fmtINR, fmtMonth, inRange, monthOf, monthRange, parseRupees, RANGE_LABELS, todayIST } from '../domain/util';
 
 const SALARY = ['Fixed Salaries', 'Commissions'];
@@ -33,6 +34,7 @@ export default function Profit() {
   const canWithdraw = S.allowed('profit', 'create', db);
   // withdrawn from the profit of the months shown, so the card drops to ₹0 once the share is taken
   const [m0, m1] = [range[0].slice(0, 7), range[1].slice(0, 7)];
+  const received = (name: string, rg: [string, string] | null) => db.withdrawals.filter((w) => w.founder === name && (!rg || inRange(w.date, rg))).reduce((t, w) => t + w.amount, 0);
   const taken = (name: string) => db.withdrawals.filter((w) => w.founder === name && w.forMonth >= m0 && w.forMonth <= m1).reduce((t, w) => t + w.amount, 0);
 
   return (
@@ -69,8 +71,9 @@ export default function Profit() {
         {founders.map((s, i) => {
           const color = TONES[i % TONES.length];
           return (
-            <div key={s.name} className="rounded-2xl border p-5" style={{ background: `color-mix(in srgb, ${color} 10%, white)`, borderColor: `color-mix(in srgb, ${color} 28%, white)` }}>
-              <div className="flex items-center gap-3">
+            <div key={s.name} className="relative rounded-2xl border p-5" style={{ background: `color-mix(in srgb, ${color} 10%, white)`, borderColor: `color-mix(in srgb, ${color} 28%, white)` }}>
+              <FounderDownload founder={s} color={color} range={range} label={key === 'all' ? 'All time' : RANGE_LABELS[key]} />
+              <div className="flex items-center gap-3 pr-10">
                 <span className="size-11 rounded-full grid place-items-center text-white font-bold text-[16px]" style={{ background: color }}>{s.name[0]?.toUpperCase()}</span>
                 <div className="min-w-0"><div className="font-bold text-[16px] text-ink truncate">{s.name}</div><div className="text-[12.5px] font-semibold" style={{ color }}>Founder</div></div>
               </div>
@@ -86,6 +89,16 @@ export default function Profit() {
                   </div>
                 ))}
               </div>
+              {/* what this founder actually received (withdrawals, by date paid) */}
+              <div className="mt-3 grid grid-cols-3 gap-1.5">
+                {([[key === 'all' ? 'All time' : RANGE_LABELS[key], range], ['This year', [`${todayIST().slice(0, 4)}-01-01`, todayIST()]], ['Till now', null]] as const).map(([l, rg]) => (
+                  <div key={l} className="rounded-lg bg-white/85 border px-2 py-1.5 min-w-0" style={{ borderColor: `color-mix(in srgb, ${color} 22%, white)` }}>
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 truncate" title={`Received · ${l}`}>{l}</div>
+                    <div className="text-[13px] font-bold tabular text-ink truncate">{fmtINR(received(s.name, rg as [string, string] | null))}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-1 text-[10.5px] text-muted">Amount received (withdrawals paid)</div>
             </div>
           );
         })}
@@ -282,5 +295,45 @@ function RecordWithdrawal({ founder, month, onClose }: { founder: string | null;
         </div>
       </div>
     </Modal>
+  );
+}
+
+/** Download icon on a founder card: that founder's statement for the selected period, as PDF or Excel. */
+function FounderDownload({ founder, color, range, label }: { founder: ReturnType<typeof founderSplit>[number]; color: string; range: [string, string]; label: string }) {
+  const db = S.useDB();
+  const [open, setOpen] = useState(false);
+  const period = `${label} · ${fmtDate(range[0])} – ${fmtDate(range[1])}`;
+  const paid = db.withdrawals.filter((w) => w.founder === founder.name && inRange(w.date, range)).sort((a, b) => a.date.localeCompare(b.date));
+  const got = paid.reduce((t, w) => t + w.amount, 0);
+  const r = (p: number) => p / 100;
+  const rows = () => [
+    ...paid.map((w) => ({ Type: 'Received', Date: fmtDate(w.date), 'Receipt no.': w.id, 'Profit of': fmtMonth(w.forMonth), 'Paid by': w.method, Reference: w.reference || '', 'Amount ₹': r(w.amount) })),
+    ...(paid.length ? [] : [{ Type: 'Received', Date: '', 'Receipt no.': '', 'Profit of': '', 'Paid by': 'No payments in this period', Reference: '', 'Amount ₹': 0 }]),
+    { Type: 'Total received', Date: '', 'Receipt no.': '', 'Profit of': '', 'Paid by': '', Reference: '', 'Amount ₹': r(got) },
+    ...founder.parts.map((p) => ({ Type: 'Share', Date: '', 'Receipt no.': '', 'Profit of': p.course, 'Paid by': `${p.pctBp / 100}% of ₹${r(p.profit).toLocaleString('en-IN')}`, Reference: '', 'Amount ₹': r(p.amount) })),
+    { Type: 'Total share', Date: '', 'Receipt no.': '', 'Profit of': '', 'Paid by': '', Reference: '', 'Amount ₹': r(founder.amount) },
+    { Type: 'Balance to receive', Date: '', 'Receipt no.': '', 'Profit of': '', 'Paid by': '', Reference: '', 'Amount ₹': r(Math.max(0, founder.amount - got)) },
+  ];
+  const file = `${founder.name}-statement-${range[0]}-to-${range[1]}`.replace(/[^\w-]+/g, '_');
+  const go = (kind: 'pdf' | 'xlsx') => {
+    setOpen(false);
+    if (kind === 'pdf') printTable(`${founder.name} — founder statement`, `${db.settings.academyName} · ${period} · Share ${fmtINR(founder.amount)} · Received ${fmtINR(got)}`, rows());
+    else void downloadXLSX(rows(), file);
+  };
+  return (
+    <div className="absolute top-3 right-3">
+      <button type="button" onClick={() => setOpen(!open)} aria-label={`Download ${founder.name}'s statement`} title="Download statement (PDF / Excel)"
+        className="size-9 rounded-lg grid place-items-center bg-white/90 border hover:bg-white shadow-sm" style={{ borderColor: `color-mix(in srgb, ${color} 30%, white)`, color }}>
+        <svg viewBox="0 0 24 24" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 3v12m0 0-4.5-4.5M12 15l4.5-4.5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg>
+      </button>
+      {open && <>
+        <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
+        <div role="menu" className="absolute right-0 mt-1 z-40 w-52 rounded-xl border border-line bg-white shadow-xl py-1.5 text-[13px]">
+          <div className="px-3 pb-1 text-[11px] text-muted">{period}</div>
+          <button role="menuitem" onClick={() => go('pdf')} className="w-full text-left px-3 py-2 hover:bg-surface font-medium">📄 Download PDF</button>
+          <button role="menuitem" onClick={() => go('xlsx')} className="w-full text-left px-3 py-2 hover:bg-surface font-medium">📊 Download Excel</button>
+        </div>
+      </>}
+    </div>
   );
 }

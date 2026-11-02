@@ -104,3 +104,22 @@ export function founderSplit(db: DB, from: ISODate, to: ISODate, today: ISODate)
 }
 
 export const sum =(xs: number[]) => xs.reduce((a, b) => a + b, 0);
+
+/**
+ * Founder % editing that always totals 100% (basis points, 10000 = 100%).
+ * Changing the first founder (Bikram) shares what is left equally among the others (40% → 30% + 30%).
+ * Changing anyone else keeps the first founder as is and shares the rest equally among the remaining others.
+ * The last adjusted founder takes any leftover basis point from rounding.
+ */
+export function rebalanceShares(bps: number[], i: number, v: number): number[] {
+  const out = [...bps];
+  out[i] = Math.max(0, Math.min(10000, Math.round(v)));
+  const fixed = i === 0 ? [0] : [0, i];
+  const rest = out.map((_, j) => j).filter((j) => !fixed.includes(j));
+  if (!rest.length) return out;
+  let left = 10000 - fixed.reduce((t, j) => t + out[j], 0);
+  if (left < 0) { out[i] += left; left = 0; } // the total can't go above 100%
+  const each = Math.floor(left / rest.length);
+  rest.forEach((j, k) => { out[j] = k === rest.length - 1 ? left - each * (rest.length - 1) : each; });
+  return out;
+}
