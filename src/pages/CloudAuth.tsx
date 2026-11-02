@@ -22,52 +22,25 @@ const Icon = ({ d, className = 'size-4' }: { d: string; className?: string }) =>
 export default function CloudAuth() {
   const cloud = S.useCloud();
   return (
-    <div className="min-h-full grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] bg-surface">
-      {/* brand panel */}
-      <aside className="hidden lg:flex relative overflow-hidden flex-col justify-between p-12 text-white bg-[radial-gradient(120%_90%_at_0%_0%,#1f4a86_0%,#0f2341_55%,#0a1a31_100%)]">
-        <div className="absolute -right-24 -bottom-24 size-96 rounded-full bg-accent/25 blur-3xl" aria-hidden />
-        <div className="absolute right-16 top-24 size-40 rounded-full border border-white/10" aria-hidden />
-        <div className="relative self-start rounded-2xl bg-white px-4 py-2.5 shadow-lg">
-          <img src="/logo-full.png" alt="InvestMore" className="h-9 w-auto" />
+    <div className="min-h-full grid place-items-center bg-white p-4">
+      <div className="w-full max-w-sm">
+        <div className="mb-6 text-center">
+          <img src="/logo-full.png" alt="InvestMore" className="mx-auto w-56 mix-blend-multiply" />
+          <div className="text-xs text-muted mt-2">Academy management</div>
         </div>
-        <div className="relative max-w-md">
-          <h2 className="text-[34px] font-bold leading-tight tracking-tight">Your academy, <span className="text-[#7ee2a8]">all in one place.</span></h2>
-          <p className="mt-3 text-[15px] text-white/70">Admissions, fees, classes and profit. Everyone sees just what they need.</p>
-          <ul className="mt-8 space-y-3">
-            {([
-              ['student', 'Students', 'Fees, payments, attendance and certificates.'],
-              ['staff', 'Staff', 'Only the pages their role allows.'],
-              ['admin', 'Admin', 'Full control of the academy.'],
-            ] as const).map(([w, t, d]) => (
-              <li key={w} className="flex items-center gap-3 rounded-xl bg-white/[.06] border border-white/10 px-4 py-3">
-                <span className="size-9 rounded-lg bg-white/10 grid place-items-center text-[#7ee2a8]"><Icon d={WHO.find((x) => x.id === w)!.icon} className="size-[18px]" /></span>
-                <span><span className="block font-semibold text-[14px]">{t}</span><span className="block text-[12.5px] text-white/60">{d}</span></span>
-              </li>
-            ))}
-          </ul>
+        <div className="rounded-xl bg-white border border-line p-5">
+          {cloud.phase === 'recovery' ? <NewPassword /> :
+            cloud.phase === 'setup' ? <FirstRun /> :
+              cloud.phase === 'not-staff' ? <NotStaff email={cloud.email} /> :
+                <SignInOrSetup error={cloud.phase === 'error' ? cloud.error : undefined} />}
         </div>
-        <p className="relative text-[12px] text-white/40">© {new Date().getFullYear()} InvestMore</p>
-      </aside>
-
-      {/* form */}
-      <main className="flex flex-col items-center justify-center px-4 py-10 sm:px-8">
-        <img src="/logo-full.png" alt="InvestMore" className="lg:hidden mb-8 w-52 mix-blend-multiply" />
-        <div className="w-full max-w-[400px]">
-          <div className="rounded-2xl bg-white border border-line p-6 sm:p-8 shadow-[0_20px_50px_-24px_rgba(15,35,65,.35)]">
-            {cloud.phase === 'recovery' ? <NewPassword /> :
-              cloud.phase === 'setup' ? <FirstRun /> :
-                cloud.phase === 'not-staff' ? <NotStaff email={cloud.email} /> :
-                  <SignInOrSetup error={cloud.phase === 'error' ? cloud.error : undefined} />}
-          </div>
-          <p className="mt-5 text-center text-[12px] text-muted">Secure sign-in · your data stays private to your academy</p>
-        </div>
-      </main>
+      </div>
     </div>
   );
 }
 
 const Title = ({ children, sub }: { children: ReactNode; sub?: ReactNode }) => (
-  <div className="mb-6"><h1 className="font-bold text-[22px] tracking-tight text-navy">{children}</h1>{sub && <p className="text-muted mt-1 text-[13.5px]">{sub}</p>}</div>
+  <div className="mb-4"><h1 className="font-semibold text-[15px]">{children}</h1>{sub && <p className="text-muted mt-1">{sub}</p>}</div>
 );
 const Msg = ({ tone, children }: { tone: 'bad' | 'ok'; children: ReactNode }) => (
   <p role="alert" className={cx('rounded-lg px-3 py-2 text-[12.5px]', tone === 'bad' ? 'bg-bad-soft text-bad' : 'bg-accent-soft text-accent')}>{children}</p>
@@ -97,28 +70,28 @@ function SignInForm({ error }: { error?: string }) {
     setBusy(false);
   };
   return (
-    <form onSubmit={(e) => { e.preventDefault(); if (id.trim() && pw) void go(); }} className="space-y-4">
-      <Title sub="Choose who you are, then sign in.">Welcome back</Title>
+    <form onSubmit={(e) => { e.preventDefault(); if (id.trim() && pw) void go(); }} className="space-y-3">
+      <Title sub="Choose how you want to log in.">Sign in</Title>
       <div role="tablist" aria-label="Sign in as" className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-zinc-100 border border-line">
         {WHO.map((x) => (
           <button key={x.id} type="button" role="tab" aria-selected={who === x.id} onClick={() => setWho(x.id)}
-            className={cx('h-10 rounded-lg inline-flex items-center justify-center gap-1.5 text-[13.5px] font-semibold transition-all',
+            className={cx('h-9 rounded-lg inline-flex items-center justify-center gap-1.5 text-[13px] font-semibold transition-all',
               who === x.id ? 'bg-white text-navy shadow-[0_1px_4px_rgba(15,35,65,.15)]' : 'text-zinc-500 hover:text-navy')}>
             <Icon d={x.icon} />{x.label}
           </button>
         ))}
       </div>
       <Field label={w.field} hint={w.hint}>
-        <Input autoComplete="username" autoCapitalize="none" autoFocus value={id} onChange={(e) => setId(e.target.value)} placeholder={w.placeholder} className="h-11" />
+        <Input autoComplete="username" autoCapitalize="none" autoFocus value={id} onChange={(e) => setId(e.target.value)} placeholder={w.placeholder} />
       </Field>
       <Field label="Password">
         <div className="relative">
-          <Input type={show ? 'text' : 'password'} autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} className="h-11 pr-16" />
+          <Input type={show ? 'text' : 'password'} autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} className="pr-16" />
           <button type="button" onClick={() => setShow(!show)} className="absolute right-2 top-1/2 -translate-y-1/2 h-8 px-2 rounded-md text-[12px] font-semibold text-navy hover:bg-surface" aria-label={show ? 'Hide password' : 'Show password'}>{show ? 'Hide' : 'Show'}</button>
         </div>
       </Field>
       {msg && <Msg tone={msg.tone}>{msg.text}</Msg>}
-      <Button type="submit" variant="primary" className="w-full h-11 text-[15px]" loading={busy} disabled={!id.trim() || !pw}>Sign in as {w.label.toLowerCase()}</Button>
+      <Button type="submit" variant="primary" className="w-full" loading={busy} disabled={!id.trim() || !pw}>Sign in as {w.label.toLowerCase()}</Button>
       <div className="pt-1 text-center text-[12.5px] text-muted leading-relaxed">
         No login yet, or forgot your password?<br />
         {who === 'student' ? 'Ask the academy office. They create your login.' : 'Ask your admin to create or reset it.'}
