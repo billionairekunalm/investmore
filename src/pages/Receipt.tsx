@@ -2,8 +2,8 @@ import type { ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import * as S from '../store/store';
 import { Button, DocBrand, DocWatermark, Empty } from '../ui/kit';
-import { financeFor } from '../domain/finance';
-import { allocate } from '../domain/fees';
+import { allocate, studentFinance } from '../domain/fees';
+import type { Batch, Course, Instalment, Payment, Settings, Student } from '../domain/types';
 import { fmtDate, fmtDateTime, fmtINR, fmtPhone, inWords, todayIST } from '../domain/util';
 import { invoiceWhatsApp } from '../lib/invoice';
 
@@ -14,33 +14,41 @@ export default function Receipt() {
   const p = db.payments.find((x) => x.id === id && x.kind === 'payment');
   if (!p) return <Empty title="Invoice not found" />;
   const s = db.students.find((x) => x.id === p.studentId)!;
-  const reversed = db.payments.some((x) => x.reversesId === p.id);
-  const f = financeFor(db, s.id, todayIST());
-  const course = db.courses.find((c) => c.id === s.courseId);
-  const batch = db.batches.find((b) => b.id === s.batchId);
-  const inv = db.settings.invoice;
+  return (
+    <InvoiceDoc p={p} s={s} payments={db.payments.filter((x) => x.studentId === s.id)} instalments={db.instalments.filter((i) => i.studentId === s.id)}
+      course={db.courses.find((c) => c.id === s.courseId)} batch={db.batches.find((b) => b.id === s.batchId)} settings={db.settings} receivedBy={S.empName(p.receivedBy, db)}
+      toolbar={<>
+        <Link to={`/students/${s.id}?tab=payments`} className="text-[12.5px] text-muted hover:text-ink">← {s.name}'s payments</Link>
+        <div className="flex flex-wrap gap-2">
+          <a href={invoiceWhatsApp(db, p)} target="_blank" rel="noreferrer" className="inline-flex items-center h-9 px-3.5 rounded-lg border border-zinc-300 bg-white font-medium hover:bg-surface">Send on WhatsApp</a>
+          <Button variant="primary" onClick={() => window.print()}>Print / Save PDF</Button>
+        </div>
+      </>} />
+  );
+}
+
+/** The invoice itself — used by the office (route above) and by the student app (from the student's own records). */
+export function InvoiceDoc({ p, s, payments, instalments, course, batch, settings, receivedBy, toolbar }: {
+  p: Payment; s: Student; payments: Payment[]; instalments: Instalment[]; course?: Course; batch?: Batch;
+  settings: Pick<Settings, 'invoice' | 'gstRateBp' | 'academyName'>; receivedBy?: string; toolbar: ReactNode;
+}) {
+  const reversed = payments.some((x) => x.reversesId === p.id);
+  const f = studentFinance(s, instalments, payments, todayIST());
+  const inv = settings.invoice;
 
   // what this payment paid for: allocation with it minus allocation of everything received before it
-  const mine = db.payments.filter((x) => x.studentId === s.id);
-  const before = mine.filter((x) => x.id !== p.id && x.createdAt < p.createdAt);
-  const inst = db.instalments.filter((i) => i.studentId === s.id);
+  const before = payments.filter((x) => x.id !== p.id && x.createdAt < p.createdAt);
+  const inst = [...instalments];
   const a0 = allocate(inst, before), a1 = allocate(inst, [...before, { ...p, verified: true }]);
   const lines = inst.sort((x, y) => x.seq - y.seq).map((i) => ({ i, amt: (a1.get(i.id) ?? 0) - (a0.get(i.id) ?? 0) })).filter((l) => l.amt > 0);
   const excess = p.amount - lines.reduce((t, l) => t + l.amt, 0);
 
-  const gst = db.settings.gstRateBp > 0 ? Math.round((p.amount * db.settings.gstRateBp) / (10000 + db.settings.gstRateBp)) : 0;
+  const gst = settings.gstRateBp > 0 ? Math.round((p.amount * settings.gstRateBp) / (10000 + settings.gstRateBp)) : 0;
   const status = reversed ? { t: 'VOID', c: 'text-bad border-bad' } : !p.verified ? { t: 'PROVISIONAL', c: 'text-warn border-warn' } : { t: 'PAID', c: 'text-accent border-accent' };
-  const wa = invoiceWhatsApp(db, p);
 
   return (
     <div className="min-h-full bg-surface print:bg-white py-6 sm:py-10 px-3 sm:px-4">
-      <div className="max-w-3xl mx-auto mb-4 flex flex-wrap items-center justify-between gap-2 no-print">
-        <Link to={`/students/${s.id}?tab=payments`} className="text-[12.5px] text-muted hover:text-ink">← {s.name}'s payments</Link>
-        <div className="flex flex-wrap gap-2">
-          <a href={wa} target="_blank" rel="noreferrer" className="inline-flex items-center h-9 px-3.5 rounded-lg border border-zinc-300 bg-white font-medium hover:bg-surface">Send on WhatsApp</a>
-          <Button variant="primary" onClick={() => window.print()}>Print / Save PDF</Button>
-        </div>
-      </div>
+      <div className="max-w-3xl mx-auto mb-4 flex flex-wrap items-center justify-between gap-2 no-print">{toolbar}</div>
 
       <article className="relative max-w-3xl mx-auto bg-white border border-line rounded-2xl shadow-[0_8px_30px_-12px_rgba(15,35,65,.2)] overflow-hidden print:border-0 print:shadow-none print:rounded-none">
         <div className="h-2 bg-gradient-to-r from-navy via-[#173563] to-accent" />
@@ -124,7 +132,7 @@ export default function Receipt() {
             <dl className="w-full sm:w-72 text-[13px] space-y-1.5">
               {gst > 0 && <>
                 <Tot k="Taxable value" v={fmtINR(p.amount - gst)} />
-                <Tot k={`GST @ ${db.settings.gstRateBp / 100}% (included)`} v={fmtINR(gst)} />
+                <Tot k={`GST @ ${settings.gstRateBp / 100}% (included)`} v={fmtINR(gst)} />
               </>}
               <div className="flex justify-between border-t-2 border-navy pt-2 mt-2"><dt className="font-bold text-navy">Total paid</dt><dd className="font-bold text-navy text-[17px] tabular">{fmtINR(p.amount)}</dd></div>
             </dl>
@@ -138,7 +146,7 @@ export default function Receipt() {
                 <Tot k="Method" v={p.method} />
                 {p.reference && <Tot k="Reference / UTR" v={p.reference} />}
                 <Tot k="Transaction ID" v={<span className="break-all tabular">{p.id}</span>} />
-                <Tot k="Received by" v={S.empName(p.receivedBy, db)} />
+                {receivedBy && <Tot k="Received by" v={receivedBy} />}
               </dl>
             </div>
             <div className="rounded-xl border border-line bg-surface/60 p-4">
@@ -158,7 +166,7 @@ export default function Receipt() {
               {inv.note && <p className="text-zinc-600 mb-1">{inv.note}</p>}
               <p>This is a computer-generated invoice and does not require a signature. Generated {fmtDateTime(new Date().toISOString())}.</p>
             </div>
-            <div className="text-right font-semibold text-navy text-[13px]">Thank you for learning with {db.settings.academyName}!</div>
+            <div className="text-right font-semibold text-navy text-[13px]">Thank you for learning with {settings.academyName}!</div>
           </footer>
         </div>
       </article>

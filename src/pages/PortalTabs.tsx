@@ -170,6 +170,7 @@ export function CoursesTab({ p, schedule }: { p: PortalCore; schedule: ReactNode
         </div>
       </div>
 
+      {schedule}
       <Panel title="Lectures" right={p.youtubeChannel && <a href={p.youtubeChannel} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-red-600 text-white text-[12px] font-semibold px-3 py-1.5 hover:bg-red-700">▶ YouTube channel</a>}>
         {!p.videos.length ? <p className="px-5 pb-5 pt-1 text-[13px] text-zinc-500">Your class recordings will appear here.</p> : (
           <div className="p-4 grid sm:grid-cols-2 gap-3">
@@ -216,7 +217,6 @@ export function CoursesTab({ p, schedule }: { p: PortalCore; schedule: ReactNode
           {!vids.length && <li className="text-center text-[13px] text-zinc-500 py-6">No lecture matches "{q}".</li>}
         </ul>
       </Modal>
-      {schedule}
       <Modal open={!!play} onClose={() => setPlay(null)} title={play?.title ?? 'Lecture'} wide>
         {play && <>
           <div className="aspect-video rounded-xl overflow-hidden bg-black"><iframe src={`https://www.youtube-nocookie.com/embed/${play.videoId}?rel=0&modestbranding=1&autoplay=1&playsinline=1`} title={play.title} className="size-full" allow="accelerometer; autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen /></div>

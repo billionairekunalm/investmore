@@ -395,6 +395,7 @@ type Tab = 'overview' | 'personal' | 'fees' | 'payments' | 'invoices' | 'calls' 
 
 export function StudentProfile() {
   const { id } = useParams();
+  const nav = useNavigate();
   const db = S.useDB();
   const run = useRun();
   const { ask } = useUI();
@@ -417,6 +418,12 @@ export function StudentProfile() {
     ...(S.allowed('sensitive', 'view', db) ? [{ id: 'documents' as Tab, label: 'Documents' }] : []),
     { id: 'timeline', label: 'Activity' },
   ];
+  const removeStudent = async () => {
+    const reason = await ask({ title: `Delete ${s.name} (${s.code})?`, message: 'This permanently removes the student with their fee plan, payments, attendance and certificates. Payments are taken out of fee and profit reports. It cannot be undone. Only the reason below is kept in the activity log.', input: 'Why are you deleting this student?', confirm: 'Delete permanently', danger: true });
+    if (!reason?.trim()) return;
+    const docs = run(() => S.deleteStudent(s.id, reason), `${s.name} deleted`);
+    if (docs) { if (docs.length) void removeAadhaar(docs); nav('/students'); }
+  };
   const changeStatus = async (st: StudentStatus) => {
     const reason = await ask({ title: `Mark ${s.name} as ${st}?`, message: st === 'Dropped' || st === 'Refunded' ? 'Unpaid instalments will be cancelled.' : undefined, input: 'Reason', confirm: `Mark ${st}`, danger: st === 'Dropped' });
     if (reason) run(() => S.setStudentStatus(s.id, st, reason), `Status changed to ${st}`);
@@ -470,6 +477,7 @@ export function StudentProfile() {
             {cloudEnabled && canEdit && <Button className="xl:w-full" onClick={() => setLoginOpen(true)}><Ic d={ICON.key} /> Login password</Button>}
             {S.allowed('batches', 'edit', db) && <Button className="xl:w-full" onClick={() => setTransfer(true)}>Transfer batch</Button>}
             {canEdit && <Select value="" onChange={(e) => e.target.value && changeStatus(e.target.value as StudentStatus)} placeholder="Change status…" options={STUDENT_STATUSES.filter((x) => x !== s.status)} className="w-44 xl:w-full" />}
+            {S.allowed('students', 'delete', db) && <Button variant="ghost" className="xl:w-full text-bad hover:bg-bad-soft" onClick={removeStudent}>Delete student</Button>}
           </div>
         </div>
         {fees && (

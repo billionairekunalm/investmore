@@ -471,3 +471,16 @@ describe('batch lectures (YouTube)', () => {
     void b;
   });
 });
+
+describe('delete a student', () => {
+  it('needs a reason, removes their records, keeps the reason in the log', () => {
+    const id = admit('9876500041');
+    pay(id, 1000);
+    expect(() => S.deleteStudent(id, ' ')).toThrow(/why/i);
+    S.deleteStudent(id, 'Duplicate admission');
+    const d = S.getDB();
+    expect(d.students.some((s) => s.id === id)).toBe(false);
+    expect(d.payments.some((p) => p.studentId === id) || d.instalments.some((i) => i.studentId === id) || d.feePlans.some((f) => f.studentId === id)).toBe(false);
+    expect(d.audit.find((a) => a.action === 'student.delete')?.detail).toMatch(/Duplicate admission/);
+  });
+});

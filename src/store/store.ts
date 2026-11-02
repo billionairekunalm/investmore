@@ -587,6 +587,33 @@ export function updateStudent(id: string, patch: Partial<Student>) {
   });
 }
 
+/**
+ * Permanently deletes a student and everything that belongs only to them (fee plan, instalments, payments,
+ * enrolments, calls, certificates, attendance). The reason and a summary stay in the activity log.
+ */
+export function deleteStudent(id: string, reason: string) {
+  return tx((d) => {
+    const u = guard(d, 'students', 'delete');
+    if (u.role !== 'super_admin' && u.role !== 'admin') fail('Only an admin can delete a student.');
+    const s = d.students.find((x) => x.id === id) ?? fail('Student not found.');
+    if (!reason.trim()) fail('Please write why this student is being deleted.');
+    const paid = financeFor(d, id, todayIST()).paid;
+    const docs = s.idDoc?.files ? [s.idDoc.files.front, s.idDoc.files.back] : [];
+    d.students = d.students.filter((x) => x.id !== id);
+    d.enrolments = d.enrolments.filter((x) => x.studentId !== id);
+    d.feePlans = d.feePlans.filter((x) => x.studentId !== id);
+    d.instalments = d.instalments.filter((x) => x.studentId !== id);
+    d.payments = d.payments.filter((x) => x.studentId !== id);
+    d.calls = d.calls.filter((x) => !(x.entity === 'student' && x.entityId === id));
+    d.certificates = d.certificates.filter((x) => x.studentId !== id);
+    d.marks = d.marks.filter((x) => x.studentId !== id);
+    for (const a of d.attendance) if (a.present.includes(id)) a.present = a.present.filter((x) => x !== id);
+    for (const l of d.leads) if (l.convertedStudentId === id) l.convertedStudentId = '';
+    audit(d, 'student.delete', 'student', id, `${s.name} (${s.code}, ${s.phone}) · paid ${paid / 100} · reason: ${reason.trim()}`);
+    return docs; // Aadhaar images to remove from storage
+  });
+}
+
 export function setStudentStatus(id: string, status: StudentStatus, reason: string) {
   tx((d) => {
     guard(d, 'students', 'edit');

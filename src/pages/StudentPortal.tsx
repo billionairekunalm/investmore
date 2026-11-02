@@ -6,6 +6,8 @@ import { TABLES, fromRow } from '../store/schema';
 import { studentFinance } from '../domain/fees';
 import type { Batch, BatchVideo, ClassMark, ClassSession, Course, Enrolment, Instalment, Payment, Student } from '../domain/types';
 import { AttendanceTab, CertsTab, CoursesTab, IdCardTab, Ic, TAB_ICONS, type PortalTab } from './PortalTabs';
+import { InvoiceDoc } from './Receipt';
+import type { Settings } from '../domain/types';
 import { daysBetween, fmtDate, fmtDateTime, fmtINR, fmtPhone, fmtTime, nowIST, todayIST } from '../domain/util';
 import { Badge, Button, Card, Empty, Modal, cx } from '../ui/kit';
 
@@ -13,6 +15,7 @@ type Portal = {
   student: Student; course?: Course; batch?: Batch; teacher?: string; instalments: Instalment[]; payments: Payment[];
   enrolments: Enrolment[]; attendance: { date: string; present: boolean }[]; certificates: { id: string; issued_at: string; status: string }[]; academy?: string;
   classes: ClassSession[]; marks: ClassMark[]; videos: BatchVideo[]; youtubeChannel?: string;
+  invoiceSettings?: Pick<Settings, 'invoice' | 'gstRateBp' | 'academyName'>; staffNames: Record<string, string>;
 };
 // QR scans open /attend?t=…; a reminder opens /?class=…  (both survive the sign-in page, which keeps the URL)
 const params = new URLSearchParams(location.search);
@@ -40,6 +43,8 @@ export default function StudentPortal() {
         marks: ((p.marks as unknown[]) ?? []).map((r) => conv<ClassMark>('class_marks', r)!),
         videos: ((p.videos as unknown[]) ?? []).map((r) => conv<BatchVideo>('batch_videos', r)!),
         youtubeChannel: (p.youtubeChannel as string) || undefined,
+        invoiceSettings: (p.invoiceSettings as Portal['invoiceSettings']) ?? undefined,
+        staffNames: (p.staffNames as Record<string, string>) ?? {},
       });
     }).catch((e) => setErr((e as Error).message));
   };
@@ -47,6 +52,7 @@ export default function StudentPortal() {
   useEffect(() => { void refreshPush(); }, []); // keeps this device's reminder registration fresh
   const [token, setToken] = useState<string | null>(attendToken); // from a scanned classroom QR
   const [sheet, setSheet] = useState(!!attendToken); // the Attendance screen
+  const [invoiceId, setInvoiceId] = useState<string | null>(null); // a fee invoice opened from My payments
   const [win, setWin] = useState({ beforeMins: 15, afterMins: 15 });
   useEffect(() => { void sb!.rpc('attendance_window').then(({ data }) => data && setWin(data as typeof win)); }, []);
 
@@ -84,6 +90,16 @@ export default function StudentPortal() {
   const core = { ...data, academy: data.academy };
   const TABS: [PortalTab, string][] = [['id', 'ID Card'], ['attendance', 'Attendance'], ['courses', 'Courses'], ['certs', 'Certificates & Kits']];
   const hour = +nowIST().slice(11, 13);
+
+  const openInv = invoiceId ? data.payments.find((x) => x.id === invoiceId) : undefined;
+  const settings = data.invoiceSettings && { ...data.invoiceSettings, invoice: { address: '', phone: '', email: '', gstin: '', note: '', ...(data.invoiceSettings.invoice as Partial<Settings['invoice']> | null) }, academyName: data.invoiceSettings.academyName || 'InvestMore' };
+  if (openInv && settings) return (
+    <InvoiceDoc p={openInv} s={s} payments={data.payments} instalments={data.instalments} course={course} batch={batch} settings={settings} receivedBy={data.staffNames[openInv.receivedBy]}
+      toolbar={<>
+        <button onClick={() => setInvoiceId(null)} className="inline-flex items-center gap-1 h-10 px-3 rounded-full text-[14px] font-medium text-zinc-700 hover:bg-white">← Back</button>
+        <Button variant="primary" className="h-10 px-4" onClick={() => window.print()}>⬇ Download PDF</Button>
+      </>} />
+  );
 
   return (
     <div className="min-h-full pb-10 bg-[linear-gradient(180deg,#e8f6ec_0px,#f4faf5_260px,#f7f8f7_520px)]">
@@ -161,6 +177,9 @@ export default function StudentPortal() {
                     <div className="flex-1 min-w-0"><div className="font-medium">{fmtDate(p.date)} · {p.method}</div><div className="text-[12px] text-muted">{p.receiptNo ? `Receipt ${p.receiptNo}` : p.kind === 'refund' ? 'Refund' : ''}</div></div>
                     <div className="text-right"><div className={cx('font-semibold tabular', st === 'Cancelled' && 'line-through text-muted')}>{p.kind === 'refund' ? '−' : ''}{fmtINR(p.amount)}</div>
                       <Badge tone={st === 'Received' ? 'green' : st === 'Being confirmed' ? 'orange' : st === 'Refund' ? 'blue' : 'gray'}>{st}</Badge></div>
+                    {p.kind === 'payment' && p.receiptNo && settings && (
+                      <button onClick={() => { setInvoiceId(p.id); scrollTo(0, 0); }} className="shrink-0 inline-flex items-center gap-1 h-9 px-3 rounded-full bg-emerald-50 text-emerald-800 text-[12.5px] font-semibold border border-emerald-600/20 hover:bg-emerald-100">🧾 Invoice</button>
+                    )}
                   </li>
                 );
               })}
@@ -195,7 +214,7 @@ function MyClasses({ classes, marks, batch, onAttendance }: { classes: ClassSess
   if (!list.length) return null;
   return (
     <Card className="rounded-2xl">
-      <div className="flex items-center justify-between pr-4"><Head title="My classes" /><Button size="sm" onClick={onAttendance}>✋ Attendance</Button></div>
+      <div className="flex items-center justify-between pr-4"><Head title="Upcoming classes" /><Button size="sm" onClick={onAttendance}>✋ Attendance</Button></div>
       <ul className="divide-y divide-line">
         {list.map((c) => {
           const m = marks.find((x) => x.classId === c.id), live = `${c.date}T${c.startTime}` <= now && `${c.date}T${c.endTime}` > now;
