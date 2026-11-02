@@ -218,7 +218,8 @@ function Reminders() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ tone: 'ok' | 'bad'; text: string } | null>(null);
   useEffect(() => { void pushState().then(setSt); }, []);
-  if (!st || st === 'unsupported' || st === 'not-configured') return null;
+  // nothing to show once reminders are on (they keep working); the card only asks to turn them on
+  if (!st || st === 'unsupported' || st === 'not-configured' || (st === 'on' && !msg)) return null;
   const on = async () => { setBusy(true); setMsg(null); try { await enablePush(); setSt('on'); setMsg({ tone: 'ok', text: 'Reminders are on for this device.' }); } catch (e) { setMsg({ tone: 'bad', text: (e as Error).message }); setSt(await pushState()); } setBusy(false); };
   return (
     <Card className="rounded-2xl p-4">
