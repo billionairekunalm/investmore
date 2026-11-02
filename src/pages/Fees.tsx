@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as S from '../store/store';
 import { Badge, Button, Card, CardHeader, Empty, Field, Input, Kpi, Money, PageHeader, SearchInput, Table, Tabs, cx, useRun, useUI } from '../ui/kit';
-import { PaymentModal } from '../ui/modals';
 import { useRange } from '../ui/shell';
 import { financeFor, periodFigures } from '../domain/finance';
 import { fmtDate, fmtINR, inRange, parseRupees, todayIST } from '../domain/util';
@@ -16,7 +15,6 @@ export default function Fees() {
   const { range } = useRange();
   const [tab, setTab] = useState<'plans' | 'verify' | 'ledger'>('plans');
   const [q, setQ] = useState('');
-  const [pay, setPay] = useState(false);
   const [nearest, setNearest] = useState(false); // fee plans: only fees to collect, nearest due date first
   const today = todayIST();
   const plans = useMemo(() => db.feePlans.map((p) => ({ p, s: db.students.find((x) => x.id === p.studentId)!, f: financeFor(db, p.studentId, today) })), [db]);
@@ -29,7 +27,7 @@ export default function Fees() {
 
   return (
     <>
-      <PageHeader title="Fee management" actions={S.allowed('fees', 'create', db) && <Button variant="primary" onClick={() => setPay(true)}>Record payment</Button>} />
+      <PageHeader title="Fee management" />
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <Kpi label="Fees billed" value={fmtINR(fig.billed)} sub="new fee plans in period" />
         <Kpi label="Collected" value={fmtINR(fig.collected)} sub="verified, net of reversals" tone="ok" />
@@ -84,7 +82,6 @@ export default function Fees() {
           ]} />
         </Card>
       )}
-      <PaymentModal open={pay} onClose={() => setPay(false)} />
     </>
   );
 }
