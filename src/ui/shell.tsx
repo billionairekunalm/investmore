@@ -31,6 +31,7 @@ export function CallButton({ target, size = 'sm', label = 'Call' }: { target: Ca
 const PhoneIcon = () => <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M3 2h3l1.5 3.5-2 1.2a8 8 0 0 0 3.8 3.8l1.2-2L14 10v3a1 1 0 0 1-1 1A11 11 0 0 1 2 3a1 1 0 0 1 1-1Z" /></svg>;
 
 // ---------------- nav ----------------
+const BELL = 'M4 6.5a4 4 0 0 1 8 0c0 4 1.5 5.5 1.5 5.5h-11S4 10.5 4 6.5ZM6.5 14h3'; // top-bar notifications (no menu item)
 const NAV: { to: string; label: string; mod: Module; icon: string }[] = [
   // most used first: daily front-desk work, then money, then setup
   { to: '/', label: 'Dashboard', mod: 'dashboard', icon: 'M2 9h5V2H2zM9 14h5V7H9zM2 14h5v-3H2zM9 5h5V2H9z' },
@@ -43,7 +44,6 @@ const NAV: { to: string; label: string; mod: Module; icon: string }[] = [
   { to: '/invoices', label: 'Invoices', mod: 'fees', icon: 'M4 1.5h5.5L12 4v10.5H4zM9.5 1.5V4H12M6 7h4M6 9.5h4M6 12h2' },
   { to: '/expenses', label: 'Expenses', mod: 'expenses', icon: 'M8 1.5v13M11 4H6.5a2 2 0 0 0 0 4h3a2 2 0 0 1 0 4H5' },
   { to: '/kits', label: 'Kits', mod: 'students', icon: 'M2 5.5 8 2.5l6 3v5L8 13.5l-6-3zM2 5.5 8 8.5l6-3M8 8.5v5' },
-  { to: '/notifications', label: 'Notifications', mod: 'notifications', icon: 'M4 6.5a4 4 0 0 1 8 0c0 4 1.5 5.5 1.5 5.5h-11S4 10.5 4 6.5ZM6.5 14h3' },
   { to: '/profit', label: 'Salary & Profit', mod: 'profit', icon: 'M8 1.5A6.5 6.5 0 1 0 14.5 8H8z M10 1.7V6h4.3A6.5 6.5 0 0 0 10 1.7Z' },
   { to: '/courses', label: 'Courses', mod: 'settings', icon: 'M2 3h4.5A1.5 1.5 0 0 1 8 4.5V14a1.5 1.5 0 0 0-1.5-1.5H2zM14 3H9.5A1.5 1.5 0 0 0 8 4.5V14a1.5 1.5 0 0 1 1.5-1.5H14z' },
   { to: '/certificates', label: 'Certificates', mod: 'certificates', icon: 'M2 2.5h12v8H2zM6 13.5l2-1.5 2 1.5v-3H6z' },
@@ -140,7 +140,7 @@ export function Layout({ children }: { children: ReactNode }) {
               <GlobalSearch />
               <RangePicker rk={rk} range={range} onChange={(k, c) => { setRk(k); setCustom(c); try { localStorage.setItem('range', k); } catch { /* */ } }} />
               <Link to="/notifications" className="relative p-2 text-zinc-600 hover:text-ink" aria-label="Notifications">
-                <Icon d={NAV.find((n) => n.mod === 'notifications')!.icon} />
+                <Icon d={BELL} />
                 {unread > 0 && <span className="absolute top-1 right-1 size-2 rounded-full bg-bad" />}
               </Link>
             </header>
@@ -165,7 +165,7 @@ export function Layout({ children }: { children: ReactNode }) {
 }
 
 function MobileTabs({ items }: { items: typeof NAV }) {
-  const pick = ['/', '/leads', '/students', '/collections', '/notifications'];
+  const pick = ['/', '/students', '/collections', '/batches', '/leads'];
   const tabs = items.filter((i) => pick.includes(i.to)).slice(0, 5);
   return (
     <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur border-t border-line flex no-print" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
