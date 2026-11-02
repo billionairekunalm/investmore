@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import * as S from '../store/store';
 import { loadPortal, sb } from '../store/cloud';
-import { enablePush, pushState, refreshPush, sendTestReminder, type PushState } from '../lib/push';
+import { enablePush, pushState, refreshPush, type PushState } from '../lib/push';
 import { TABLES, fromRow } from '../store/schema';
 import { studentFinance } from '../domain/fees';
 import type { Batch, BatchVideo, ClassMark, ClassSession, Course, Enrolment, Instalment, Payment, Student } from '../domain/types';
@@ -220,7 +220,6 @@ function Reminders() {
   useEffect(() => { void pushState().then(setSt); }, []);
   if (!st || st === 'unsupported' || st === 'not-configured') return null;
   const on = async () => { setBusy(true); setMsg(null); try { await enablePush(); setSt('on'); setMsg({ tone: 'ok', text: 'Reminders are on for this device.' }); } catch (e) { setMsg({ tone: 'bad', text: (e as Error).message }); setSt(await pushState()); } setBusy(false); };
-  const test = async () => { setBusy(true); setMsg(null); try { await sendTestReminder(); setMsg({ tone: 'ok', text: 'Test sent — it arrives within a minute.' }); } catch (e) { setMsg({ tone: 'bad', text: (e as Error).message }); } setBusy(false); };
   return (
     <Card className="rounded-2xl p-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -230,7 +229,6 @@ function Reminders() {
           <div className="text-[12.5px] text-muted">{st === 'on' ? 'On for this device. You get a reminder 1 day before, at 8 AM on the day, and 30 minutes before each class.' : st === 'blocked' ? 'Notifications are blocked for this site. Allow them in your browser settings to get class reminders.' : 'Never miss a class: get a reminder 1 day before, on the morning of the class, and 30 minutes before it starts.'}</div>
         </div>
         {st === 'off' && <Button variant="primary" loading={busy} onClick={on}>Turn on reminders</Button>}
-        {st === 'on' && <Button size="sm" loading={busy} onClick={test}>Send a test</Button>}
       </div>
       {msg && <p className={cx('mt-2 text-[12.5px]', msg.tone === 'ok' ? 'text-accent' : 'text-bad')}>{msg.text}</p>}
     </Card>
