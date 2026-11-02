@@ -46,19 +46,18 @@ const Msg = ({ tone, children }: { tone: 'bad' | 'ok'; children: ReactNode }) =>
   <p role="alert" className={cx('rounded-lg px-3 py-2 text-[12.5px]', tone === 'bad' ? 'bg-bad-soft text-bad' : 'bg-accent-soft text-accent')}>{children}</p>
 );
 
-/** Shows first-run admin setup until the academy exists, then the normal sign-in. */
+/** Always the normal sign-in; before the academy exists, the first Admin sign-in creates the admin login. */
 function SignInOrSetup({ error }: { error?: string }) {
   const [first, setFirst] = useState<boolean | null>(null);
   const [signup, setSignup] = useState(false);
   useEffect(() => { hasEmployees().then((h) => setFirst(!h)).catch(() => setFirst(false)); }, []);
   if (first === null) return <p className="text-muted text-center py-10">Loading…</p>;
-  if (first) return <CreateAdmin onDone={() => setFirst(false)} />;
-  return signup ? <StudentSignup onBack={() => setSignup(false)} /> : <SignInForm error={error} onSignup={() => setSignup(true)} />;
+  return signup ? <StudentSignup onBack={() => setSignup(false)} /> : <SignInForm error={error} first={first} onSignup={() => setSignup(true)} />;
 }
 
-function SignInForm({ error, onSignup }: { error?: string; onSignup: () => void }) {
-  const [who, setWhoState] = useState<Who>(() => { try { return (localStorage.getItem('loginAs') as Who) || 'student'; } catch { return 'student'; } });
-  const [id, setId] = useState('');
+function SignInForm({ error, first, onSignup }: { error?: string; first: boolean; onSignup: () => void }) {
+  const [who, setWhoState] = useState<Who>(() => { if (first) return 'admin'; try { return (localStorage.getItem('loginAs') as Who) || 'student'; } catch { return 'student'; } });
+  const [id, setId] = useState(first ? 'investmore' : '');
   const [pw, setPw] = useState('');
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -67,8 +66,15 @@ function SignInForm({ error, onSignup }: { error?: string; onSignup: () => void 
   const w = WHO.find((x) => x.id === who) ?? WHO[0];
   const go = async () => {
     setBusy(true); setMsg(null);
-    try { const email = await signInWithId(id, pw, who === 'student' ? 'student' : 'staff'); await S.enterCloud(email); }
-    catch (e) { setMsg({ tone: 'bad', text: (e as Error).message }); }
+    try {
+      let email: string;
+      if (first && who === 'admin') {
+        // very first sign-in: this ID + password become the admin login
+        email = await setupAdmin(id, pw).catch((e: Error) => { if (/already set up/i.test(e.message)) return signInWithId(id, pw, 'staff'); throw e; });
+      } else if (first) throw new Error('The academy is not set up yet. The admin must sign in first.');
+      else email = await signInWithId(id, pw, who === 'student' ? 'student' : 'staff');
+      await S.enterCloud(email);
+    } catch (e) { setMsg({ tone: 'bad', text: (e as Error).message }); }
     setBusy(false);
   };
   return (
@@ -129,36 +135,6 @@ function StudentSignup({ onBack }: { onBack: () => void }) {
       <div className="pt-3 border-t border-line text-center text-[13px] text-zinc-600">
         Already have a login? <button type="button" onClick={onBack} className="font-semibold text-accent hover:underline">Sign in</button>
       </div>
-    </form>
-  );
-}
-
-function CreateAdmin({ onDone }: { onDone: () => void }) {
-  const [id, setId] = useState('investmore');
-  const [pw, setPw] = useState('');
-  const [pw2, setPw2] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-  const go = async () => {
-    setBusy(true); setMsg(null);
-    try {
-      if (pw !== pw2) throw new Error('The two passwords do not match.');
-      const email = await setupAdmin(id, pw);
-      await S.enterCloud(email);
-    } catch (e) {
-      const m = (e as Error).message;
-      if (/already set up/i.test(m)) onDone(); else setMsg(m);
-    }
-    setBusy(false);
-  };
-  return (
-    <form onSubmit={(e) => { e.preventDefault(); void go(); }} className="space-y-3.5">
-      <Title sub="First time only. This becomes the main admin login.">Create admin login</Title>
-      <Field label="Admin login ID"><Input autoComplete="username" autoCapitalize="none" value={id} onChange={(e) => setId(e.target.value)} /></Field>
-      <Field label="Password" hint="At least 8 characters"><Input type="password" autoComplete="new-password" autoFocus value={pw} onChange={(e) => setPw(e.target.value)} /></Field>
-      <Field label="Confirm password"><Input type="password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} /></Field>
-      {msg && <Msg tone="bad">{msg}</Msg>}
-      <Button type="submit" variant="primary" className="w-full h-10" loading={busy} disabled={id.trim().length < 3 || pw.length < 8 || !pw2}>Create admin login</Button>
     </form>
   );
 }
