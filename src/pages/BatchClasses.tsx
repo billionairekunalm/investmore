@@ -222,7 +222,7 @@ export function ClassModal({ open, classId, date, batchId, onClose, onAttendance
         <Field label="End time" required error={f.startTime && f.endTime && dur <= 0 ? 'After the start time' : undefined}><Input type="time" value={f.endTime} disabled={!canEdit} onChange={(e) => setF({ ...f, endTime: e.target.value })} /></Field>
         <Field label="Note (optional)" className="sm:col-span-2"><Textarea value={f.notes} disabled={!canEdit} onChange={(e) => setF({ ...f, notes: e.target.value })} className="min-h-14" placeholder="e.g. Topic: Candlestick patterns" /></Field>
       </div>
-      {!c && <p className="mt-3 text-[12px] text-muted">Times are filled in from the batch's usual timing. Students of the batch get reminders 1 day before, at 8:00 AM on the day, and 30 minutes before.</p>}
+      {!c && <p className="mt-3 text-[12px] text-muted">Times are filled in from the batch's usual timing. Students of the batch are notified right away, then reminded 1 day before, at 8:00 AM on the day, and 30 minutes before. If you change or cancel the class, they are told too.</p>}
     </Modal>
   );
 }

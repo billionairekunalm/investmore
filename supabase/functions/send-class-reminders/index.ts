@@ -58,6 +58,18 @@ function message(j: Job) {
       title: `⏰ ${hi}, your class starts in 30 minutes`,
       body: `Your ${what}${batch} begins at ${at}. Please reach on time and scan the classroom QR code to mark your attendance.`,
     };
+    case 'scheduled': return {
+      title: `📚 ${hi}, a new class is scheduled`,
+      body: `Your ${what}${batch} is on ${day(j.date!)} at ${at}${till}. We'll remind you before it starts. — InvestMore Training Academy`,
+    };
+    case 'rescheduled': return {
+      title: `🔁 ${hi}, your class time has changed`,
+      body: `Your ${what}${batch} is now on ${day(j.date!)} at ${at}${till}. Please note the new time. — InvestMore Training Academy`,
+    };
+    case 'cancelled': return {
+      title: `❌ ${hi}, a class has been cancelled`,
+      body: `Your ${what}${batch} on ${day(j.date!)} at ${at} is cancelled. We'll let you know the next class. — InvestMore Training Academy`,
+    };
     default: return {
       title: `🔔 ${hi}, notifications are on!`,
       body: 'You will get your InvestMore class reminders here: one day before, on the morning of the class, and 30 minutes before it starts.',

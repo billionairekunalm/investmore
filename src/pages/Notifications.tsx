@@ -47,7 +47,7 @@ export default function Notifications() {
 }
 
 type JobRow = { id: number; kind: string; status: string; send_at: string; sent_at: string | null; error: string | null; class_id: string | null; student_id: string };
-const KIND: Record<string, string> = { day_before: '1 day before', morning: 'Morning of class', soon: '30 min before', test: 'Test' };
+const KIND: Record<string, string> = { scheduled: 'Class scheduled', rescheduled: 'Time changed', cancelled: 'Class cancelled', day_before: '1 day before', morning: 'Morning of class', soon: '30 min before', test: 'Test' };
 const STATUS_TONE: Record<string, string> = { sent: 'green', pending: 'blue', sending: 'blue', failed: 'red', no_device: 'gray', expired: 'gray' };
 /** Push reminders planned for scheduled classes: totals, and the delivery history (read from the server). */
 function ClassReminders() {
