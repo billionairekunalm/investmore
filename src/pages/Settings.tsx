@@ -68,23 +68,11 @@ function Fees() {
   const s = db.settings;
   const [gst, setGst] = useState(String(s.gstRateBp / 100));
   const [offsets, setOffsets] = useState(s.reminderOffsets.join(', '));
-  const choose = async (p: 'additional' | 'credited') => {
-    if (s.bookingPolicy === p) return;
-    if (s.bookingPolicy && !(await ask({ title: 'Change booking policy?', message: 'Applies to new admissions only. Existing fee plans keep their policy.', confirm: 'Change policy' }))) return;
-    run(() => S.updateSettings({ bookingPolicy: p }), 'Saved');
-  };
   return (
     <div className="space-y-4 max-w-3xl">
       <Card className="p-5">
-        <h3 className="font-semibold">How the booking amount is counted {!s.bookingPolicy && <Badge tone="red">Required</Badge>}</h3>
-        <p className="text-muted mt-0.5 mb-4">Is the ₹500–₹1,000 booking amount extra, or part of the ₹7,500 course fee (₹3,000 + ₹3,000 + ₹1,500)? Choose once — new admissions can't start until you do.</p>
-        <div className="grid sm:grid-cols-2 gap-3">
-          {([['additional', 'Extra — on top of the fee', 'Student pays booking + ₹7,500. Example: ₹1,000 + ₹7,500 = ₹8,500.'], ['credited', 'Included — part of the fee', 'Booking is part of ₹7,500 and reduces the last instalment(s). Example: ₹1,000 + 3,000 + 3,000 + 500.']] as const).map(([id, t, d]) => (
-            <button key={id} onClick={() => choose(id)} disabled={!S.allowed('settings', 'edit', db)} className={cx('text-left rounded-xl border p-4', s.bookingPolicy === id ? 'border-accent bg-accent-soft ring-3 ring-accent/10' : 'border-line hover:bg-surface')}>
-              <div className="font-medium">{t}</div><div className="text-muted text-[12.5px] mt-1">{d}</div>
-            </button>
-          ))}
-        </div>
+        <h3 className="font-semibold">Booking amount</h3>
+        <p className="text-muted mt-0.5">The booking is the first part of the course fee, not extra. Example: course fee ₹8,500 = ₹1,000 booking + ₹7,500 in instalments. Set each course's fee and booking in <b>Courses</b>.</p>
       </Card>
       <Card className="p-5 space-y-4">
         <div>
@@ -100,7 +88,7 @@ function Fees() {
           <Field label="Reminder schedule (days from due date)" hint="Negative = before. Default: -2, 0, 1, 3"><Input value={offsets} onChange={(e) => setOffsets(e.target.value)} /></Field>
           <Button className="w-fit" onClick={() => { const v = offsets.split(',').map((x) => parseInt(x.trim(), 10)); run(() => { if (v.some(isNaN)) throw new S.AppError('Use whole numbers separated by commas.'); S.updateSettings({ reminderOffsets: v }); }, 'Saved'); }}>Save reminders</Button>
         </div>
-        <p className="text-xs text-muted">Course fee amounts are edited in Fee Management → Course fee structure.</p>
+        <p className="text-xs text-muted">Course fees are edited in Courses.</p>
       </Card>
     </div>
   );
@@ -237,7 +225,6 @@ function Data() {
         <h3 className="font-semibold">Demo data</h3>
         <p className="text-muted mb-3">Adds clearly labelled sample staff, batches, leads, students, payments and expenses for the last 6 months, so you can try every screen. Clear it before going live.</p>
         <Button disabled={busy || db.students.length > 0} loading={busy} onClick={async () => {
-          if (!db.settings.bookingPolicy) return toast('Choose the booking policy in Settings → Fees first.', 'bad');
           setBusy(true); await new Promise((r) => setTimeout(r, 30));
           run(() => loadDemo(), 'Demo data loaded'); setBusy(false);
         }}>{db.students.length ? 'Only available on an empty academy' : 'Load demo data'}</Button>

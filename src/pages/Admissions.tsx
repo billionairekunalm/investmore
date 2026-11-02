@@ -50,7 +50,7 @@ export function AdmissionForm({ leadId, onDone, page }: { leadId?: string; onDon
   const [f, setF] = useState({
     name: lead?.name ?? '', phone: lead?.phone ?? '', altPhone: '', email: lead?.email ?? '', address: '', city: '', state: '', pin: '', dob: '', gender: '' as Gender,
     courseId: course0?.id ?? '', batchId: '', admissionDate: today, source: lead?.source ?? 'Walk-in', campaign: lead?.campaign ?? '', counsellorId: lead?.assignedTo || me.id,
-    booking: String((course0?.bookingDefault ?? 100000) / 100), bookingPaidNow: true, method: 'Cash' as PayMethod, reference: '',
+    booking: String((course0?.bookingDefault ?? 100000) / 100), fee: course0 ? String(S.courseFee(course0) / 100) : '', bookingPaidNow: true, method: 'Cash' as PayMethod, reference: '',
   });
   const [photo, setPhoto] = useState<string>();
   const [idDoc, setIdDoc] = useState<IdDocument>();
@@ -76,14 +76,14 @@ export function AdmissionForm({ leadId, onDone, page }: { leadId?: string; onDon
   const batches = db.batches.filter((b) => b.courseId === f.courseId && (b.status === 'upcoming' || b.status === 'running'));
   const batch = db.batches.find((b) => b.id === f.batchId);
   const booking = parseRupees(f.booking);
-  const policy = db.settings.bookingPolicy;
+  const fee = parseRupees(f.fee); // this student's full fee, booking included (usual fee comes from the course)
   const preview = useMemo(() => {
-    if (!course || booking === null || !policy) return null;
+    if (!course || booking === null || fee === null) return null;
     try {
       const start = db.settings.startEvent === 'batch_start' && batch ? batch.startDate : f.admissionDate;
-      return buildSchedule({ booking, instalments: course.instalments, policy, admissionDate: f.admissionDate, startDate: start, gapDays: db.settings.instalmentGapDays, fullBooking: course.bookingDefault });
+      return buildSchedule({ booking, instalments: course.instalments, policy: 'additional', admissionDate: f.admissionDate, startDate: start, gapDays: db.settings.instalmentGapDays, total: fee });
     } catch (e) { return { error: (e as Error).message }; }
-  }, [course, booking, policy, f.admissionDate, batch, db.settings]);
+  }, [course, booking, fee, f.admissionDate, batch, db.settings]);
   const phoneOk = normalizePhone(f.phone);
   const dups = phoneOk || f.email ? S.findDuplicates(db, f.phone, f.email) : [];
   const counsellors = db.employees.filter((e) => e.active && e.role !== 'teacher');
@@ -91,7 +91,7 @@ export function AdmissionForm({ leadId, onDone, page }: { leadId?: string; onDon
   const paidNow = f.bookingPaidNow && booking ? booking : 0;
 
   const submit = async () => {
-    if (booking === null) return;
+    if (booking === null || fee === null) return;
     setBusy(true);
     let doc = idDoc;
     if (aadhaar.consent && (aadhaar.files.front || aadhaar.files.back)) {
@@ -103,7 +103,7 @@ export function AdmissionForm({ leadId, onDone, page }: { leadId?: string; onDon
     const input: S.AdmissionInput = {
       key, name: f.name, phone: f.phone, altPhone: f.altPhone, email: f.email, address: f.address, city: f.city, state: f.state, pin: f.pin, photo, dob: f.dob, gender: f.gender,
       courseId: f.courseId, batchId: f.batchId, admissionDate: f.admissionDate, source: f.source, campaign: f.campaign, counsellorId: f.counsellorId,
-      bookingAmount: booking, bookingPaid: f.bookingPaidNow && booking > 0 ? { method: f.method, reference: f.reference } : null, idDoc: doc,
+      bookingAmount: booking, courseFee: fee, bookingPaid: f.bookingPaidNow && booking > 0 ? { method: f.method, reference: f.reference } : null, idDoc: doc,
     };
     const id = run(() => (leadId ? S.convertLead(leadId, input) : S.admitStudent(input)), leadId ? 'Lead converted — student created' : 'Student admitted');
     if (!id && doc?.files) void removeAadhaar([doc.files.front, doc.files.back]); // admission refused: don't keep the card
@@ -115,16 +115,9 @@ export function AdmissionForm({ leadId, onDone, page }: { leadId?: string; onDon
     if (id) onDone(id);
   };
 
-  if (!policy) return (
-    <div className="rounded-xl border border-warn/30 bg-warn-soft p-4">
-      <div className="font-medium text-warn">Booking-amount policy not set</div>
-      <p className="mt-1 text-zinc-700">Before the first admission, an administrator must choose whether the booking amount is <b>additional</b> to the ₹7,500 instalments or <b>credited</b> against the course fee.</p>
-      {S.allowed('settings', 'edit', db) ? <Link to="/settings?tab=fees" className="inline-block mt-3 font-medium text-accent">Open fee settings →</Link> : <p className="mt-2 text-muted">Ask an administrator to set it.</p>}
-    </div>
-  );
 
   // what still blocks "Complete admission" — same conditions as before, now spelled out
-  const missing = [!f.name && 'full name', !phoneOk && 'a valid mobile', booking === null && 'a valid booking amount', !f.courseId && 'a course'].filter(Boolean) as string[];
+  const missing = [!f.name && 'full name', !phoneOk && 'a valid mobile', booking === null && 'a valid booking amount', (fee === null || fee <= 0) && 'the course fee', !f.courseId && 'a course', !!preview && 'error' in preview && 'a booking within the course fee'].filter(Boolean) as string[];
   const blocked = missing.length > 0 || dups.length > 0 || (portalPw.length > 0 && portalPw.length < 8);
   const g2 = 'grid sm:grid-cols-2 gap-x-4 gap-y-3.5';
 
@@ -172,7 +165,7 @@ export function AdmissionForm({ leadId, onDone, page }: { leadId?: string; onDon
 
       <FormSection icon={ICON.book} title="Course details">
         <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3.5">
-          <Field label="Course" required><Select value={f.courseId} onChange={(e) => setF({ ...f, courseId: e.target.value, batchId: '', booking: String((db.courses.find((c) => c.id === e.target.value)?.bookingDefault ?? 0) / 100) })} options={db.courses.filter((c) => c.status !== 'closed' || c.id === f.courseId).map((c) => ({ value: c.id, label: c.status === 'upcoming' ? `${c.name} (upcoming)` : c.name }))} /></Field>
+          <Field label="Course" required><Select value={f.courseId} onChange={(e) => { const c = db.courses.find((x) => x.id === e.target.value); setF({ ...f, courseId: e.target.value, batchId: '', booking: String((c?.bookingDefault ?? 0) / 100), fee: c ? String(S.courseFee(c) / 100) : '' }); }} options={db.courses.filter((c) => c.status !== 'closed' || c.id === f.courseId).map((c) => ({ value: c.id, label: c.status === 'upcoming' ? `${c.name} (upcoming)` : c.name }))} /></Field>
           <Field label="Batch" hint={!batches.length ? 'No open batches' : undefined}>
             <Select value={f.batchId} onChange={set('batchId')} placeholder="Assign later" options={batches.map((b) => ({ value: b.id, label: `${b.name} · ${b.timing} (${db.students.filter((s) => s.batchId === b.id && s.status === 'Active').length}/${b.capacity})` }))} />
           </Field>
@@ -184,11 +177,11 @@ export function AdmissionForm({ leadId, onDone, page }: { leadId?: string; onDon
 
       <FormSection icon={ICON.rupee} title="Fee details">
         <div className={g2}>
-          <div>
-            <span className="mb-1 block text-[12.5px] font-medium text-zinc-700">Total course fee</span>
-            <div className="h-9 rounded-lg bg-accent-soft/60 border border-accent/15 px-3 flex items-center font-bold text-accent tabular">{total !== null ? fmtINR(total) : '—'}</div>
-          </div>
-          <Field label="Booking amount (₹)" error={booking === null ? 'Enter a valid amount' : undefined}><Input inputMode="decimal" value={f.booking} onChange={set('booking')} /></Field>
+          <Field label="Course fee (₹)" hint={course && fee !== null && fee !== S.courseFee(course) ? `Usual fee ${fmtINR(S.courseFee(course))} — changed for this student` : 'Full fee, booking included. Change it if this student pays more or less.'}
+            error={fee === null || fee <= 0 ? 'Enter the course fee' : undefined}>
+            <Input inputMode="decimal" value={f.fee} onChange={set('fee')} className="font-bold text-accent tabular" />
+          </Field>
+          <Field label="Booking amount (₹)" hint="Part of the course fee, paid first" error={booking === null ? 'Enter a valid amount' : undefined}><Input inputMode="decimal" value={f.booking} onChange={set('booking')} /></Field>
           <div className="sm:col-span-2 rounded-lg border border-line bg-surface/60 px-3 py-2.5">
             <Checkbox checked={f.bookingPaidNow} onChange={(e) => setF({ ...f, bookingPaidNow: e.target.checked })} label={<span className="font-medium">Booking amount received now</span>} />
           </div>

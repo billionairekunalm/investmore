@@ -38,9 +38,12 @@ describe('A. admission → fee plan & 7-day schedule', () => {
     expect(s.total).toBe(750000);
     expect(s.lines.map((l) => l.amount)).toEqual([100000, 300000, 300000, 50000]);
   });
-  it('blocks admissions until booking policy is explicitly chosen', () => {
+  it('booking is always part of the course fee (no policy to choose)', () => {
     S.getDB().settings.bookingPolicy = null;
-    expect(() => admit()).toThrow(/booking-amount policy/);
+    const id = admit();
+    const f = financeFor(S.getDB(), id, T);
+    expect(f.total).toBe(850000);
+    expect(f.lines[0]).toMatchObject({ label: 'Booking', amount: 100000 });
   });
   it('retried submit with the same key does not create a second student', () => {
     const key = uid();
@@ -373,5 +376,39 @@ describe('IDs never repeat, even when the counter is lost', () => {
     expect(new Set(receipts).size).toBe(receipts.length);
     const txns = S.getDB().payments.map((p) => p.id);
     expect(new Set(txns).size).toBe(txns.length);
+  });
+});
+
+describe('course fee includes the booking, and can be changed per student', () => {
+  const amounts = (id: string) => financeFor(S.getDB(), id, T).lines.map((l) => l.amount);
+  it('₹8,500 course: ₹1,000 booking + ₹3,000 + ₹3,000 + ₹1,500', () => {
+    expect(S.courseFee(S.getDB().courses[0])).toBe(850000);
+    const id = admit();
+    expect(amounts(id)).toEqual([100000, 300000, 300000, 150000]);
+  });
+  it('more for this student (₹9,500): extra goes on the last instalment', () => {
+    const id = admit('9876500021', { courseFee: 950000 });
+    expect(financeFor(S.getDB(), id, T).total).toBe(950000);
+    expect(amounts(id)).toEqual([100000, 300000, 300000, 250000]);
+  });
+  it('less for this student (₹6,000): the cut comes off the last instalments', () => {
+    const id = admit('9876500022', { courseFee: 600000 });
+    expect(financeFor(S.getDB(), id, T).total).toBe(600000);
+    expect(amounts(id)).toEqual([100000, 300000, 200000]);
+  });
+  it('smaller booking with a changed fee still adds up to the fee', () => {
+    const id = admit('9876500023', { courseFee: 800000, bookingAmount: 50000 });
+    expect(financeFor(S.getDB(), id, T).total).toBe(800000);
+    expect(amounts(id)[0]).toBe(50000);
+  });
+  it('booking more than the fee is refused', () => {
+    expect(() => admit('9876500024', { courseFee: 50000, bookingAmount: 100000 })).toThrow(/more than the full course fee/);
+  });
+  it('editing a course fee: total = booking + instalments', () => {
+    const c = S.getDB().courses[0];
+    S.saveCourse({ ...c, bookingDefault: 100000, instalments: [400000, 400000, 100000] });
+    expect(S.courseFee(S.getDB().courses[0])).toBe(1000000);
+    const id = admit('9876500025');
+    expect(financeFor(S.getDB(), id, T).total).toBe(1000000);
   });
 });

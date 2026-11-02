@@ -38,7 +38,7 @@ function CourseCard({ c, onEdit }: { c: Course; onEdit?: () => void }) {
   const studentIds = new Set(db.students.filter((s) => s.courseId === c.id).map((s) => s.id));
   const active = db.students.filter((s) => s.courseId === c.id && s.status === 'Active').length;
   const collected = effectivePayments(db.payments.filter((p) => studentIds.has(p.studentId))).reduce((t, p) => t + p.amount, 0);
-  const fee = c.instalments.reduce((t, x) => t + x, 0);
+  const fee = S.courseFee(c); // booking included
   const shares = c.shares ?? db.settings.shares;
   return (
     <Card className="rounded-2xl overflow-hidden flex flex-col">
@@ -53,11 +53,11 @@ function CourseCard({ c, onEdit }: { c: Course; onEdit?: () => void }) {
         </div>
         <dl className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
           <Fact k="Course fee" v={fmtINR(fee)} />
-          <Fact k="Booking" v={fmtINR(c.bookingDefault)} />
+          <Fact k="Booking (in fee)" v={fmtINR(c.bookingDefault)} />
           <Fact k="Duration" v={`${c.durationWeeks} weeks`} />
           <Fact k={c.status === 'upcoming' ? 'Launches' : 'Students'} v={c.status === 'upcoming' ? (c.launchDate ? fmtDate(c.launchDate) : 'Date not set') : `${active} active`} />
         </dl>
-        <div className="mt-3 text-[12.5px] text-muted">Instalments: {c.instalments.map((x) => fmtINR(x)).join(' + ')}</div>
+        <div className="mt-3 text-[12.5px] text-muted">{fmtINR(c.bookingDefault)} booking + {c.instalments.map((x) => fmtINR(x)).join(' + ')} = <b className="text-ink">{fmtINR(fee)}</b></div>
         <div className="mt-4 rounded-xl border border-line bg-surface/70 p-3">
           <div className="flex items-center justify-between text-[12px]"><span className="font-semibold uppercase tracking-wider text-zinc-500">Founder split</span><span className="text-muted">Collected so far <b className="text-ink tabular">{fmtINR(collected)}</b></span></div>
           <ul className="mt-2 space-y-1.5">
@@ -85,22 +85,34 @@ function CourseForm({ id, onClose }: { id: string | 'new' | null; onClose: () =>
   const { ask } = useUI();
   const c = id && id !== 'new' ? db.courses.find((x) => x.id === id) : undefined;
   const toRows = (sh: Share[]) => sh.map((s) => ({ name: s.name, pct: String(s.pctBp / 100) }));
-  const [f, setF] = useState({ name: '', description: '', status: 'upcoming' as CourseStatus, launchDate: '', weeks: '8', booking: '1000' });
+  const [f, setF] = useState({ name: '', description: '', status: 'upcoming' as CourseStatus, launchDate: '', weeks: '8', booking: '1000', fee: '8500' });
   const [inst, setInst] = useState<string[]>(['3000', '3000', '1500']);
   const [rows, setRows] = useState<ShareRow[]>([]);
   useEffect(() => {
     if (!id) return;
-    setF(c ? { name: c.name, description: c.description ?? '', status: c.status ?? 'active', launchDate: c.launchDate ?? '', weeks: String(c.durationWeeks), booking: String(c.bookingDefault / 100) }
-      : { name: '', description: '', status: 'upcoming', launchDate: '', weeks: '8', booking: '1000' });
+    setF(c ? { name: c.name, description: c.description ?? '', status: c.status ?? 'active', launchDate: c.launchDate ?? '', weeks: String(c.durationWeeks), booking: String(c.bookingDefault / 100), fee: String(S.courseFee(c) / 100) }
+      : { name: '', description: '', status: 'upcoming', launchDate: '', weeks: '8', booking: '1000', fee: '8500' });
     setInst(c ? c.instalments.map((x) => String(x / 100)) : ['3000', '3000', '1500']);
     setRows(toRows(c?.shares ?? db.settings.shares));
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
-  const instP = inst.map(parseRupees), booking = parseRupees(f.booking);
-  const fee = instP.every((x) => x !== null) ? instP.reduce((t, x) => t! + x!, 0)! : null;
+  const instP = inst.map(parseRupees), booking = parseRupees(f.booking), fee = parseRupees(f.fee);
+  const instSum = instP.every((x) => x !== null) ? instP.reduce((t, x) => t! + x!, 0)! : null;
+  const rest = fee !== null && booking !== null ? fee - booking : null; // what the instalments must add up to
+  const matches = rest !== null && instSum === rest;
+  // changing the fee or booking: the last instalment takes up the difference
+  const setMoney = (k: 'fee' | 'booking') => (e: { target: { value: string } }) => {
+    const next = { ...f, [k]: e.target.value };
+    const fe = parseRupees(next.fee), bk = parseRupees(next.booking), others = inst.slice(0, -1).map(parseRupees);
+    if (fe !== null && bk !== null && others.every((x) => x !== null)) {
+      const last = fe - bk - others.reduce((t, x) => t! + x!, 0)!;
+      if (last > 0) setInst([...inst.slice(0, -1), String(last / 100)]);
+    }
+    setF(next);
+  };
   const totalBp = rows.reduce((t, r) => t + Math.round((parseFloat(r.pct) || 0) * 100), 0);
-  const ok = !!f.name.trim() && booking !== null && fee !== null && instP.every((x) => x! > 0) && +f.weeks >= 1 && rows.length > 0 && totalBp === 10000 && rows.every((r) => r.name.trim());
+  const ok = !!f.name.trim() && booking !== null && fee !== null && fee > 0 && booking <= fee && matches && instP.every((x) => x !== null && x > 0) && +f.weeks >= 1 && rows.length > 0 && totalBp === 10000 && rows.every((r) => r.name.trim());
   const save = () => {
     let done = false;
     run(() => {
@@ -137,7 +149,9 @@ function CourseForm({ id, onClose }: { id: string | 'new' | null; onClose: () =>
         <section>
           <h3 className="font-semibold text-[14px] mb-2">Fees</h3>
           <div className="grid sm:grid-cols-3 gap-x-4 gap-y-3.5">
-            <Field label="Booking amount (₹)" error={booking === null ? 'Enter an amount' : undefined}><Input inputMode="decimal" value={f.booking} onChange={set('booking')} /></Field>
+            <Field label="Course fee (₹)" hint="Full fee, booking included" error={fee === null || fee <= 0 ? 'Enter the course fee' : undefined}><Input inputMode="decimal" value={f.fee} onChange={setMoney('fee')} /></Field>
+            <Field label="Booking / advance (₹)" hint="Taken first, part of the fee" error={booking === null ? 'Enter an amount' : fee !== null && booking > fee ? 'More than the course fee' : undefined}><Input inputMode="decimal" value={f.booking} onChange={setMoney('booking')} /></Field>
+            <div className="hidden sm:block" />
             {inst.map((v, i) => (
               <Field key={i} label={`Instalment ${i + 1} (₹)`} error={instP[i] === null || (instP[i] ?? 0) <= 0 ? 'Enter an amount' : undefined}>
                 <Input inputMode="decimal" value={v} onChange={(e) => setInst(inst.map((x, j) => (j === i ? e.target.value : x)))} />
@@ -147,7 +161,10 @@ function CourseForm({ id, onClose }: { id: string | 'new' | null; onClose: () =>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Button size="sm" onClick={() => setInst([...inst, '1000'])}>+ Instalment</Button>
             {inst.length > 1 && <Button size="sm" variant="ghost" onClick={() => setInst(inst.slice(0, -1))}>Remove last</Button>}
-            <span className="ml-auto text-[13px]">Course fee <b className="tabular text-navy">{fee !== null ? fmtINR(fee) : '—'}</b> <span className="text-muted">+ booking {booking !== null ? fmtINR(booking) : '—'}</span></span>
+            <span className={cx('ml-auto text-[13px]', rest !== null && instSum !== null && !matches && 'text-bad')}>
+              {booking !== null ? fmtINR(booking) : '—'} booking + {instSum !== null ? fmtINR(instSum) : '—'} instalments = <b className="tabular">{booking !== null && instSum !== null ? fmtINR(booking + instSum) : '—'}</b>
+              {rest !== null && instSum !== null && !matches && <span className="block text-right text-[12px]">Instalments must add up to {fmtINR(rest)} (course fee − booking)</span>}
+            </span>
           </div>
         </section>
 

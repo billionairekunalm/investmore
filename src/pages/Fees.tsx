@@ -51,9 +51,8 @@ export default function Fees() {
             ? plans.filter((r) => r.f.next && r.f.outstanding > 0).sort((a, b) => a.f.next!.dueDate.localeCompare(b.f.next!.dueDate)) // only fees still to collect, soonest (or most overdue) on top
             : plans).filter((r) => !t || r.s.name.toLowerCase().includes(t) || r.s.code.toLowerCase().includes(t))}rowKey={(r) => r.p.id} onRow={(r) => nav(`/students/${r.s.id}?tab=fees`)} empty={<Empty title="No fee plans" body="Fee plans are created automatically on admission." />} cols={[
             { key: 'n', label: 'Student', render: (r) => <span className="font-medium">{r.s.name} <span className="text-muted font-normal">{r.s.code}</span></span>, sort: (r) => r.s.name },
-            { key: 'pol', label: 'Booking amount', render: (r) => (r.p.policy === 'additional' ? 'On top of fee' : 'Inside fee') },
-            { key: 'bk', label: 'Booking', render: (r) => <Money v={r.p.bookingAmount} />, className: 'text-right' },
-            { key: 't', label: 'Total', render: (r) => <Money v={r.f.total} />, className: 'text-right', sort: (r) => r.f.total },
+            { key: 'bk', label: 'Booking (in fee)', render: (r) => <Money v={r.p.bookingAmount} />, className: 'text-right' },
+            { key: 't', label: 'Course fee', render: (r) => <Money v={r.f.total} />, className: 'text-right', sort: (r) => r.f.total },
             { key: 'p', label: 'Paid', render: (r) => <Money v={r.f.paid} className="text-ok" />, className: 'text-right', sort: (r) => r.f.paid },
             { key: 'o', label: 'Balance due', render: (r) => <Money v={r.f.outstanding} />, className: 'text-right', sort: (r) => r.f.outstanding },
             { key: 'nx', label: 'Next due', render: (r) => (r.f.next ? `${fmtDate(r.f.next.dueDate)} · ${fmtINR(r.f.next.remaining)}` : '—'), sort: (r) => r.f.next?.dueDate ?? '9' },

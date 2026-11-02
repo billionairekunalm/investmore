@@ -750,7 +750,7 @@ function FeeDetails({ id }: { id: string }) {
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader title="Instalment schedule" sub={plan && `Booking amount ${plan.policy === 'additional' ? 'paid on top of the course fee' : 'counted inside the course fee'} · first instalment counted from ${fmtDate(plan.startDate)}`}
+        <CardHeader title="Instalment schedule" sub={plan && `Course fee ${fmtINR(plan.total)} (booking ${fmtINR(plan.bookingAmount)} included) · first instalment counted from ${fmtDate(plan.startDate)}`}
           right={S.allowed('fees', 'approve', db) && f.paid - f.refunded > 0 && s.status !== 'Refunded' && <Button size="sm" variant="danger" onClick={() => setRefund(true)}>Record refund</Button>} />
         <Table rows={f.lines} rowKey={(l) => l.id} empty={<Empty title="No fee plan" />} cols={[
           { key: 'l', label: 'Instalment', render: (l) => <span className="font-medium">{l.label}</span> },

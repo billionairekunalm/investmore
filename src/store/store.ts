@@ -290,6 +290,9 @@ export function saveEmployee(e: Omit<Employee, 'id' | 'createdAt'> & { id?: stri
   });
 }
 
+/** A course's full fee, booking included. */
+export const courseFee = (c: Pick<Course, 'bookingDefault' | 'instalments'>) => c.bookingDefault + c.instalments.reduce((a, x) => a + x, 0);
+
 export function saveCourse(c: Omit<Course, 'id'> & { id?: string }) {
   return tx((d) => {
     guard(d, 'settings', 'edit');
@@ -402,13 +405,13 @@ export interface AdmissionInput {
   dob?: ISODate; gender?: Student['gender'];
   courseId: string; batchId: string; admissionDate: ISODate; source: string; campaign?: string; counsellorId: string;
   bookingAmount: Paise; bookingPaid?: { method: PayMethod; reference: string } | null;
+  courseFee?: Paise; // this student's full fee incl. booking; missing = the course's fee
   idDoc?: Student['idDoc']; leadId?: string;
 }
 
 function admitInto(d: DB, a: AdmissionInput): string {
   const existing = d.students.find((s) => s.id === a.key);
   if (existing) return existing.id; // retried submit
-  if (!d.settings.bookingPolicy) fail('Choose the booking-amount policy in Settings → Fees before admitting students.');
   if (!a.name.trim()) fail('Student name is required.');
   const phone = normalizePhone(a.phone) ?? fail('Enter a valid 10-digit Indian mobile number.');
   const alt = a.altPhone ? normalizePhone(a.altPhone) ?? fail('Alternate mobile number is invalid.') : '';
@@ -422,8 +425,9 @@ function admitInto(d: DB, a: AdmissionInput): string {
   const batch = d.batches.find((b) => b.id === a.batchId);
   const startDate = d.settings.startEvent === 'batch_start' && batch ? batch.startDate : a.admissionDate;
   const sched = buildSchedule({
-    booking: a.bookingAmount, instalments: course.instalments, policy: d.settings.bookingPolicy as BookingPolicy,
-    admissionDate: a.admissionDate, startDate, gapDays: d.settings.instalmentGapDays, fullBooking: course.bookingDefault,
+    // the booking is always part of the course fee (₹8,500 fee = ₹1,000 booking + ₹7,500 in instalments)
+    booking: a.bookingAmount, instalments: course.instalments, policy: 'additional',
+    admissionDate: a.admissionDate, startDate, gapDays: d.settings.instalmentGapDays, total: a.courseFee ?? courseFee(course),
   });
 
   const id = a.key, code = studentCode(d, a.admissionDate);
@@ -434,7 +438,7 @@ function admitInto(d: DB, a: AdmissionInput): string {
   });
   if (a.batchId) d.enrolments.push({ id: uid(), studentId: id, batchId: a.batchId, from: a.admissionDate, reason: 'Admission' });
   const planId = uid();
-  d.feePlans.push({ id: planId, studentId: id, policy: d.settings.bookingPolicy!, bookingAmount: a.bookingAmount, total: sched.total, startDate, createdAt: a.admissionDate });
+  d.feePlans.push({ id: planId, studentId: id, policy: 'additional', bookingAmount: a.bookingAmount, total: sched.total, startDate, createdAt: a.admissionDate });
   for (const l of sched.lines) d.instalments.push({ id: uid(), planId, studentId: id, seq: l.seq, label: l.label, amount: l.amount, dueDate: l.dueDate, state: 'active' });
   audit(d, 'student.admit', 'student', id, `${a.name} — ${course.name}, total ${sched.total / 100}`);
   if (a.idDoc) audit(d, 'iddoc.capture', 'student', id, `${a.idDoc.type}${a.idDoc.maskedNumber ? ' ' + a.idDoc.maskedNumber : ''} · consent ${a.idDoc.consentAt.slice(0, 10)} · ${a.idDoc.imageRetained ? 'card images saved' : 'no images'}`);

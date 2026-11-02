@@ -14,17 +14,23 @@ export function buildSchedule(opts: {
   /** The course's standard booking. With the 'additional' rule the total stays booking + instalments as set on the course:
    *  a smaller booking moves the shortfall into the last instalment, a bigger one comes off the last instalment(s). */
   fullBooking?: Paise;
+  /** This student's full course fee, booking included (e.g. ₹8,500, or more / less than the course's usual fee).
+   *  The booking is the first part of it; the instalments are reshaped so everything adds up to exactly this. */
+  total?: Paise;
 }): { total: Paise; lines: ScheduleLine[] } {
   const { booking, policy, admissionDate, startDate, gapDays = 7 } = opts;
   if (!Number.isInteger(booking) || booking < 0) throw new Error('Booking amount must be a non-negative whole paise value');
   const amounts = [...opts.instalments];
-  if (policy === 'additional' && opts.fullBooking !== undefined && amounts.length) {
-    const diff = opts.fullBooking - booking;
+  if (policy === 'additional' && (opts.total !== undefined || opts.fullBooking !== undefined) && amounts.length) {
+    const target = opts.total ?? opts.fullBooking! + amounts.reduce((a, b) => a + b, 0);
+    if (!Number.isInteger(target) || target <= 0) throw new Error('Course fee must be more than zero');
+    if (booking > target) throw new Error('Booking amount cannot be more than the full course fee');
+    // what is left after the booking, spread like the course's instalments: extra goes on the last one, a cut comes off the last one(s)
+    const diff = target - booking - amounts.reduce((a, b) => a + b, 0);
     if (diff > 0) amounts[amounts.length - 1] += diff; // e.g. ₹500 instead of ₹1,000 booking → last instalment +₹500
     else if (diff < 0) {
       let left = -diff;
       for (let i = amounts.length - 1; i >= 0 && left > 0; i--) { const take = Math.min(left, amounts[i]); amounts[i] -= take; left -= take; }
-      if (left > 0) throw new Error('Booking amount cannot be more than the full course fee');
     }
   }
   if (policy === 'credited') {
