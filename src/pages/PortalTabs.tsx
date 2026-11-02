@@ -148,6 +148,7 @@ const Stat = ({ label, value, tone }: { label: string; value: ReactNode; tone?: 
 export function CoursesTab({ p, schedule }: { p: PortalCore; schedule: ReactNode }) {
   const [play, setPlay] = useState<BatchVideo | null>(null);
   const [q, setQ] = useState('');
+  const [allOpen, setAllOpen] = useState(false); // the full lecture list
   const t = q.trim().toLowerCase();
   const all = [...p.videos].sort((a, b) => b.createdAt.localeCompare(a.createdAt)); // newest first
   const num = (v: BatchVideo) => all.length - all.indexOf(v);                       // Lecture 1 = the first one added
@@ -170,25 +171,51 @@ export function CoursesTab({ p, schedule }: { p: PortalCore; schedule: ReactNode
       </div>
 
       <Panel title="Lectures" right={p.youtubeChannel && <a href={p.youtubeChannel} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-red-600 text-white text-[12px] font-semibold px-3 py-1.5 hover:bg-red-700">▶ YouTube channel</a>}>
-        {p.videos.length > 3 && <div className="px-5 pt-2"><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search lectures" className="w-full h-10 rounded-2xl bg-zinc-100 px-4 text-[14px] outline-none focus:ring-2 focus:ring-emerald-500/40" /></div>}
         {!p.videos.length ? <p className="px-5 pb-5 pt-1 text-[13px] text-zinc-500">Your class recordings will appear here.</p> : (
           <div className="p-4 grid sm:grid-cols-2 gap-3">
-            {vids.map((v, i) => (
+            {all.slice(0, 3).map((v, i) => (
               <button key={v.id} onClick={() => setPlay(v)} className="text-left rounded-2xl overflow-hidden border border-zinc-100 bg-white hover:shadow-md transition-shadow group">
                 <span className="relative block aspect-video bg-black">
                   <img src={`https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`} alt="" className="size-full object-cover" loading="lazy" />
                   <span className="absolute inset-0 grid place-items-center"><span className="size-12 rounded-full bg-white/90 text-emerald-700 grid place-items-center text-[18px] shadow-lg group-hover:scale-110 transition-transform">▶</span></span>
                   <span className="absolute top-2 left-2 rounded-lg bg-emerald-700 text-white text-[11px] font-bold px-2 py-0.5">Lecture {num(v)}</span>
-                  {i === 0 && !t && <span className="absolute top-2 right-2 rounded-lg bg-amber-400 text-amber-950 text-[11px] font-bold px-2 py-0.5">New</span>}
+                  {i === 0 && <span className="absolute top-2 right-2 rounded-lg bg-amber-400 text-amber-950 text-[11px] font-bold px-2 py-0.5">New</span>}
                 </span>
                 <span className="block p-3"><span className="block font-semibold text-[14px] text-ink leading-snug line-clamp-2">{v.title}</span>
                   <span className="block mt-0.5 text-[12px] text-zinc-500">{fmtDate(v.createdAt.slice(0, 10))}{v.notes ? ` · ${v.notes}` : ''}</span></span>
               </button>
             ))}
-            {!vids.length && <p className="sm:col-span-2 text-center text-[13px] text-zinc-500 py-4">No lecture matches "{q}".</p>}
+          </div>
+        )}
+        {all.length > 3 && (
+          <div className="px-4 pb-4 -mt-1">
+            <button onClick={() => { setQ(''); setAllOpen(true); }} className="w-full h-11 rounded-2xl border-2 border-emerald-600/20 bg-emerald-50 text-emerald-800 font-semibold text-[14px] hover:bg-emerald-100 transition-colors">
+              See all {all.length} lectures →
+            </button>
           </div>
         )}
       </Panel>
+      <Modal open={allOpen} onClose={() => setAllOpen(false)} title={`All lectures (${all.length})`}>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search lectures" className="w-full h-11 rounded-2xl bg-zinc-100 px-4 text-[14px] outline-none focus:ring-2 focus:ring-emerald-500/40" />
+        <ul className="mt-3 space-y-2">
+          {vids.map((v) => (
+            <li key={v.id}>
+              <button onClick={() => setPlay(v)} className="w-full flex items-center gap-3 rounded-2xl p-2 text-left hover:bg-emerald-50 transition-colors">
+                <span className="relative w-28 shrink-0 aspect-video rounded-xl overflow-hidden bg-black">
+                  <img src={`https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`} alt="" className="size-full object-cover" loading="lazy" />
+                  <span className="absolute inset-0 grid place-items-center"><span className="size-7 rounded-full bg-white/90 text-emerald-700 grid place-items-center text-[11px]">▶</span></span>
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[11px] font-bold text-emerald-700">Lecture {num(v)}</span>
+                  <span className="block font-semibold text-[14px] text-ink leading-snug line-clamp-2">{v.title}</span>
+                  <span className="block text-[12px] text-zinc-500">{fmtDate(v.createdAt.slice(0, 10))}</span>
+                </span>
+              </button>
+            </li>
+          ))}
+          {!vids.length && <li className="text-center text-[13px] text-zinc-500 py-6">No lecture matches "{q}".</li>}
+        </ul>
+      </Modal>
       {schedule}
       <Modal open={!!play} onClose={() => setPlay(null)} title={play?.title ?? 'Lecture'} wide>
         {play && <>
