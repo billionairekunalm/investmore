@@ -9,9 +9,56 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icon-192.png" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="preload" as="image" href="/logo-mark.png" />
     <title>InvestMore</title>
+    <!-- Splash screen: plain HTML/CSS so it shows instantly, before the app loads. main.tsx fades it out. -->
+    <style>
+      #splash { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; overflow: hidden;
+        background: radial-gradient(120% 80% at 50% 38%, #ffffff 0%, #f2fbf4 45%, #e3f5e8 100%);
+        font-family: Inter, system-ui, sans-serif; transition: opacity .55s ease, transform .55s ease; }
+      #splash.out { opacity: 0; transform: scale(1.04); pointer-events: none; }
+      #splash .stage { position: relative; display: grid; justify-items: center; }
+      #splash .glow { position: absolute; top: 64px; left: 50%; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%;
+        background: radial-gradient(circle, rgba(14,159,61,.28) 0%, rgba(14,159,61,0) 65%); animation: sp-glow 2.4s ease-in-out infinite; }
+      #splash .ring { position: absolute; top: 64px; left: 50%; width: 128px; height: 128px; margin: -64px 0 0 -64px; border-radius: 34px;
+        border: 2px solid rgba(4,107,35,.35); opacity: 0; animation: sp-ring 1.6s cubic-bezier(.2,.7,.2,1) .35s forwards; }
+      #splash .ring.r2 { animation-delay: .6s; }
+      #splash .card { position: relative; width: 128px; height: 128px; border-radius: 34px; background: #fff; display: grid; place-items: center; overflow: hidden;
+        box-shadow: 0 22px 50px -18px rgba(4,90,30,.55), 0 0 0 1px rgba(4,60,25,.06);
+        opacity: 0; transform: scale(.55) rotate(-8deg); filter: blur(6px); animation: sp-pop .9s cubic-bezier(.2,1.35,.35,1) .1s forwards; }
+      #splash .card img { width: 86%; height: 86%; object-fit: contain; }
+      #splash .card::after { content: ''; position: absolute; inset: -40%; transform: translateX(-120%) rotate(25deg);
+        background: linear-gradient(90deg, transparent 35%, rgba(255,255,255,.85) 50%, transparent 65%); animation: sp-shine 1.1s ease .85s forwards; }
+      #splash .name { margin-top: 26px; font-weight: 800; font-size: 26px; letter-spacing: .32em; color: #111; padding-left: .32em;
+        opacity: 0; transform: translateY(14px); animation: sp-up .7s cubic-bezier(.2,.8,.2,1) .6s forwards; }
+      #splash .name b { color: #079b2f; font-weight: 800; }
+      #splash .tag { margin-top: 8px; font-weight: 600; font-size: 11px; letter-spacing: .48em; color: #6b7280; padding-left: .48em;
+        opacity: 0; animation: sp-fade .7s ease .95s forwards; }
+      #splash .bar { margin-top: 34px; width: 120px; height: 3px; border-radius: 3px; background: rgba(4,107,35,.12); overflow: hidden; opacity: 0; animation: sp-fade .4s ease 1.1s forwards; }
+      #splash .bar i { display: block; width: 40%; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #046b23, #16b04a); animation: sp-load 1.1s ease-in-out infinite; }
+      @keyframes sp-pop { 60% { opacity: 1; filter: blur(0); transform: scale(1.08) rotate(2deg); } 100% { opacity: 1; filter: blur(0); transform: scale(1) rotate(0); } }
+      @keyframes sp-ring { 0% { opacity: .9; transform: scale(1); } 100% { opacity: 0; transform: scale(2.3); } }
+      @keyframes sp-shine { to { transform: translateX(120%) rotate(25deg); } }
+      @keyframes sp-up { to { opacity: 1; transform: none; } }
+      @keyframes sp-fade { to { opacity: 1; } }
+      @keyframes sp-glow { 0%, 100% { transform: scale(.92); opacity: .8; } 50% { transform: scale(1.08); opacity: 1; } }
+      @keyframes sp-load { 0% { transform: translateX(-100%); } 100% { transform: translateX(260%); } }
+      @media (prefers-reduced-motion: reduce) { #splash *, #splash *::after { animation-duration: .01s !important; animation-delay: 0s !important; } }
+      @media print { #splash { display: none; } }
+    </style>
   </head>
   <body>
+    <div id="splash" role="status" aria-label="Loading InvestMore">
+      <div class="stage">
+        <span class="glow"></span><span class="ring"></span><span class="ring r2"></span>
+        <div class="card"><img src="/logo-mark.png" alt="" /></div>
+        <div class="name">INVEST<b>MORE</b></div>
+        <div class="tag">TRAINING ACADEMY</div>
+        <div class="bar"><i></i></div>
+      </div>
+    </div>
+    <!-- safety: never leave the splash up if loading fails -->
+    <script>setTimeout(function () { var s = document.getElementById('splash'); if (s) s.classList.add('out'); }, 10000);</script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
