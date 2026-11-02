@@ -6,7 +6,7 @@ import { Card, Empty } from '../ui/kit';
 import { effectivePayments } from '../domain/fees';
 import { expenseAmount, financeFor } from '../domain/finance';
 import { PAY_METHODS, STUDENT_STATUSES, type DB } from '../domain/types';
-import { fmtINR, fmtINRShort, fmtMonth, inRange, monthRange, monthsBetween, todayIST } from '../domain/util';
+import { fmtINR, fmtINRShort, inRange, todayIST } from '../domain/util';
 
 // Categorical palette, fixed order, validated for colour-blind separation (dataviz skill validator, light mode).
 // Three slots are under 3:1 on white, so every chart carries visible labels/values.
@@ -33,25 +33,6 @@ export function VisualAnalytics({ range }: { range: [string, string] }) {
       {can('fees') && (
         <ChartCard title="Collections by payment method" sub="Verified payments in the selected period" link="/invoices">
           <Donut data={a.byMethod} money center="Collected" empty="No payments in this period" />
-        </ChartCard>
-      )}
-      {can('fees') && (
-        <ChartCard title="Collection efficiency" sub="Instalments falling due each month vs. money actually collected" className="lg:col-span-2">
-          {a.efficiency.every((m) => !m.due && !m.collected) ? <Empty title="No dues or collections in this period" /> : (
-            <div className="h-64 px-2 pb-3">
-              <ResponsiveContainer>
-                <BarChart data={a.efficiency} barGap={2}>
-                  <CartesianGrid vertical={false} stroke="#f0f0f2" />
-                  <XAxis dataKey="label" tick={axis} axisLine={false} tickLine={false} interval={0} />
-                  <YAxis tickFormatter={fmtINRShort} tick={axis} axisLine={false} tickLine={false} width={56} />
-                  <Tooltip {...tip} cursor={{ fill: '#f4f4f5' }} formatter={(v: number, n: string) => [fmtINR(v), n]} labelFormatter={(l, p) => `${l} · ${p?.[0]?.payload.rate ?? '—'} collected`} />
-                  <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="due" name="Due" fill={SLOT[0]} radius={[4, 4, 0, 0]} maxBarSize={26} />
-                  <Bar dataKey="collected" name="Collected" fill={SLOT[1]} radius={[4, 4, 0, 0]} maxBarSize={26} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
         </ChartCard>
       )}
       {can('students') && (
@@ -87,14 +68,6 @@ function build(db: DB, range: [string, string]) {
   const pays = effectivePayments(db.payments).filter((p) => inRange(p.date, range));
   const byMethod = PAY_METHODS.map((m, i) => ({ name: m, value: pays.filter((p) => p.method === m).reduce((t, p) => t + p.amount, 0), color: SLOT[i] }));
 
-  const start = range[0] < '2000-02-01' ? [...db.payments.map((p) => p.date), ...db.students.map((s) => s.admissionDate)].sort()[0] ?? range[1] : range[0];
-  const efficiency = monthsBetween(start, range[1]).slice(-12).map((m) => {
-    const mr = monthRange(m);
-    const due = db.instalments.filter((i) => i.state === 'active' && inRange(i.dueDate, mr)).reduce((t, i) => t + i.amount, 0);
-    const collected = effectivePayments(db.payments).filter((p) => inRange(p.date, mr)).reduce((t, p) => t + p.amount, 0);
-    return { label: fmtMonth(m), due, collected, rate: due ? `${Math.round((collected / due) * 100)}%` : '—' };
-  });
-
   const statusColor: Record<string, string> = { Active: SLOT[0], Completed: SLOT[2], Inactive: SLOT[3], Dropped: SLOT[1], Refunded: SLOT[4] };
   const byStatus = STUDENT_STATUSES.map((st) => ({ name: st, value: db.students.filter((s) => s.status === st).length, color: statusColor[st] }));
 
@@ -117,7 +90,7 @@ function build(db: DB, range: [string, string]) {
 
   return {
     feeStatus: [{ name: 'Collected', value: paid, color: GOOD }, { name: 'Pending (not yet due)', value: pending, color: WARN }, { name: 'Overdue', value: overdue, color: BAD }] as Slice[],
-    byMethod: byMethod as Slice[], efficiency, byStatus: byStatus as Slice[], sources, expenses, batches,
+    byMethod: byMethod as Slice[], byStatus: byStatus as Slice[], sources, expenses, batches,
   };
 }
 
