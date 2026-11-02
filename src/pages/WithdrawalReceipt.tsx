@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import * as S from '../store/store';
-import { Button, Empty, LogoMark, Wordmark } from '../ui/kit';
+import { Button, DocBrand, DocWatermark, Empty } from '../ui/kit';
 import { fmtDate, fmtDateTime, fmtINR, inWords } from '../domain/util';
 
 const longMonth = (ym: string) => new Intl.DateTimeFormat('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${ym}-01T00:00:00Z`));
@@ -20,12 +20,13 @@ export default function WithdrawalReceipt() {
         <Link to="/profit" className="text-[12.5px] text-muted hover:text-ink">← Salary & Profit</Link>
         <Button variant="primary" onClick={() => window.print()}>Print / Save PDF</Button>
       </div>
-      <article className="max-w-2xl mx-auto bg-white border border-line rounded-2xl shadow-[0_8px_30px_-12px_rgba(15,35,65,.2)] overflow-hidden print:border-0 print:shadow-none print:rounded-none">
+      <article className="relative max-w-2xl mx-auto bg-white border border-line rounded-2xl shadow-[0_8px_30px_-12px_rgba(15,35,65,.2)] overflow-hidden print:border-0 print:shadow-none print:rounded-none">
         <div className="h-2 bg-gradient-to-r from-navy via-[#173563] to-accent" />
-        <div className="p-6 sm:p-10">
+        <DocWatermark />
+        <div className="relative p-6 sm:p-10">
           <header className="flex flex-wrap items-start justify-between gap-6">
             <div>
-              <div className="flex items-center gap-2.5"><LogoMark className="size-10" /><Wordmark name={db.settings.academyName} className="text-[18px]" /></div>
+              <DocBrand />
               <div className="mt-3 text-[12.5px] text-zinc-600 leading-relaxed">
                 {inv.address && <div>{inv.address}</div>}
                 {(inv.phone || inv.email) && <div>{[inv.phone, inv.email].filter(Boolean).join(' · ')}</div>}

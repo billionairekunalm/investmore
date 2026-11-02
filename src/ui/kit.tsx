@@ -12,7 +12,19 @@ export const Wordmark = ({ name, className }: { name: string; className?: string
   name.trim().toLowerCase() === 'investmore'
     ? <span className={cx('font-bold uppercase tracking-[0.14em] text-ink', className)}>Invest<span className="text-accent">More</span></span>
     : <span className={cx('font-semibold', className)}>{name}</span>;
-export const LogoMark = ({ className = 'size-8' }: { className?: string }) => (
+/** Invoice / receipt header: the full logo, large, with "Training Academy" underneath. */
+export const DocBrand = () => (
+  <div className="inline-flex flex-col items-center">
+    <img src="/logo-full.png" alt="InvestMore" className="h-28 sm:h-32 w-auto mix-blend-multiply" />
+    <div className="mt-1 text-[13px] font-bold uppercase tracking-[0.32em] text-navy">Training Academy</div>
+  </div>
+);
+/** Faint IM mark in the middle of a printed document (the parent must be `relative`). */
+export const DocWatermark = () => (
+  <img src="/logo-mark.png" alt="" aria-hidden
+    className="pointer-events-none select-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[60%] max-w-[420px] opacity-[0.06] mix-blend-multiply [print-color-adjust:exact]" />
+);
+export const LogoMark =({ className = 'size-8' }: { className?: string }) => (
   <span className={cx('shrink-0 rounded-lg bg-white border border-line grid place-items-center overflow-hidden', className)}>
     <img src="/logo-mark.png" alt="InvestMore" className="w-[88%] h-[88%] object-contain" />
   </span>
