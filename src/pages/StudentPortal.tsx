@@ -43,7 +43,7 @@ export default function StudentPortal() {
   useEffect(load, []);
   useEffect(() => { void refreshPush(); }, []); // keeps this device's reminder registration fresh
   const [token, setToken] = useState<string | null>(attendToken); // from a scanned classroom QR
-  const [scan, setScan] = useState(false);
+  const [sheet, setSheet] = useState(!!attendToken); // the Attendance screen
   const [win, setWin] = useState({ beforeMins: 15, afterMins: 15 });
   useEffect(() => { void sb!.rpc('attendance_window').then(({ data }) => data && setWin(data as typeof win)); }, []);
 
@@ -77,10 +77,10 @@ export default function StudentPortal() {
     <div className="min-h-full bg-surface pb-10">
       {top}
       <main className="max-w-4xl mx-auto px-4 pt-5 space-y-4">
-        {token ? <AttendPanel token={token} onDone={load} onClose={() => { setToken(null); history.replaceState(null, '', '/'); }} />
-          : <ClassNow classes={data.classes} marks={data.marks} batch={batch?.name} win={win} onScan={() => setScan(true)} />}
-        <MyClasses classes={data.classes} marks={data.marks} batch={batch?.name} onScan={() => setScan(true)} />
-        <QrScanner open={scan} onClose={() => setScan(false)} onToken={(t) => { setScan(false); setToken(t); }} />
+        <AttendanceButton classes={data.classes} marks={data.marks} batch={batch?.name} win={win} onOpen={() => setSheet(true)} />
+        <AttendanceSheet open={sheet} token={token} setToken={setToken} classes={data.classes} marks={data.marks} onDone={load}
+          onClose={() => { setSheet(false); setToken(null); if (location.pathname !== '/') history.replaceState(null, '', '/'); }} />
+        <MyClasses classes={data.classes} marks={data.marks} batch={batch?.name} onAttendance={() => setSheet(true)} />
         <InstallApp />
         <Reminders />
         {/* who */}
@@ -171,52 +171,7 @@ function Cell({ label, value, foot }: { label: string; value: ReactNode; foot?: 
   );
 }
 
-/** Opened from the classroom QR: shows the class that is open now and marks the student present (checked by the server). */
-function AttendPanel({ token, onDone, onClose }: { token: string; onDone: () => void; onClose: () => void }) {
-  type Info = { ok: boolean; reason?: string; batch?: string; date?: string; start?: string; end?: string; already?: boolean; at?: string };
-  const [info, setInfo] = useState<Info | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<{ at: string; already: boolean } | null>(null);
-  const check = () => { setInfo(null); void sb!.rpc('attend_lookup', { p_token: token }).then(({ data, error }) => setInfo(error ? { ok: false, reason: error.message } : (data as Info))); };
-  useEffect(check, [token]);
-  const mark = async () => {
-    setBusy(true);
-    const { data, error } = await sb!.rpc('attend_mark', { p_token: token });
-    setBusy(false);
-    const r = data as Info | null;
-    if (error || !r?.ok) return setInfo({ ok: false, reason: error?.message ?? r?.reason });
-    setDone({ at: r.at!, already: !!r.already }); onDone();
-  };
-  return (
-    <Card className="rounded-2xl overflow-hidden border-2 border-accent/40">
-      <div className="p-5 text-center">
-        <div className="text-[12px] font-semibold uppercase tracking-wider text-muted">Class attendance</div>
-        {done || info?.already ? (
-          <>
-            <div className="mx-auto mt-3 size-16 rounded-full bg-emerald-500 text-white grid place-items-center text-[32px]">✓</div>
-            <h2 className="mt-3 text-[20px] font-bold text-emerald-700">{done && !done.already ? 'You are marked present!' : 'Already marked present'}</h2>
-            <p className="text-[13px] text-muted mt-1">{info?.batch} · {fmtDateTime(done?.at ?? info?.at ?? '')}</p>
-          </>
-        ) : !info ? <p className="py-6 text-muted">Checking your class…</p> : !info.ok ? (
-          <>
-            <h2 className="mt-2 text-[17px] font-semibold text-bad">Can't mark attendance</h2>
-            <p className="text-[13px] text-zinc-700 mt-1">{info.reason}</p>
-            <Button className="mt-3" onClick={check}>Check again</Button>
-          </>
-        ) : (
-          <>
-            <h2 className="mt-2 text-[19px] font-bold text-navy">{info.batch}</h2>
-            <p className="text-[13.5px] text-zinc-700">{fmtDate(info.date!)} · {fmtTime(info.start!)} – {fmtTime(info.end!)}</p>
-            <Button variant="primary" className="mt-4 h-12 px-8 text-[16px]" loading={busy} onClick={mark}>Mark my attendance</Button>
-          </>
-        )}
-        <button onClick={onClose} className="block mx-auto mt-4 text-[12.5px] text-muted hover:text-ink">Close</button>
-      </div>
-    </Card>
-  );
-}
-
-function MyClasses({ classes, marks, batch, onScan }: { classes: ClassSession[]; marks: ClassMark[]; batch?: string; onScan: () => void }) {
+function MyClasses({ classes, marks, batch, onAttendance }: { classes: ClassSession[]; marks: ClassMark[]; batch?: string; onAttendance: () => void }) {
   const now = nowIST();
   const upcoming = classes.filter((c) => c.status === 'scheduled' && `${c.date}T${c.endTime}` > now).slice(0, 5);
   const focus = focusClass ? classes.find((c) => c.id === focusClass) : undefined;
@@ -225,7 +180,7 @@ function MyClasses({ classes, marks, batch, onScan }: { classes: ClassSession[];
   if (!list.length) return null;
   return (
     <Card className="rounded-2xl">
-      <div className="flex items-center justify-between pr-4"><Head title="My classes" /><Button size="sm" onClick={onScan}>📷 Scan QR</Button></div>
+      <div className="flex items-center justify-between pr-4"><Head title="My classes" /><Button size="sm" onClick={onAttendance}>✋ Attendance</Button></div>
       <ul className="divide-y divide-line">
         {list.map((c) => {
           const m = marks.find((x) => x.classId === c.id), live = `${c.date}T${c.startTime}` <= now && `${c.date}T${c.endTime}` > now;
@@ -291,27 +246,6 @@ function InstallApp() {
   );
 }
 
-/** While a class of mine is open for attendance (and I'm not marked yet), a big prompt to scan the classroom QR. */
-function ClassNow({ classes, marks, batch, win, onScan }: { classes: ClassSession[]; marks: ClassMark[]; batch?: string; win: { beforeMins: number; afterMins: number }; onScan: () => void }) {
-  const [, tick] = useState(0);
-  useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 30000); return () => clearInterval(t); }, []);
-  const now = Date.now();
-  const at = (d: string, t: string) => Date.parse(`${d}T${t}:00+05:30`);
-  const open = classes.find((c) => c.status === 'scheduled' && now >= at(c.date, c.startTime) - win.beforeMins * 60000 && now <= at(c.date, c.endTime) + win.afterMins * 60000);
-  if (!open || marks.some((m) => m.classId === open.id && m.status === 'present')) return null;
-  return (
-    <Card className="rounded-2xl overflow-hidden border-2 border-accent/40">
-      <div className="p-5 text-center">
-        <div className="text-[12px] font-semibold uppercase tracking-wider text-accent">Your class is on</div>
-        <h2 className="mt-1 text-[19px] font-bold text-navy">{batch ?? 'Class'}</h2>
-        <p className="text-[13.5px] text-zinc-700">{fmtTime(open.startTime)} – {fmtTime(open.endTime)}</p>
-        <Button variant="primary" className="mt-4 h-12 px-8 text-[16px]" onClick={onScan}>📷 Scan classroom QR</Button>
-        <p className="mt-2 text-[12px] text-muted">Scan the QR code in the classroom to mark your attendance.</p>
-      </div>
-    </Card>
-  );
-}
-
 /** Camera scanner for the classroom QR (works inside the installed app too). Only our /attend links are accepted. */
 function QrScanner({ open, onClose, onToken }: { open: boolean; onClose: () => void; onToken: (t: string) => void }) {
   const video = useRef<HTMLVideoElement>(null);
@@ -359,6 +293,117 @@ function QrScanner({ open, onClose, onToken }: { open: boolean; onClose: () => v
         <div className="absolute inset-[18%] rounded-2xl border-4 border-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,.35)]" />
       </div>
       <p className={cx('mt-3 text-center text-[13px]', err ? 'text-bad' : 'text-muted')}>{err || 'Point the camera at the QR code in the classroom.'}</p>
+    </Modal>
+  );
+}
+
+const openNow = (classes: ClassSession[], win: { beforeMins: number; afterMins: number }) => {
+  const now = Date.now(), at = (d: string, t: string) => Date.parse(`${d}T${t}:00+05:30`);
+  return classes.find((c) => c.status === 'scheduled' && now >= at(c.date, c.startTime) - win.beforeMins * 60000 && now <= at(c.date, c.endTime) + win.afterMins * 60000);
+};
+
+/** Big Attendance button at the top; turns green with "your class is on" while attendance is open and not yet marked. */
+function AttendanceButton({ classes, marks, batch, win, onOpen }: { classes: ClassSession[]; marks: ClassMark[]; batch?: string; win: { beforeMins: number; afterMins: number }; onOpen: () => void }) {
+  const [, tick] = useState(0);
+  useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 30000); return () => clearInterval(t); }, []);
+  const live = openNow(classes, win);
+  const done = live && marks.some((m) => m.classId === live.id && m.status === 'present');
+  return (
+    <button onClick={onOpen} className={cx('w-full rounded-2xl p-4 flex items-center gap-4 text-left shadow-sm transition-transform active:scale-[.99]',
+      live && !done ? 'bg-accent text-white ring-4 ring-accent/25 animate-[pulse_2.5s_ease-in-out_infinite]' : 'bg-white border border-line')}>
+      <span className={cx('size-12 rounded-xl grid place-items-center text-[24px] shrink-0', live && !done ? 'bg-white/20' : 'bg-accent-soft')}>✋</span>
+      <span className="flex-1 min-w-0">
+        <span className={cx('block font-bold text-[17px]', live && !done ? 'text-white' : 'text-navy')}>Attendance</span>
+        <span className={cx('block text-[13px]', live && !done ? 'text-white/90' : 'text-muted')}>
+          {live ? (done ? `Marked present for today's class` : `Your ${batch ?? ''} class is on now (${fmtTime(live.startTime)} – ${fmtTime(live.endTime)}) — tap to mark attendance`) : 'See your class details and mark attendance'}
+        </span>
+      </span>
+      <span className={cx('text-[22px]', live && !done ? 'text-white' : 'text-zinc-400')}>›</span>
+    </button>
+  );
+}
+
+type Lookup = { ok: boolean; reason?: string; open?: boolean; noQrAllowed?: boolean; classId?: string; date?: string; start?: string; end?: string; notes?: string;
+  batch?: string; course?: string; teacher?: string; already?: boolean; at?: string; method?: string };
+/** The student's Attendance screen: today's / next class details, mark attendance (scan QR or, if allowed, directly), and their record. */
+function AttendanceSheet({ open, token, setToken, classes, marks, onDone, onClose }: {
+  open: boolean; token: string | null; setToken: (t: string | null) => void; classes: ClassSession[]; marks: ClassMark[]; onDone: () => void; onClose: () => void;
+}) {
+  const [info, setInfo] = useState<Lookup | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [scan, setScan] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [done, setDone] = useState<{ at: string; method: string } | null>(null);
+  const check = () => { setInfo(null); setMsg(''); void sb!.rpc('attend_lookup', { p_token: token }).then(({ data, error }) => setInfo(error ? { ok: false, reason: error.message } : (data as Lookup))); };
+  useEffect(() => { if (open) { setDone(null); check(); } }, [open, token]); // eslint-disable-line react-hooks/exhaustive-deps
+  const mark = async (withQr: boolean) => {
+    setBusy(true); setMsg('');
+    const { data, error } = await sb!.rpc('attend_mark', { p_token: withQr ? token : null });
+    setBusy(false);
+    const r = data as (Lookup & { method?: string }) | null;
+    if (error || !r?.ok) return setMsg(error?.message ?? r?.reason ?? 'Could not mark attendance.');
+    setDone({ at: r.at!, method: r.method ?? (withQr ? 'qr' : 'app') }); onDone();
+  };
+  // my record (classes held so far)
+  const now = nowIST();
+  const held = classes.filter((c) => c.status === 'scheduled' && `${c.date}T${c.startTime}` <= now);
+  const stateOf = (c: ClassSession) => { const m = marks.find((x) => x.classId === c.id); return m ? m.status : `${c.date}T${c.endTime}` <= now ? 'absent' : 'none'; };
+  const presentN = held.filter((c) => stateOf(c) === 'present').length;
+  const present = done || info?.already;
+  const how = (m?: string) => (m === 'qr' ? 'by QR scan' : m === 'app' ? 'in the app' : m === 'manual' ? 'by the office' : '');
+
+  return (
+    <Modal open={open} onClose={onClose} title="Attendance">
+      {!info ? <p className="py-8 text-center text-muted">Checking your class…</p> : (
+        <div className="space-y-4">
+          {info.classId && (
+            <div className="rounded-xl border border-line overflow-hidden">
+              <div className={cx('px-4 py-2 text-[12px] font-semibold uppercase tracking-wider', info.open ? 'bg-accent text-white' : 'bg-surface text-muted')}>{info.open ? 'Class on now' : 'Next class'}</div>
+              <dl className="p-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[13.5px]">
+                <dt className="text-muted">Course</dt><dd className="font-semibold">{info.course ?? '—'}</dd>
+                <dt className="text-muted">Batch</dt><dd className="font-semibold">{info.batch}</dd>
+                <dt className="text-muted">Date</dt><dd className="font-semibold">{fmtDate(info.date!)}</dd>
+                <dt className="text-muted">Time</dt><dd className="font-semibold">{fmtTime(info.start!)} – {fmtTime(info.end!)}</dd>
+                {info.teacher && <><dt className="text-muted">Teacher</dt><dd className="font-semibold">{info.teacher}</dd></>}
+                {info.notes && <><dt className="text-muted">Topic</dt><dd className="font-semibold">{info.notes}</dd></>}
+              </dl>
+            </div>
+          )}
+
+          {present ? (
+            <div className="text-center rounded-xl bg-emerald-50 border border-emerald-200 p-4">
+              <div className="mx-auto size-14 rounded-full bg-emerald-500 text-white grid place-items-center text-[28px]">✓</div>
+              <div className="mt-2 text-[18px] font-bold text-emerald-700">{done ? 'You are marked present!' : 'Already marked present'}</div>
+              <div className="text-[12.5px] text-zinc-600">{fmtDateTime(done?.at ?? info.at ?? '')} {how(done?.method ?? info.method)}</div>
+            </div>
+          ) : info.ok && info.open ? (
+            <div className="space-y-2">
+              {token ? (
+                <Button variant="primary" className="w-full h-12 text-[16px]" loading={busy} onClick={() => mark(true)}>✓ Mark my attendance</Button>
+              ) : <>
+                <Button variant="primary" className="w-full h-12 text-[16px]" onClick={() => setScan(true)}>📷 Scan classroom QR</Button>
+                {info.noQrAllowed && <Button className="w-full h-11" loading={busy} onClick={() => mark(false)}>Can't scan? Mark without QR</Button>}
+              </>}
+              {token && <p className="text-center text-[12px] text-emerald-700">QR code scanned ✓</p>}
+            </div>
+          ) : (
+            <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-[13px] text-amber-900">{info.reason}</div>
+          )}
+          {msg && <p className="rounded-lg bg-bad-soft text-bad px-3 py-2 text-[13px]">{msg}</p>}
+
+          <div>
+            <div className="flex items-baseline justify-between"><span className="font-semibold text-navy">My attendance</span>
+              <span className="text-[13px] text-zinc-600 tabular">{presentN} of {held.length} classes{held.length ? ` · ${Math.round((presentN / held.length) * 100)}%` : ''}</span></div>
+            <ul className="mt-2 divide-y divide-line rounded-xl border border-line">
+              {!held.length ? <li className="px-3 py-3 text-[13px] text-muted">No classes held yet.</li> : [...held].reverse().slice(0, 8).map((c) => {
+                const st = stateOf(c);
+                return <li key={c.id} className="flex items-center gap-2.5 px-3 py-2 text-[13px]"><span className={cx('size-2.5 rounded-full', st === 'present' ? 'bg-emerald-500' : st === 'absent' ? 'bg-red-500' : 'bg-zinc-300')} /><span className="flex-1">{fmtDate(c.date)} · {fmtTime(c.startTime)}</span><span className={cx('font-medium', st === 'present' ? 'text-emerald-700' : st === 'absent' ? 'text-red-600' : 'text-muted')}>{st === 'present' ? 'Present' : st === 'absent' ? 'Absent' : 'Not marked'}</span></li>;
+              })}
+            </ul>
+          </div>
+        </div>
+      )}
+      <QrScanner open={scan} onClose={() => setScan(false)} onToken={(t) => { setScan(false); setToken(t); }} />
     </Modal>
   );
 }

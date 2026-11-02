@@ -139,7 +139,7 @@ export interface Attendance { id: string; batchId: string; date: ISODate; presen
 /** One scheduled class of a batch. Times are 'HH:MM' in India time (IST). */
 export interface ClassSession { id: string; batchId: string; date: ISODate; startTime: string; endTime: string; status: 'scheduled' | 'cancelled'; notes: string; createdAt: string }
 /** One student's attendance in one class; id = `${classId}:${studentId}`, so there is only ever one record per student per class. */
-export interface ClassMark { id: string; classId: string; studentId: string; status: 'present' | 'absent'; at: string; method: 'qr' | 'manual'; markedBy: string }
+export interface ClassMark { id: string; classId: string; studentId: string; status: 'present' | 'absent'; at: string; method: 'qr' | 'manual' | 'app'; markedBy: string }
 
 export interface Notification {
   id: string; key: string; at: string; title: string; body: string; link: string; forRoles: Role[]; forUser?: string; readBy: string[]; phone?: string;
@@ -170,6 +170,7 @@ export interface Settings {
   certificateAutoIssue: boolean;
   invoice: { address: string; phone: string; email: string; gstin: string; note: string }; // printed on fee invoices
   attendanceWindow?: { beforeMins: number; afterMins: number }; // QR attendance opens this long before a class starts and closes this long after it ends
+  attendanceNoQr?: boolean; // students may mark attendance in the app without scanning (default on)
 }
 
 export interface DB {

@@ -246,7 +246,7 @@ function StudentAttCard({ s, state, mark, onSet, children }: { s: Student; state
         </div>
         <span className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-zinc-700"><span className={cx('size-2.5 rounded-full', t.dot)} />{t.label}</span>
       </div>
-      {mark && <div className="mt-2 text-[11.5px] text-zinc-600">{mark.status === 'present' ? 'Marked present' : 'Marked absent'} {mark.method === 'qr' ? 'by QR scan' : 'by staff'} · {fmtDateTime(mark.at)}</div>}
+      {mark && <div className="mt-2 text-[11.5px] text-zinc-600">{mark.status === 'present' ? 'Marked present' : 'Marked absent'} {mark.method === 'qr' ? 'by QR scan' : mark.method === 'app' ? 'in the app (no QR)' : 'by staff'} · {fmtDateTime(mark.at)}</div>}
       {onSet && (
         <div className="mt-2.5 flex gap-1.5">
           <button onClick={() => onSet(mark?.status === 'present' ? null : 'present')} className={cx('flex-1 h-8 rounded-lg text-[12.5px] font-semibold border', mark?.status === 'present' ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-emerald-300 text-emerald-700 hover:bg-emerald-50')}>Present</button>
@@ -317,7 +317,7 @@ export function BatchAttendance({ batch, classId, setClassId }: { batch: Batch; 
   const t = q.trim().toLowerCase();
   const shown = rows.filter((r) => (filter === 'all' || r.st === filter) && (!t || r.s.name.toLowerCase().includes(t) || r.s.code.toLowerCase().includes(t)));
   const off = c.status === 'cancelled';
-  const report = () => rows.map((r) => ({ 'Student ID': r.s.code, Name: r.s.name, Mobile: r.s.phone, Status: TONE[r.st].label, 'Marked at': r.m ? fmtDateTime(r.m.at) : '', Method: r.m ? (r.m.method === 'qr' ? 'QR scan' : 'Staff') : '' }));
+  const report = () => rows.map((r) => ({ 'Student ID': r.s.code, Name: r.s.name, Mobile: r.s.phone, Status: TONE[r.st].label, 'Marked at': r.m ? fmtDateTime(r.m.at) : '', Method: r.m ? (r.m.method === 'qr' ? 'QR scan' : r.m.method === 'app' ? 'App (no QR)' : 'Staff') : '' }));
   const file = `attendance-${batch.name}-${c.date}`.replace(/[^\w-]+/g, '_');
 
   return (
@@ -410,6 +410,11 @@ function QrPanel() {
                 <Button onClick={() => run(() => { const b = Math.round(+win.before), a = Math.round(+win.after); if (!(b >= 0 && b <= 180 && a >= 0 && a <= 180)) throw new S.AppError('Use 0–180 minutes.'); S.updateSettings({ attendanceWindow: { beforeMins: b, afterMins: a } }); }, 'Saved')}>Save</Button>
               </div>
               <p className="mt-1 text-[12px] text-muted">Students can mark themselves present only during their own batch's class, inside this window, and only once.</p>
+              <label className="mt-3 flex items-start gap-2 text-[13px] cursor-pointer">
+                <input type="checkbox" className="mt-0.5 size-4 accent-[var(--color-accent)]" checked={db.settings.attendanceNoQr ?? true}
+                  onChange={(e) => run(() => S.updateSettings({ attendanceNoQr: e.target.checked }), e.target.checked ? 'Students can mark without QR' : 'QR scan required')} />
+                <span><b>Allow marking without QR</b> — for students who can't scan. Still only during their own class time; shown to you as "in the app (no QR)".</span>
+              </label>
             </div>
           </div>
         </div>
@@ -492,7 +497,7 @@ export function BatchHistory({ batch }: { batch: Batch }) {
           </div>
           <ul className="divide-y divide-line rounded-xl border border-line">
             {[...done].reverse().filter((c) => roster(db, c).some((x) => x.id === person.s.id)).map((c) => { const m = markOf(db, c.id, person.s.id), st = stateOf(c, m, now); return (
-              <li key={c.id} className="flex items-center gap-3 px-3 py-2 text-[13px]"><span className={cx('size-2.5 rounded-full', TONE[st].dot)} /><span className="flex-1">{classLabel(c)}</span><span className="text-zinc-600">{TONE[st].label}{m?.method === 'qr' ? ' · QR' : ''}</span></li>
+              <li key={c.id} className="flex items-center gap-3 px-3 py-2 text-[13px]"><span className={cx('size-2.5 rounded-full', TONE[st].dot)} /><span className="flex-1">{classLabel(c)}</span><span className="text-zinc-600">{TONE[st].label}{m?.method === 'qr' ? ' · QR' : m?.method === 'app' ? ' · App' : ''}</span></li>
             ); })}
           </ul>
         </>}
