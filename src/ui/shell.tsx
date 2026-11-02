@@ -6,7 +6,7 @@ import { ROLES } from '../domain/types';
 import { RANGE_LABELS, resolveRange, todayIST, fmtPhone, type RangeKey } from '../domain/util';
 export type ISODateRange = [string, string];
 import { Button, Input, LogoMark, Wordmark, cx } from './kit';
-import { CallOutcomeModal, ExpenseModal, LeadModal, PaymentModal } from './modals';
+import { CallOutcomeModal } from './modals';
 import { cloudEnabled, getSyncStatus, subscribeSync } from '../store/cloud';
 
 // ---------------- global date range ----------------
@@ -66,7 +66,6 @@ export function Layout({ children }: { children: ReactNode }) {
   const range = resolveRange(rk, todayIST(), custom);
   const [pending, setPending] = useState<{ t: CallTarget; at: number } | null>(null);
   const [logging, setLogging] = useState<CallTarget | null>(null);
-  const [quick, setQuick] = useState<'' | 'lead' | 'payment' | 'expense'>('');
 
   useEffect(() => setDrawer(false), [loc.pathname]);
   // When staff return from the dialler, ask for the outcome. Opening the dialler alone never counts as a call.
@@ -140,7 +139,6 @@ export function Layout({ children }: { children: ReactNode }) {
               <SyncBadge />
               <GlobalSearch />
               <RangePicker rk={rk} range={range} onChange={(k, c) => { setRk(k); setCustom(c); try { localStorage.setItem('range', k); } catch { /* */ } }} />
-              <QuickAdd onPick={(k) => (k === 'admission' ? nav('/admissions') : setQuick(k))} />
               <Link to="/notifications" className="relative p-2 text-zinc-600 hover:text-ink" aria-label="Notifications">
                 <Icon d={NAV.find((n) => n.mod === 'notifications')!.icon} />
                 {unread > 0 && <span className="absolute top-1 right-1 size-2 rounded-full bg-bad" />}
@@ -161,9 +159,6 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
         </div>
         <CallOutcomeModal target={logging} onClose={() => { setLogging(null); setPending(null); }} />
-        <LeadModal open={quick === 'lead'} onClose={() => setQuick('')} />
-        <PaymentModal open={quick === 'payment'} onClose={() => setQuick('')} />
-        <ExpenseModal open={quick === 'expense'} onClose={() => setQuick('')} />
       </CallCtx.Provider>
     </RangeCtx.Provider>
   );
@@ -180,31 +175,6 @@ function MobileTabs({ items }: { items: typeof NAV }) {
         </NavLink>
       ))}
     </nav>
-  );
-}
-
-function QuickAdd({ onPick }: { onPick: (k: 'lead' | 'admission' | 'payment' | 'expense') => void }) {
-  const db = S.useDB();
-  const [open, setOpen] = useState(false);
-  const opts = ([
-    ['lead', 'New lead', S.allowed('leads', 'create', db)],
-    ['admission', 'New admission', S.allowed('admissions', 'create', db)],
-    ['payment', 'Record payment', S.allowed('fees', 'create', db)],
-    ['expense', 'Add expense', S.allowed('expenses', 'create', db)],
-  ] as const).filter((o) => o[2]);
-  if (!opts.length) return null;
-  return (
-    <div className="relative">
-      <Button variant="primary" onClick={() => setOpen(!open)} className="px-2.5 sm:px-3.5"><span className="text-base leading-none">+</span><span className="hidden sm:inline">New</span></Button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 mt-1 w-48 rounded-lg border border-line bg-white shadow-lg z-50 py-1">
-            {opts.map(([k, l]) => <button key={k} onClick={() => { setOpen(false); onPick(k); }} className="block w-full text-left px-3 py-2 hover:bg-surface">{l}</button>)}
-          </div>
-        </>
-      )}
-    </div>
   );
 }
 
