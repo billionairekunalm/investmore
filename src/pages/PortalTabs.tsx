@@ -268,6 +268,60 @@ export function CertsTab({ p }: { p: PortalCore }) {
           </div>
         </div>
       </Panel>
+      <KitGallery />
     </div>
+  );
+}
+
+const KIT: [string, string][] = [
+  ['trading-kit', 'Trading kit'], ['id-card', 'Live trading ID card'], ['laptop-bag', 'Laptop bag'], ['t-shirt', 'Black T-shirt'],
+  ['candlesticks', 'Candlesticks pattern book'], ['chart-patterns', 'Chart patterns sheet'], ['notes', 'Hard copy notes'], ['diary', 'Diary'],
+  ['pen', 'Pen'], ['water-bottle', 'Water bottle'], ['certificate', 'Course certificate'], ['trophy', 'Achiever trophy'],
+];
+
+/** What's in the kit: tap any item to see it big; swipe or use arrows to move between items. */
+function KitGallery() {
+  const [open, setOpen] = useState<number | null>(null);
+  const [x0, setX0] = useState<number | null>(null);
+  const go = (n: number) => setOpen((i) => (i === null ? i : (i + n + KIT.length) % KIT.length));
+  useEffect(() => {
+    if (open === null) return;
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(null); if (e.key === 'ArrowRight') go(1); if (e.key === 'ArrowLeft') go(-1); };
+    addEventListener('keydown', k);
+    return () => removeEventListener('keydown', k);
+  }, [open]);
+  return (
+    <Panel className="overflow-hidden bg-[radial-gradient(120%_80%_at_50%_0%,#123a1c,#07120a_70%)] border-transparent">
+      <div className="px-5 pt-5 pb-3">
+        <div className="text-[11px] font-semibold uppercase tracking-[.18em] text-[#7CFC4E]">Inside your kit</div>
+        <div className="font-bold text-[18px] text-white">{KIT.length} items for your trading journey</div>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 px-4 pb-5">
+        {KIT.map(([f, name], i) => (
+          <button key={f} onClick={() => setOpen(i)} style={{ animationDelay: `${i * 60}ms` }}
+            className="kit-rise group relative aspect-square overflow-hidden rounded-2xl bg-black ring-1 ring-white/10 hover:ring-[#7CFC4E]/60 transition-[box-shadow] shadow-[0_8px_24px_rgba(0,0,0,.35)] focus-visible:outline-2 focus-visible:outline-[#7CFC4E]">
+            <img src={`/kit/${f}-sm.webp`} alt={name} loading="lazy" className="size-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.06] group-active:scale-[.98]" />
+            <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-3 pt-8 pb-2.5 text-left text-[12.5px] font-semibold text-white">{name}</span>
+          </button>
+        ))}
+      </div>
+      {open !== null && (
+        <div className="kit-fade fixed inset-0 z-50 flex flex-col bg-black/95 backdrop-blur-sm" onClick={() => setOpen(null)}
+          onTouchStart={(e) => setX0(e.touches[0].clientX)} onTouchEnd={(e) => { if (x0 !== null && Math.abs(e.changedTouches[0].clientX - x0) > 50) go(e.changedTouches[0].clientX < x0 ? 1 : -1); setX0(null); }}>
+          <div className="flex items-center justify-between px-4 py-3 text-white">
+            <span className="text-[13px] tabular text-white/60">{open + 1} / {KIT.length}</span>
+            <button aria-label="Close" className="size-10 grid place-items-center rounded-full bg-white/10 hover:bg-white/20 text-[20px]">✕</button>
+          </div>
+          <div className="flex-1 min-h-0 flex items-center justify-center px-3">
+            <img key={open} src={`/kit/${KIT[open][0]}.webp`} alt={KIT[open][1]} onClick={(e) => e.stopPropagation()} className="kit-zoom max-h-full max-w-full rounded-2xl object-contain shadow-[0_20px_60px_rgba(124,252,78,.15)]" />
+          </div>
+          <div className="flex items-center justify-between gap-3 px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]" onClick={(e) => e.stopPropagation()}>
+            <button aria-label="Previous" onClick={() => go(-1)} className="size-12 grid place-items-center rounded-full bg-white/10 hover:bg-white/20 text-white text-[22px]">‹</button>
+            <span className="text-center font-semibold text-white text-[16px]">{KIT[open][1]}</span>
+            <button aria-label="Next" onClick={() => go(1)} className="size-12 grid place-items-center rounded-full bg-white/10 hover:bg-white/20 text-white text-[22px]">›</button>
+          </div>
+        </div>
+      )}
+    </Panel>
   );
 }

@@ -33,3 +33,12 @@ input, select, textarea { font-size: 16px; } /* avoids iOS zoom */
   .no-print { display: none !important; }
   body { background: white; }
 }
+
+/* course kit gallery */
+@keyframes kit-rise { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes kit-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes kit-zoom { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: none; } }
+.kit-rise { animation: kit-rise .55s cubic-bezier(.2,.8,.2,1) both; }
+.kit-fade { animation: kit-fade .25s ease-out both; }
+.kit-zoom { animation: kit-zoom .35s cubic-bezier(.2,.8,.2,1) both; }
+@media (prefers-reduced-motion: reduce) { .kit-rise, .kit-fade, .kit-zoom { animation: none; } }
