@@ -26,7 +26,6 @@ export default function Profit() {
   const f = periodFigures(db, range[0], range[1], todayIST());
   const salaries = db.expenses.filter((e) => SALARY.includes(e.category) && inRange(e.date, range)).sort((a, b) => b.date.localeCompare(a.date));
   const salaryTotal = salaries.filter((e) => e.status === 'Approved').reduce((t, e) => t + expenseAmount(e), 0);
-  const otherExpenses = f.totalExpenses - salaryTotal;
   const profit = f.netProfit;
   const founders = founderSplit(db, range[0], range[1], todayIST());
   const canAdd = S.allowed('expenses', 'create', db);
@@ -57,10 +56,10 @@ export default function Profit() {
             <div className={cx('text-[34px] font-bold tabular leading-tight', profit >= 0 ? 'text-accent' : 'text-bad')}>{fmtINR(profit)}</div>
             {profit < 0 && <div className="text-[12.5px] text-bad">Loss this period — nothing to share</div>}
           </div>
-          <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-px bg-line rounded-xl overflow-hidden border border-line">
-            <Part label="Fees received" sub="after refunds & GST" value={fmtINR(f.earned)} />
-            <Part label="Salaries" sub={`${salaries.length} payment${salaries.length === 1 ? '' : 's'}`} value={`− ${fmtINR(salaryTotal)}`} />
-            <Part label="Other expenses" sub="rent, ads, etc." value={`− ${fmtINR(otherExpenses)}`} />
+          {/* net profit = revenue − all expenses (salaries included) */}
+          <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-px bg-line rounded-xl overflow-hidden border border-line">
+            <Part label="Revenue" sub="fees received, after refunds & GST" value={fmtINR(f.earned)} />
+            <Part label="Expenses" sub="all expenses, salaries included" value={`− ${fmtINR(f.totalExpenses)}`} />
           </div>
         </div>
       </Card>
