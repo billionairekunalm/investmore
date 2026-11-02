@@ -6,7 +6,10 @@
 // SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided by Supabase.
 import { createClient } from 'npm:@supabase/supabase-js@2.117.3';
 
-type Job = { id: number; kind: string; attempts: number; class_id: string | null; student_id: string; batch: string | null; date: string | null; start_time: string | null; tokens: string[] };
+type Job = {
+  id: number; kind: string; attempts: number; class_id: string | null; student_id: string; student: string | null; course: string | null;
+  batch: string | null; date: string | null; start_time: string | null; end_time: string | null; tokens: string[];
+};
 const MAX_ATTEMPTS = 5;
 
 const b64url = (b: ArrayBuffer | Uint8Array | string) =>
@@ -34,13 +37,31 @@ async function accessToken(sa: { client_email: string; private_key: string }) {
 }
 
 const time12 = (t: string) => { const [h, m] = t.split(':').map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`; };
+const day = (d: string) => new Intl.DateTimeFormat('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${d}T00:00:00Z`));
+/** Friendly, personal reminder text: greets the student by first name and says what, when and where. */
 function message(j: Job) {
-  const name = j.batch ?? 'your', at = j.start_time ? time12(j.start_time) : '';
+  const hi = `Hi ${(j.student ?? '').trim().split(/\s+/)[0] || 'there'}`;
+  const what = j.course ? `${j.course} class` : 'class';
+  const batch = j.batch ? ` (${j.batch})` : '';
+  const at = j.start_time ? time12(j.start_time) : '';
+  const till = j.end_time ? ` – ${time12(j.end_time)}` : '';
   switch (j.kind) {
-    case 'day_before': return { title: "Tomorrow's Class Reminder!", body: `Your ${name} class is scheduled for ${at}.` };
-    case 'morning': return { title: 'Good Morning!', body: `Your ${name} class is scheduled for today at ${at}.` };
-    case 'soon': return { title: 'Your class starts in 30 minutes!', body: `Get ready for your ${name} session.` };
-    default: return { title: 'Notifications are working', body: 'You will get reminders for your classes here.' };
+    case 'day_before': return {
+      title: `📅 ${hi}, your class is tomorrow`,
+      body: `Your ${what}${batch} is scheduled for tomorrow, ${day(j.date!)}, at ${at}${till}. See you there! — InvestMore Training Academy`,
+    };
+    case 'morning': return {
+      title: `☀️ Good morning, ${hi.slice(3)}!`,
+      body: `Your ${what}${batch} is scheduled for today at ${at}${till}. Get ready for a great session! — InvestMore Training Academy`,
+    };
+    case 'soon': return {
+      title: `⏰ ${hi}, your class starts in 30 minutes`,
+      body: `Your ${what}${batch} begins at ${at}. Please reach on time and scan the classroom QR code to mark your attendance.`,
+    };
+    default: return {
+      title: `🔔 ${hi}, notifications are on!`,
+      body: 'You will get your InvestMore class reminders here: one day before, on the morning of the class, and 30 minutes before it starts.',
+    };
   }
 }
 
@@ -72,7 +93,7 @@ Deno.serve(async (req) => {
         method: 'POST', headers: { Authorization: `Bearer ${bearer}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: {
           token, notification: { title, body }, data: { link, classId: j.class_id ?? '' },
-          webpush: { fcm_options: { link }, notification: { icon: `${site}/icon-192.png`, tag: `${j.class_id ?? 'test'}-${j.kind}` } },
+          webpush: { fcm_options: { link }, notification: { icon: `${site}/icon-512.png`, badge: `${site}/icon-192.png`, tag: `${j.class_id ?? 'test'}-${j.kind}` } },
         } }),
       });
       if (res.ok) { ok++; continue; }
