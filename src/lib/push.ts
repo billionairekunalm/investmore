@@ -14,8 +14,8 @@ const firebaseConfig = {
   appId: '1:832536186835:web:36dd20dd912c4bf36da926',
   measurementId: 'G-641WFC6GZ8',
 };
-/** Web Push certificate (public key) from Firebase Console → Project settings → Cloud Messaging. */
-const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY as string | undefined;
+/** Web Push certificate (public key) from Firebase Console → Project settings → Cloud Messaging. Public by design. */
+const VAPID_KEY = (import.meta.env.VITE_FIREBASE_VAPID_KEY as string | undefined) || 'BAda4nMsQUc9Zf6l6L0hQQbJVzdjQc3SqvsPhECvjxa0QCz2P_Urh3UqgnHNTk8ZBJrSn8lQSbamqUggY9zXm9U';
 
 export type PushState = 'unsupported' | 'not-configured' | 'blocked' | 'off' | 'on';
 
