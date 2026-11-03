@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import * as S from '../store/store';
 import { hasEmployees, loginIdOf, sb, setupAdmin, signInWithId, studentSignup } from '../store/cloud';
-import { Button, Field, Input, cx, useRun } from '../ui/kit';
+import { Button, Field, Input, LogoMark, Wordmark, cx, useRun } from '../ui/kit';
 import { ROLES } from '../domain/types';
 
 type Who = 'student' | 'staff' | 'admin';
@@ -22,13 +22,17 @@ const Icon = ({ d, className = 'size-4' }: { d: string; className?: string }) =>
 export default function CloudAuth() {
   const cloud = S.useCloud();
   return (
-    <div className="min-h-full grid place-items-center bg-white p-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-6 text-center">
-          <img src="/logo-full.png" alt="InvestMore" className="mx-auto w-56 mix-blend-multiply" />
-          <div className="text-xs text-muted mt-2">Academy management</div>
+    <div className="min-h-full grid place-items-center bg-canvas p-4">
+      <div className="w-full max-w-sm page-in">
+        {/* charcoal brand card, same family as the app sidebar */}
+        <div className="relative overflow-hidden mb-3 rounded-[28px] bg-sidebar px-6 py-6 text-center shadow-[0_20px_40px_-20px_rgba(0,0,0,.5)]">
+          <span aria-hidden className="pointer-events-none absolute -right-12 -top-12 size-40 rounded-full border-[22px] border-lime opacity-[.12]" />
+          <span aria-hidden className="pointer-events-none absolute -left-10 -bottom-14 size-36 rounded-full border-[18px] border-brand-bright opacity-[.10]" />
+          <LogoMark className="relative mx-auto size-16 rounded-2xl border-0" />
+          <div className="relative mt-3"><Wordmark name="InvestMore" className="text-[20px] text-white" /></div>
+          <div className="relative text-[12px] text-zinc-400 mt-0.5">Training Academy · Academy management</div>
         </div>
-        <div className="rounded-xl bg-white border border-line p-5">
+        <div className="rounded-[28px] bg-white shadow-card p-6">
           {cloud.phase === 'recovery' ? <NewPassword /> :
             cloud.phase === 'setup' ? <FirstRun /> :
               cloud.phase === 'not-staff' ? <NotStaff email={cloud.email} /> :
@@ -40,7 +44,7 @@ export default function CloudAuth() {
 }
 
 const Title = ({ children, sub }: { children: ReactNode; sub?: ReactNode }) => (
-  <div className="mb-4"><h1 className="font-semibold text-[15px]">{children}</h1>{sub && <p className="text-muted mt-1">{sub}</p>}</div>
+  <div className="mb-4"><h1 className="font-bold text-[20px] tracking-tight">{children}</h1>{sub && <p className="text-muted mt-1">{sub}</p>}</div>
 );
 const Msg = ({ tone, children }: { tone: 'bad' | 'ok'; children: ReactNode }) => (
   <p role="alert" className={cx('rounded-lg px-3 py-2 text-[12.5px]', tone === 'bad' ? 'bg-bad-soft text-bad' : 'bg-accent-soft text-accent')}>{children}</p>
@@ -80,11 +84,11 @@ function SignInForm({ error, first, onSignup }: { error?: string; first: boolean
   return (
     <form onSubmit={(e) => { e.preventDefault(); if (id.trim() && pw) void go(); }} className="space-y-3">
       <Title sub={location.pathname === '/attend' ? 'Sign in with your student ID to mark your attendance.' : 'Choose how you want to log in.'}>Sign in</Title>
-      <div role="tablist" aria-label="Sign in as" className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-zinc-100 border border-line">
+      <div role="tablist" aria-label="Sign in as" className="grid grid-cols-3 gap-1 p-1 rounded-full bg-surface">
         {WHO.map((x) => (
           <button key={x.id} type="button" role="tab" aria-selected={who === x.id} onClick={() => setWho(x.id)}
-            className={cx('h-9 rounded-lg inline-flex items-center justify-center gap-1.5 text-[13px] font-semibold transition-all',
-              who === x.id ? 'bg-white text-navy shadow-[0_1px_4px_rgba(15,35,65,.15)]' : 'text-zinc-500 hover:text-navy')}>
+            className={cx('h-9 rounded-full inline-flex items-center justify-center gap-1.5 text-[13px] font-semibold transition-all',
+              who === x.id ? 'bg-ink text-white shadow-[0_6px_14px_-8px_rgba(24,24,24,.7)]' : 'text-zinc-500 hover:text-ink')}>
             <Icon d={x.icon} />{x.label}
           </button>
         ))}
@@ -95,7 +99,7 @@ function SignInForm({ error, first, onSignup }: { error?: string; first: boolean
       <Field label="Password">
         <div className="relative">
           <Input type={show ? 'text' : 'password'} autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} className="pr-16" />
-          <button type="button" onClick={() => setShow(!show)} className="absolute right-2 top-1/2 -translate-y-1/2 h-8 px-2 rounded-md text-[12px] font-semibold text-navy hover:bg-surface" aria-label={show ? 'Hide password' : 'Show password'}>{show ? 'Hide' : 'Show'}</button>
+          <button type="button" onClick={() => setShow(!show)} className="absolute right-2 top-1/2 -translate-y-1/2 h-7 px-2.5 rounded-full text-[12px] font-semibold text-ink hover:bg-lime" aria-label={show ? 'Hide password' : 'Show password'}>{show ? 'Hide' : 'Show'}</button>
         </div>
       </Field>
       {msg && <Msg tone={msg.tone}>{msg.text}</Msg>}
