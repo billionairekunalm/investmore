@@ -10,7 +10,7 @@ export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Bool
 /** INVESTMORE wordmark (charcoal + brand green) when the academy keeps its brand name; otherwise the configured name. */
 export const Wordmark = ({ name, className }: { name: string; className?: string }) =>
   name.trim().toLowerCase() === 'investmore'
-    ? <span className={cx('font-bold uppercase tracking-[0.14em] text-ink', className)}>Invest<span className="text-accent">More</span></span>
+    ? <span className={cx('font-bold uppercase tracking-[0.14em]', className)}>Invest<span className="text-brand-bright">More</span></span>
     : <span className={cx('font-semibold', className)}>{name}</span>;
 /** Invoice / receipt header: the IM mark, large, with "Training Academy" underneath. */
 export const DocBrand = () => (
@@ -33,8 +33,8 @@ export const LogoMark =({ className = 'size-8' }: { className?: string }) => (
 // ---------------- buttons & inputs ----------------
 type BtnVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 const BTN: Record<BtnVariant, string> = {
-  primary: 'bg-accent text-white hover:bg-accent-hover shadow-sm',
-  secondary: 'bg-white text-ink border border-line hover:bg-surface shadow-[0_1px_0_rgba(0,0,0,0.02)]',
+  primary: 'bg-ink text-white hover:bg-zinc-800 shadow-[0_6px_16px_-8px_rgba(24,24,24,.6)]',
+  secondary: 'bg-white text-ink border border-line hover:border-zinc-300 hover:bg-surface',
   ghost: 'text-muted hover:text-ink hover:bg-surface',
   danger: 'bg-white text-bad border border-line hover:bg-bad-soft',
 };
@@ -43,8 +43,8 @@ export function Button({ variant = 'secondary', size = 'md', className, loading,
     <button
       {...p}
       disabled={p.disabled || loading}
-      className={cx('inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap',
-        size === 'sm' ? 'h-7 px-2.5 text-[12.5px]' : 'h-9 px-3.5', BTN[variant], className)}
+      className={cx('inline-flex items-center justify-center gap-1.5 rounded-full font-medium transition-all active:scale-[.97] disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap',
+        size === 'sm' ? 'h-7 px-3 text-[12.5px]' : 'h-10 px-4', BTN[variant], className)}
     >
       {loading && <span className="size-3.5 rounded-full border-2 border-current border-r-transparent animate-spin" />}
       {children}
@@ -52,7 +52,7 @@ export function Button({ variant = 'secondary', size = 'md', className, loading,
   );
 }
 const width = (c?: string) => (/(^|\s)w-/.test(c ?? '') ? '' : 'w-full'); // caller-supplied width wins
-const inputCls = 'h-9 rounded-lg border border-zinc-300 bg-white px-3 text-ink shadow-[inset_0_1px_1px_rgba(0,0,0,0.04)] outline-none hover:border-zinc-400 focus:border-accent focus:ring-3 focus:ring-accent/15 placeholder:text-zinc-400 disabled:bg-surface disabled:border-line disabled:text-zinc-500';
+const inputCls = 'h-10 rounded-xl border border-line bg-white px-3 text-ink shadow-[inset_0_1px_1px_rgba(0,0,0,0.04)] outline-none hover:border-zinc-300 focus:border-accent focus:ring-3 focus:ring-accent/15 placeholder:text-zinc-400 disabled:bg-surface disabled:border-line disabled:text-zinc-500';
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(({ className, ...p }, ref) => <input ref={ref} {...p} className={cx(inputCls, width(className), className)} />);
 export const Textarea = ({ className, ...p }: TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea {...p} className={cx(inputCls, 'w-full h-auto min-h-20 py-2', className)} />;
 export function Select({ className, options, placeholder, ...p }: SelectHTMLAttributes<HTMLSelectElement> & { options: (string | { value: string; label: string })[]; placeholder?: string }) {
@@ -77,28 +77,28 @@ export const Checkbox = ({ label, ...p }: InputHTMLAttributes<HTMLInputElement> 
 );
 
 // ---------------- surfaces ----------------
-export const Card = ({ children, className, ...p }: { children: ReactNode; className?: string } & React.HTMLAttributes<HTMLDivElement>) => <div {...p} className={cx('rounded-xl border border-line bg-white', className)}>{children}</div>;
+export const Card = ({ children, className, ...p }: { children: ReactNode; className?: string } & React.HTMLAttributes<HTMLDivElement>) => <div {...p} className={cx('rounded-3xl bg-white shadow-card', className)}>{children}</div>;
 export function CardHeader({ title, sub, right }: { title: ReactNode; sub?: ReactNode; right?: ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-3 px-4 pt-4 pb-2">
-      <div><h3 className="font-semibold text-[14px]">{title}</h3>{sub && <p className="text-xs text-muted mt-0.5">{sub}</p>}</div>
+    <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-2">
+      <div><h3 className="font-semibold text-[15px] tracking-tight">{title}</h3>{sub && <p className="text-xs text-muted mt-0.5">{sub}</p>}</div>
       {right}
     </div>
   );
 }
 export function PageHeader({ title, sub, actions }: { title: string; sub?: ReactNode; actions?: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
-      <div><h1 className="text-[20px] font-semibold tracking-tight">{title}</h1>{sub && <p className="text-muted mt-0.5">{sub}</p>}</div>
+    <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
+      <div><h1 className="text-[26px] font-bold tracking-tight leading-tight">{title}</h1>{sub && <p className="text-muted mt-0.5">{sub}</p>}</div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </div>
   );
 }
 export function Kpi({ label, value, sub, tone, to }: { label: string; value: ReactNode; sub?: ReactNode; tone?: 'ok' | 'warn' | 'bad'; to?: string }) {
   const inner = (
-    <Card className={cx('p-4 h-full transition-colors', to && 'hover:border-zinc-300')}>
+    <Card className={cx('p-5 h-full transition-all', to && 'hover:-translate-y-0.5 hover:shadow-lg')}>
       <div className="text-xs text-muted font-medium">{label}</div>
-      <div className={cx('mt-1.5 text-[21px] font-semibold tracking-tight tabular', tone === 'ok' && 'text-ok', tone === 'warn' && 'text-warn', tone === 'bad' && 'text-bad')}>{value}</div>
+      <div className={cx('mt-1.5 text-[24px] font-bold tracking-tight tabular', tone === 'ok' && 'text-ok', tone === 'warn' && 'text-warn', tone === 'bad' && 'text-bad')}>{value}</div>
       {sub && <div className="mt-0.5 text-xs text-muted">{sub}</div>}
     </Card>
   );
@@ -107,7 +107,7 @@ export function Kpi({ label, value, sub, tone, to }: { label: string; value: Rea
 export function Empty({ title, body, action }: { title: string; body?: string; action?: ReactNode }) {
   return (
     <div className="py-12 px-6 text-center">
-      <div className="mx-auto mb-3 size-10 rounded-full bg-surface border border-line grid place-items-center text-muted">∅</div>
+      <div className="mx-auto mb-3 size-12 rounded-2xl bg-surface grid place-items-center text-muted">∅</div>
       <div className="font-medium">{title}</div>
       {body && <p className="text-muted mt-1 max-w-sm mx-auto">{body}</p>}
       {action && <div className="mt-4">{action}</div>}
@@ -128,7 +128,7 @@ const STATUS_TONE: Record<string, string> = {
 // Plain-language display for stored status values (data and colours keep the stored value).
 const SAY: Record<string, string> = { 'Partially Paid': 'Part paid', 'Due Soon': 'Due soon', 'No Plan': 'No fee plan', 'Not Contacted': 'Not called yet', Waived: 'Waived off', upcoming: 'Upcoming', running: 'Running', completed: 'Completed', cancelled: 'Cancelled', open: 'Open', closed: 'Closed' };
 export const Badge = ({ children, tone }: { children: ReactNode; tone?: string }) => (
-  <span className={cx('inline-flex items-center rounded-md px-1.5 py-0.5 text-[11.5px] font-medium whitespace-nowrap', TONES[tone ?? STATUS_TONE[String(children)] ?? 'gray'])}>{typeof children === 'string' ? SAY[children] ?? children : children}</span>
+  <span className={cx('inline-flex items-center rounded-full px-2 py-0.5 text-[11.5px] font-semibold whitespace-nowrap', TONES[tone ?? STATUS_TONE[String(children)] ?? 'gray'])}>{typeof children === 'string' ? SAY[children] ?? children : children}</span>
 );
 export const Money = ({ v, className }: { v: number; className?: string }) => <span className={cx('tabular', className)}>{fmtINR(v)}</span>;
 
@@ -152,10 +152,10 @@ export function Table<T>({ rows, cols, rowKey, onRow, empty, selectable, selecte
       <div className="overflow-x-auto">
         <table className={cx('w-full text-left', className)}>
           <thead>
-            <tr className="border-b border-line text-[11.5px] uppercase tracking-wide text-muted">
+            <tr className="border-b border-line text-[11px] uppercase tracking-wider text-muted">
               {selectable && <th className="w-8 pl-4"><input type="checkbox" checked={!!allSel} onChange={() => { const s = new Set(selected); shown.forEach((r) => (allSel ? s.delete(rowKey(r)) : s.add(rowKey(r)))); onSelect?.(s); }} className="accent-[var(--color-accent)]" /></th>}
               {cols.map((c) => (
-                <th key={c.key} className={cx('px-4 py-2.5 font-medium whitespace-nowrap', c.sort && 'cursor-pointer hover:text-ink', c.className)}
+                <th key={c.key} className={cx('px-4 py-3 font-semibold whitespace-nowrap', c.sort && 'cursor-pointer hover:text-ink', c.className)}
                   onClick={() => c.sort && setSort((s) => (s?.key === c.key ? { key: c.key, dir: s.dir === 1 ? -1 : 1 } : { key: c.key, dir: 1 }))}>
                   {c.label}{sort?.key === c.key && (sort.dir === 1 ? ' ↑' : ' ↓')}
                 </th>
@@ -166,9 +166,9 @@ export function Table<T>({ rows, cols, rowKey, onRow, empty, selectable, selecte
             {shown.map((r) => {
               const k = rowKey(r);
               return (
-                <tr key={k} onClick={() => onRow?.(r)} className={cx('border-b border-line last:border-0', onRow && 'cursor-pointer hover:bg-surface')}>
+                <tr key={k} onClick={() => onRow?.(r)} className={cx('border-b border-line last:border-0', onRow && 'cursor-pointer hover:bg-surface transition-colors')}>
                   {selectable && <td className="pl-4" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={!!selected?.has(k)} onChange={() => { const s = new Set(selected); s.has(k) ? s.delete(k) : s.add(k); onSelect?.(s); }} className="accent-[var(--color-accent)]" /></td>}
-                  {cols.map((c) => <td key={c.key} className={cx('px-4 py-2.5 whitespace-nowrap', c.className)}>{c.render(r)}</td>)}
+                  {cols.map((c) => <td key={c.key} className={cx('px-4 py-3 whitespace-nowrap', c.className)}>{c.render(r)}</td>)}
                 </tr>
               );
             })}
@@ -190,11 +190,11 @@ export function Table<T>({ rows, cols, rowKey, onRow, empty, selectable, selecte
 
 export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { id: T; label: string; count?: number }[]; value: T; onChange: (t: T) => void }) {
   return (
-    <div className="flex gap-1 overflow-x-auto overflow-y-hidden [scrollbar-width:none] border-b border-line mb-4 -mx-1 px-1">
+    <div className="flex w-fit max-w-full gap-1 overflow-x-auto overflow-y-hidden [scrollbar-width:none] rounded-full bg-white p-1 shadow-card mb-5">
       {tabs.map((t) => (
         <button key={t.id} onClick={() => onChange(t.id)}
-          className={cx('px-3 py-2 -mb-px border-b-2 whitespace-nowrap font-medium transition-colors', value === t.id ? 'border-accent text-ink' : 'border-transparent text-muted hover:text-ink')}>
-          {t.label}{t.count !== undefined && <span className="ml-1.5 rounded bg-zinc-100 px-1.5 text-[11px] text-zinc-600 tabular">{t.count}</span>}
+          className={cx('px-3.5 h-8 rounded-full whitespace-nowrap font-medium transition-colors', value === t.id ? 'bg-ink text-white' : 'text-muted hover:text-ink hover:bg-surface')}>
+          {t.label}{t.count !== undefined && <span className={cx('ml-1.5 rounded-full px-1.5 text-[11px] tabular', value === t.id ? 'bg-lime text-ink' : 'bg-zinc-100 text-zinc-600')}>{t.count}</span>}
         </button>
       ))}
     </div>
@@ -211,14 +211,14 @@ export function Modal({ open, onClose, title, children, footer, wide }: { open: 
   }, [open, onClose]);
   if (!open) return null;
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-zinc-900/30 backdrop-blur-[1px] sm:p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-modal className={cx('w-full bg-white rounded-t-2xl sm:rounded-xl shadow-xl max-h-[92vh] flex flex-col', wide ? 'sm:max-w-3xl' : 'sm:max-w-lg')}>
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-line">
-          <h2 className="font-semibold text-[15px]">{title}</h2>
-          <button onClick={onClose} className="text-muted hover:text-ink text-lg leading-none px-1" aria-label="Close">×</button>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-zinc-900/40 backdrop-blur-sm sm:p-4 kit-fade" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div role="dialog" aria-modal className={cx('w-full bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92vh] flex flex-col kit-zoom', wide ? 'sm:max-w-3xl' : 'sm:max-w-lg')}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-line">
+          <h2 className="font-semibold text-[16px] tracking-tight">{title}</h2>
+          <button onClick={onClose} className="size-8 grid place-items-center rounded-full bg-surface text-muted hover:text-ink text-lg leading-none" aria-label="Close">×</button>
         </div>
-        <div className="p-5 overflow-y-auto">{children}</div>
-        {footer && <div className="px-5 py-3 border-t border-line flex justify-end gap-2 bg-surface/60 rounded-b-xl">{footer}</div>}
+        <div className="p-6 overflow-y-auto">{children}</div>
+        {footer && <div className="px-6 py-3.5 border-t border-line flex justify-end gap-2 bg-surface/60 rounded-b-3xl">{footer}</div>}
       </div>
     </div>,
     document.body,
@@ -248,7 +248,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
       {children}
       <div className="fixed z-[60] bottom-20 md:bottom-5 left-1/2 -translate-x-1/2 flex flex-col gap-2 items-center w-[min(92vw,420px)] no-print">
         {toasts.map((t) => (
-          <div key={t.id} role="status" className={cx('w-full rounded-lg px-4 py-2.5 shadow-lg text-[13px] font-medium', t.tone === 'ok' ? 'bg-zinc-900 text-white' : 'bg-bad text-white')}>{t.msg}</div>
+          <div key={t.id} role="status" className={cx('w-full rounded-2xl px-4 py-3 shadow-lg text-[13px] font-medium kit-rise', t.tone === 'ok' ? 'bg-ink text-white' : 'bg-bad text-white')}>{t.msg}</div>
         ))}
       </div>
       <Modal open={!!ask} onClose={() => close(null)} title={ask?.title}
@@ -282,8 +282,8 @@ export function useRun() {
 export function SearchInput({ value, onChange, placeholder = 'Search…', className }: { value: string; onChange: (v: string) => void; placeholder?: string; className?: string }) {
   return (
     <div className={cx('relative', className)}>
-      <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="7" cy="7" r="5" /><path d="m11 11 3.5 3.5" /></svg>
-      <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="pl-8" />
+      <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="7" cy="7" r="5" /><path d="m11 11 3.5 3.5" /></svg>
+      <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="pl-9 rounded-full" />
     </div>
   );
 }

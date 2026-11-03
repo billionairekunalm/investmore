@@ -10,10 +10,11 @@ import { fmtINR, fmtINRShort, inRange, todayIST } from '../domain/util';
 
 // Categorical palette, fixed order, validated for colour-blind separation (dataviz skill validator, light mode).
 // Three slots are under 3:1 on white, so every chart carries visible labels/values.
-const SLOT = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6'];
+// brand order: charcoal, logo green, lime, sand, stone, deep green, peach
+const SLOT = ['#181818', '#05b200', '#9ee27f', '#d9b35a', '#a8a69c', '#005d00', '#ef9a6a'];
 const GOOD = '#008300', WARN = '#eda100', BAD = '#e34948';
 const axis = { fontSize: 11, fill: '#71717a' };
-const tip = { contentStyle: { borderRadius: 8, border: '1px solid #e7e7ea', fontSize: 12, boxShadow: '0 4px 16px rgba(0,0,0,.06)' } };
+const tip = { contentStyle: { borderRadius: 14, border: 'none', background: '#151715', color: '#fff', fontSize: 12, boxShadow: '0 10px 24px rgba(0,0,0,.18)' }, itemStyle: { color: '#fff' }, labelStyle: { color: '#b6f09c', fontWeight: 600 } };
 
 type Slice = { name: string; value: number; color: string };
 
@@ -154,7 +155,7 @@ function HBars({ data, money, pctScale, valueLabel, empty }: { data: { name: str
           <XAxis type="number" hide domain={pctScale ? [0, 100] : [0, 'dataMax']} />
           <YAxis type="category" dataKey="name" tick={{ ...axis, fill: '#3f3f46' }} axisLine={false} tickLine={false} width={120} />
           <Tooltip {...tip} cursor={{ fill: '#f4f4f5' }} formatter={(_v: number, _n: string, p: { payload?: { value: number; note: string } }) => [p.payload ? label(p.payload) : '', '']} separator="" />
-          <Bar dataKey="value" fill={SLOT[0]} radius={[0, 4, 4, 0]} maxBarSize={22} background={pctScale ? { fill: '#f4f4f5', radius: 4 } : undefined}>
+          <Bar dataKey="value" fill={SLOT[0]} radius={[0, 10, 10, 0]} maxBarSize={20} background={pctScale ? { fill: '#f4f3ee', radius: 10 } : undefined}>
             <LabelList dataKey="value" position="right" content={(p) => {
               const { x = 0, y = 0, width = 0, height = 0, index = 0 } = p as { x?: number; y?: number; width?: number; height?: number; index?: number };
               return <text x={Number(x) + Number(width) + 8} y={Number(y) + Number(height) / 2} dy={4} fontSize={11.5} fill="#27272a" fontWeight={600}>{label(data[index])}</text>;

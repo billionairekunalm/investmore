@@ -10,10 +10,10 @@ import { addDays, fmtDate, fmtINR, fmtINRShort, fmtMonth, inRange, monthOf, mont
 import type { DB } from '../domain/types';
 import { ReportsPanel } from './Reports';
 
-export const C = { brand: '#028a02', brandSoft: '#b9e3b6', ink: '#181818', info: '#2563eb', green: '#05b200', orange: '#ea7a2b', red: '#dc2626', gray: '#a1a1aa', grid: '#f0f0f2' };
-const axis = { fontSize: 11, fill: '#71717a' };
+export const C = { brand: '#028a02', brandSoft: '#b9e3b6', lime: '#9ee27f', ink: '#181818', info: '#2563eb', green: '#05b200', orange: '#ea7a2b', red: '#dc2626', gray: '#c9c7bd', grid: '#efede7', track: '#f4f3ee' };
+const axis = { fontSize: 11, fill: '#8a8a80' };
 const money = (v: number) => fmtINRShort(v);
-const tip = { contentStyle: { borderRadius: 8, border: '1px solid #e7e7ea', fontSize: 12, boxShadow: '0 4px 16px rgba(0,0,0,.06)' } };
+const tip = { contentStyle: { borderRadius: 14, border: 'none', background: '#151715', color: '#fff', fontSize: 12, boxShadow: '0 10px 24px rgba(0,0,0,.18)' }, itemStyle: { color: '#fff' }, labelStyle: { color: '#b6f09c', fontWeight: 600 } };
 
 /**
  * Two kinds of figure, labelled on every tile:
@@ -104,13 +104,13 @@ export default function Dashboard() {
   const profitTone = a.fig.netProfit >= 0 ? '#15803d' : '#b91c1c';
   return (
     <>
-      <PageHeader title="Dashboard" sub={`${P} · ${fmtDate(range[0])} – ${fmtDate(range[1])}`} />
+      <PageHeader title={`Welcome back, ${S.currentUser()?.name.split(' ')[0] ?? ''}`} sub={`Here’s how the academy is doing · ${P} · ${fmtDate(range[0])} – ${fmtDate(range[1])}`} />
 
       <Section title="Student overview">
         <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <StatTile color="#15803d" icon="students" label="Active students" scope={T} value={a.active} to="/students?status=Active"
+          <StatTile color="#1d4ed8" icon="students" label="Active students" scope={T} value={a.active} to="/students?status=Active"
             subs={[['All students', a.totalStudents], ['Completed', a.completed]]} />
-          <StatTile color="#1d4ed8" icon="userPlus" label="New admissions" scope={P} value={a.admissions} to={`/students?from=${range[0]}&to=${range[1]}`}
+          <StatTile color="#15803d" icon="userPlus" label="New admissions" scope={P} value={a.admissions} to={`/students?from=${range[0]}&to=${range[1]}`}
             subs={[['From leads', a.fromLeads], ['Direct', a.admissions - a.fromLeads]]} />
           <StatTile color="#0f766e" icon="leads" label="Total leads" scope={P} value={a.leads} to="/leads"
             subs={[['Contacted', a.contacted], ['Still open', a.openLeads]]} />
@@ -133,7 +133,7 @@ export default function Dashboard() {
 
         <Section title="Financial overview">
           <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            <StatTile color="#047857" icon="wallet" label="Total revenue" scope={P} value={fmtINR(a.fig.earned)} to="/profit"
+            <StatTile color="#1d4ed8" icon="wallet" label="Total revenue" scope={P} value={fmtINR(a.fig.earned)} to="/profit"
               subs={[['Collected', fmtINR(a.fig.collected)], ['Refunds & GST', fmtINR(a.fig.refunds + a.fig.gst)]]} />
             <StatTile color="#6d28d9" icon="receipt" label="Total expenses" scope={P} value={fmtINR(a.fig.totalExpenses)} to="/expenses"
               subs={[['Fixed', fmtINR(a.fig.fixedExpenses)], ['Variable', fmtINR(a.fig.variableExpenses)]]} />
@@ -150,9 +150,9 @@ export default function Dashboard() {
             <Chart>
               <BarChart data={a.monthly} onClick={(e: any) => e?.activePayload && nav(`/?r=revenue#reports`)}>
                 <CartesianGrid vertical={false} stroke={C.grid} /><XAxis dataKey="label" tick={axis} axisLine={false} tickLine={false} interval={0} /><YAxis tickFormatter={money} tick={axis} axisLine={false} tickLine={false} width={56} />
-                <Tooltip {...tip} formatter={(v: number) => fmtINR(v)} cursor={{ fill: '#f4f4f5' }} /><Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="revenue" name="Revenue" fill={C.brand} radius={[4, 4, 0, 0]} maxBarSize={28} className="cursor-pointer" />
-                <Bar dataKey="expenses" name="Expenses" fill={C.gray} radius={[4, 4, 0, 0]} maxBarSize={28} />
+                <Tooltip {...tip} formatter={(v: number) => fmtINR(v)} cursor={{ fill: 'transparent' }} /><Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
+                <Bar dataKey="revenue" name="Revenue" fill={C.ink} radius={[10, 10, 10, 10]} maxBarSize={22} className="cursor-pointer" />
+                <Bar dataKey="expenses" name="Expenses" fill={C.lime} radius={[10, 10, 10, 10]} maxBarSize={22} />
               </BarChart>
             </Chart>
           </Card>
@@ -164,9 +164,9 @@ export default function Dashboard() {
               <CartesianGrid vertical={false} stroke={C.grid} /><XAxis dataKey="label" tick={axis} axisLine={false} tickLine={false} interval={0} />
               <YAxis yAxisId="n" allowDecimals={false} tick={axis} axisLine={false} tickLine={false} width={32} />
               <YAxis yAxisId="t" orientation="right" allowDecimals={false} tick={axis} axisLine={false} tickLine={false} width={36} />
-              <Tooltip {...tip} cursor={{ fill: '#f4f4f5' }} /><Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-              <Bar yAxisId="n" dataKey="admitted" name="New admissions" fill={C.brand} radius={[4, 4, 0, 0]} maxBarSize={28} className="cursor-pointer" />
-              <Line yAxisId="t" dataKey="enrolled" name="Total enrolled" stroke={C.ink} strokeWidth={2} dot={{ r: 3 }} />
+              <Tooltip {...tip} cursor={{ fill: 'transparent' }} /><Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
+              <Bar yAxisId="n" dataKey="admitted" name="New admissions" fill={C.ink} background={{ fill: C.track, radius: 12 } as any} radius={[12, 12, 12, 12]} maxBarSize={26} className="cursor-pointer" />
+              <Line yAxisId="t" type="monotone" dataKey="enrolled" name="Total enrolled" stroke={C.green} strokeWidth={3} dot={{ r: 4, fill: '#fff', strokeWidth: 2 }} activeDot={{ r: 6 }} />
             </ComposedChart>
           </Chart>
         </Card>
@@ -197,40 +197,57 @@ const ICONS: Record<string, string> = {
 const FILLED = new Set(['students', 'leads']);
 
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <section className="mb-6"><h2 className="text-[12px] font-bold uppercase tracking-wider text-zinc-500 mb-2.5">{title}</h2>{children}</section>
+  <section className="mb-7"><h2 className="text-[16px] font-bold tracking-tight mb-3">{title}</h2>{children}</section>
 );
 
-/** Solid coloured KPI tile: big icon left, headline number right, two sub-stats (or a one-line note) below. Click opens the filtered records. */
+/**
+ * Brand skins for KPI tiles (logo charcoal + greens, warm neutrals). Callers keep passing their semantic colour;
+ * ponytail: mapped here so every tile in the app restyles at once. Orange/red stay warm so money owed still reads as a warning.
+ */
+const SKIN: Record<string, { bg: string; fg: string; accent: string; chip: string; dark?: boolean }> = {
+  '#1d4ed8': { bg: '#151715', fg: '#ffffff', accent: '#b6f09c', chip: 'rgba(255,255,255,.08)', dark: true }, // charcoal hero
+  '#15803d': { bg: '#dcf2d0', fg: '#181818', accent: '#028a02', chip: 'rgba(255,255,255,.55)' },            // mint
+  '#047857': { bg: '#dcf2d0', fg: '#181818', accent: '#028a02', chip: 'rgba(255,255,255,.55)' },
+  '#0f766e': { bg: '#f3e9cc', fg: '#181818', accent: '#8a6510', chip: 'rgba(255,255,255,.55)' },            // sand
+  '#6d28d9': { bg: '#e6e5dd', fg: '#181818', accent: '#181818', chip: 'rgba(255,255,255,.6)' },             // stone
+  '#c2410c': { bg: '#fbe3cf', fg: '#181818', accent: '#c2410c', chip: 'rgba(255,255,255,.55)' },            // peach (pending)
+  '#b91c1c': { bg: '#f9d9d6', fg: '#181818', accent: '#b91c1c', chip: 'rgba(255,255,255,.55)' },            // rose (overdue / loss)
+};
+
+/** KPI tile: icon chip, label, big number, two sub-stats (or a one-line note). Click opens the filtered records. */
 export function StatTile({ color, icon, label, value, subs, note, scope, to }: { color: string; icon: string; label: string; value: React.ReactNode; subs?: [string, React.ReactNode][]; note?: string; scope?: string; to?: string }) {
   const filled = FILLED.has(icon);
   const three = subs?.length === 3;
-  // ponytail: soft tint of the accent colour; text stays dark ink for contrast
-  const cls = cx('@container block h-full rounded-xl text-ink p-4 border shadow-[0_1px_2px_rgba(0,0,0,.06),0_2px_8px_rgba(0,0,0,.04)] transition-all', to && 'hover:shadow-[0_4px_14px_rgba(0,0,0,.10)] hover:-translate-y-px');
-  const style = { background: `color-mix(in srgb, ${color} 15%, white)`, borderColor: `color-mix(in srgb, ${color} 32%, white)` };
+  const k = SKIN[color] ?? { bg: `color-mix(in srgb, ${color} 16%, white)`, fg: '#181818', accent: color, chip: 'rgba(255,255,255,.55)' };
+  const soft = k.dark ? 'text-zinc-400' : 'text-zinc-600';
+  const cls = cx('@container relative overflow-hidden block h-full rounded-3xl p-5 transition-all duration-200', to && 'hover:-translate-y-1 hover:shadow-[0_16px_30px_-16px_rgba(24,24,24,.35)]');
   const body = (
     <>
-      <div className="flex items-center gap-4 @max-[260px]:gap-3">
-        <svg viewBox="0 0 24 24" className="size-14 @max-[260px]:size-10 shrink-0" style={{ color }} fill={filled ? 'currentColor' : 'none'} stroke={filled ? 'none' : 'currentColor'} strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d={ICONS[icon]} /></svg>
-        <div className="min-w-0">
-          <div className="text-[11.5px] font-bold uppercase tracking-wider" style={{ color }}>{label}</div>
-          <div className="text-[30px] @max-[260px]:text-[24px] leading-tight font-bold text-zinc-950 tabular truncate">{value}</div>
-          {scope && <div className="text-[11px] font-medium text-zinc-500">{scope}</div>}
-        </div>
+      {/* soft decorative ring, top-right */}
+      <span aria-hidden className="pointer-events-none absolute -right-10 -top-10 size-32 rounded-full border-[18px] opacity-[.12]" style={{ borderColor: k.accent }} />
+      <div className="flex items-start justify-between gap-3">
+        <span className="size-11 shrink-0 grid place-items-center rounded-2xl" style={{ background: k.chip, color: k.accent }}>
+          <svg viewBox="0 0 24 24" className="size-[22px]" fill={filled ? 'currentColor' : 'none'} stroke={filled ? 'none' : 'currentColor'} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d={ICONS[icon]} /></svg>
+        </span>
+        {scope && <span className="relative rounded-full px-2.5 py-1 text-[10.5px] font-semibold whitespace-nowrap" style={{ background: k.chip }}>{scope}</span>}
       </div>
-      <div className={cx('grid gap-3 mt-4 pt-3 border-t min-h-[54px]', three ? 'grid-cols-3 @max-[260px]:gap-2' : 'grid-cols-2')} style={{ borderColor: `color-mix(in srgb, ${color} 28%, white)` }}>
-        {note && <div className="col-span-2 self-center text-[12.5px] font-medium text-zinc-600">{note}</div>}
-        {subs?.map(([k, v]) => (
-          <div key={k} className="min-w-0">
-            <div className={cx('text-[10.5px] font-semibold uppercase text-zinc-600 truncate', three ? 'tracking-normal @max-[260px]:text-[9.5px]' : 'tracking-wider @max-[260px]:tracking-normal')}>{k}</div>
-            <div className={cx('font-bold text-zinc-900 tabular truncate', three ? 'text-[15px] @max-[260px]:text-[14px]' : 'text-[17px] @max-[260px]:text-[15px]')}>{v}</div>
+      <div className={cx('mt-4 text-[13px] font-medium', soft)}>{label}</div>
+      <div className="text-[30px] @max-[260px]:text-[24px] leading-tight font-bold tracking-tight tabular truncate">{value}</div>
+      <div className={cx('grid gap-3 mt-4 pt-3 border-t min-h-[50px]', three ? 'grid-cols-3 @max-[260px]:gap-2' : 'grid-cols-2')} style={{ borderColor: k.dark ? 'rgba(255,255,255,.1)' : 'rgba(24,24,24,.08)' }}>
+        {note && <div className={cx('col-span-2 self-center text-[12.5px] font-medium', soft)}>{note}</div>}
+        {subs?.map(([lbl, v]) => (
+          <div key={lbl} className="min-w-0">
+            <div className={cx('text-[11px] font-medium truncate', soft)}>{lbl}</div>
+            <div className={cx('font-bold tabular truncate', three ? 'text-[15px] @max-[260px]:text-[14px]' : 'text-[17px] @max-[260px]:text-[15px]')}>{v}</div>
           </div>
         ))}
       </div>
     </>
   );
+  const style = { background: k.bg, color: k.fg };
   return to ? <Link to={to} className={cls} style={style}>{body}</Link> : <div className={cls} style={style}>{body}</div>;
 }
 
-export const Chart = ({ children, h = 240 }: { children: React.ReactElement; h?: number }) => (
-  <div className="px-2 pb-3" style={{ height: h }}><ResponsiveContainer>{children}</ResponsiveContainer></div>
+export const Chart = ({ children, h = 260 }: { children: React.ReactElement; h?: number }) => (
+  <div className="px-3 pb-4" style={{ height: h }}><ResponsiveContainer>{children}</ResponsiveContainer></div>
 );

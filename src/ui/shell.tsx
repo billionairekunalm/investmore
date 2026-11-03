@@ -84,32 +84,38 @@ export function Layout({ children }: { children: ReactNode }) {
   const items = NAV.filter((n) => S.allowed(n.mod, 'view', db));
   const unread = S.notificationsFor(db, me).filter((n) => !n.readBy.includes(me.id)).length;
   const current = navItem(loc.pathname);
+  const role = ROLES.find((r) => r.id === me.role)?.label;
   // `m` = icon-only (desktop collapsed). The phone drawer always renders full.
   const sidebar = (m: boolean) => (
-    <nav className="flex flex-col h-full whitespace-nowrap">
-      <div className="px-4 h-14 flex items-center gap-2.5 border-b border-line">
-        <LogoMark className="size-8 shrink-0" />
-        <div className={cx('leading-tight min-w-0 transition-opacity', m && 'opacity-0')}><Wordmark name={db.settings.academyName} className="block truncate text-[13.5px]" /><div className="text-[11px] text-muted">Academy management</div></div>
+    <nav className="flex flex-col h-full whitespace-nowrap text-zinc-300">
+      <div className={cx('h-16 flex items-center gap-2.5 shrink-0', m ? 'px-[18px]' : 'px-5')}>
+        <LogoMark className="size-9 shrink-0 rounded-xl border-0" />
+        {!m && <div className="leading-tight min-w-0"><Wordmark name={db.settings.academyName} className="block truncate text-[14px] text-white" /><div className="text-[11px] text-zinc-500">Academy management</div></div>}
       </div>
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-0.5">
+      {/* profile greeting */}
+      <div className={cx('shrink-0 flex flex-col items-center text-center', m ? 'py-2' : 'pt-3 pb-5')}>
+        <div className={cx('rounded-full grid place-items-center font-bold text-ink bg-lime ring-4 ring-sidebar-2 transition-all duration-300', m ? 'size-9 text-[14px]' : 'size-16 text-[24px]')} title={m ? me.name : undefined}>{me.name[0]}</div>
+        {!m && <><div className="mt-3 text-[11.5px] text-zinc-500">Welcome back,</div><div className="text-[15px] font-semibold text-white truncate max-w-full px-4">{me.name}</div><div className="text-[11px] text-brand-bright font-medium">{role}</div></>}
+      </div>
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 space-y-1 [scrollbar-width:none]">
         {items.map((n) => (
           <NavLink key={n.to} to={n.to} end={n.to === '/'} title={m ? n.label : undefined} aria-label={m ? n.label : undefined}
-            className={({ isActive }) => cx('relative flex items-center gap-2.5 rounded-lg h-8 font-medium transition-colors', m ? 'px-4' : 'px-2.5', isActive ? 'bg-white text-ink shadow-[0_0_0_1px_var(--color-line)]' : 'text-zinc-600 hover:text-ink hover:bg-zinc-100')}>
+            className={({ isActive }) => cx('relative flex items-center gap-3 rounded-2xl h-10 font-medium transition-all duration-200', m ? 'justify-center' : 'px-3.5',
+              isActive ? 'bg-lime text-ink font-semibold shadow-[0_6px_18px_-8px_rgba(182,240,156,.7)]' : 'hover:text-white hover:bg-sidebar-2')}>
             <span className="shrink-0"><Icon d={n.icon} /></span>
-            <span className={cx('transition-opacity', m && 'opacity-0')}>{n.label}</span>
+            {!m && <span>{n.label}</span>}
             {n.mod === 'notifications' && unread > 0 && (m
-              ? <span className="absolute top-1 left-7 size-2 rounded-full bg-accent" />
-              : <span className="ml-auto rounded-full bg-accent text-white text-[10.5px] px-1.5 tabular">{unread}</span>)}
+              ? <span className="absolute top-1.5 right-2 size-2 rounded-full bg-brand-bright" />
+              : <span className="ml-auto rounded-full bg-brand-bright text-white text-[10.5px] px-1.5 tabular">{unread}</span>)}
           </NavLink>
         ))}
       </div>
-      <div className={cx('py-3 border-t border-line', m ? 'px-4' : 'px-3')}>
-        <div className="flex items-center gap-2.5">
-          <div className="size-8 shrink-0 rounded-full bg-accent-soft text-accent grid place-items-center font-semibold" title={m ? me.name : undefined}>{me.name[0]}</div>
-          <div className={cx('min-w-0 flex-1 leading-tight transition-opacity', m && 'opacity-0')}><div className="font-medium truncate">{me.name}</div><div className="text-[11px] text-muted">{ROLES.find((r) => r.id === me.role)?.label}</div></div>
-          <button onClick={() => { S.logout(); nav('/'); }} tabIndex={m ? -1 : undefined} className={cx('text-xs text-muted hover:text-ink', m && 'invisible')}>Sign out</button>
-        </div>
-        {!m && <div className="mt-2 text-[10.5px] text-zinc-400 tabular" title={`Built ${new Date(__BUILT_AT__).toLocaleString('en-IN')}`}>v {__APP_VERSION__} · {new Date(__BUILT_AT__).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</div>}
+      <div className="p-3 shrink-0">
+        <button onClick={() => { S.logout(); nav('/'); }} title={m ? 'Sign out' : undefined} aria-label="Sign out"
+          className={cx('w-full flex items-center gap-3 rounded-2xl h-10 font-medium hover:text-white hover:bg-sidebar-2 transition-colors', m ? 'justify-center' : 'px-3.5')}>
+          <Icon d="M6 2.5H3v11h3M10.5 5 13.5 8l-3 3M13.5 8H6" />{!m && 'Sign out'}
+        </button>
+        {!m && <div className="mt-1 px-3.5 text-[10.5px] text-zinc-600 tabular" title={`Built ${new Date(__BUILT_AT__).toLocaleString('en-IN')}`}>v {__APP_VERSION__} · {new Date(__BUILT_AT__).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</div>}
       </div>
     </nav>
   );
@@ -118,36 +124,37 @@ export function Layout({ children }: { children: ReactNode }) {
     <RangeCtx.Provider value={{ key: rk, range, set: (k, c) => { setRk(k); setCustom(c); try { localStorage.setItem('range', k); } catch { /* */ } } }}>
       <CallCtx.Provider value={{ start: (t) => setPending({ t, at: Date.now() }), log: (t) => setLogging(t) }}>
         <div className="flex h-full">
-          <div className="hidden lg:block relative shrink-0 no-print">
-            <aside className={cx('h-full overflow-hidden border-r border-line bg-surface transition-[width] duration-200 ease-out', mini ? 'w-16' : 'w-60')}>{sidebar(mini)}</aside>
+          <div className="hidden lg:block relative shrink-0 no-print p-3 pr-0">
+            <aside className={cx('h-full overflow-hidden rounded-[28px] bg-sidebar shadow-[0_20px_40px_-20px_rgba(0,0,0,.5)] transition-[width] duration-300 ease-out', mini ? 'w-[72px]' : 'w-64')}>{sidebar(mini)}</aside>
             <button onClick={toggleMini} aria-label={mini ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!mini} title={mini ? 'Expand sidebar' : 'Collapse sidebar'}
-              className="absolute top-[17px] -right-3 z-40 size-6 grid place-items-center rounded-full border border-line bg-white text-zinc-600 shadow-sm hover:text-accent hover:border-accent/40 focus-visible:outline-2 focus-visible:outline-accent">
+              className="absolute top-[32px] -right-3 z-40 size-6 grid place-items-center rounded-full border border-line bg-white text-zinc-600 shadow-sm hover:text-ink hover:bg-lime focus-visible:outline-2 focus-visible:outline-accent">
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cx('transition-transform duration-200', mini && 'rotate-180')}><path d="M10 3 5 8l5 5" /></svg>
             </button>
           </div>
           {drawer && (
             <div className="lg:hidden fixed inset-0 z-40 no-print" onClick={() => setDrawer(false)}>
-              <div className="absolute inset-0 bg-zinc-900/30" />
-              <aside className="absolute left-0 top-0 bottom-0 w-72 bg-surface border-r border-line" onClick={(e) => e.stopPropagation()}>{sidebar(false)}</aside>
+              <div className="absolute inset-0 bg-zinc-900/40 backdrop-blur-sm kit-fade" />
+              <aside className="absolute left-2 top-2 bottom-2 w-72 rounded-[28px] bg-sidebar overflow-hidden shadow-2xl drawer-in" onClick={(e) => e.stopPropagation()}>{sidebar(false)}</aside>
             </div>
           )}
           <div className="flex-1 min-w-0 flex flex-col">
-            <header className="h-14 shrink-0 border-b border-line flex items-center gap-2 px-3 sm:px-5 bg-white/90 backdrop-blur sticky top-0 z-30 no-print">
-              <button className="lg:hidden p-1.5 -ml-1 text-zinc-600" onClick={() => setDrawer(true)} aria-label="Menu"><Icon d="M2 4h12M2 8h12M2 12h12" /></button>
-              <div className="hidden sm:flex items-center gap-1.5 text-muted min-w-0">
-                <span>{db.settings.academyName}</span><span>/</span><span className="text-ink font-medium truncate">{current.label}</span>
+            <header className="h-16 shrink-0 flex items-center gap-2 px-3 sm:px-6 bg-canvas/85 backdrop-blur-md sticky top-0 z-30 no-print">
+              <button className="lg:hidden size-10 shrink-0 grid place-items-center rounded-full bg-white shadow-card text-ink" onClick={() => setDrawer(true)} aria-label="Menu"><Icon d="M2 4h12M2 8h12M2 12h12" /></button>
+              <div className="flex flex-col min-w-0 leading-tight ml-1 lg:ml-0">
+                <span className="text-[16px] font-bold tracking-tight truncate">{current.label}</span>
+                <span className="text-[11.5px] text-muted truncate">{db.settings.academyName}</span>
               </div>
               <div className="flex-1" />
               <SyncBadge />
               <GlobalSearch />
               <RangePicker rk={rk} range={range} onChange={(k, c) => { setRk(k); setCustom(c); try { localStorage.setItem('range', k); } catch { /* */ } }} />
-              <Link to="/notifications" className="relative p-2 text-zinc-600 hover:text-ink" aria-label="Notifications">
+              <Link to="/notifications" className="relative size-10 shrink-0 grid place-items-center rounded-full bg-white shadow-card text-ink hover:bg-lime transition-colors" aria-label="Notifications">
                 <Icon d={BELL} />
-                {unread > 0 && <span className="absolute top-1 right-1 size-2 rounded-full bg-bad" />}
+                {unread > 0 && <span className="absolute top-2 right-2.5 size-2 rounded-full bg-bad ring-2 ring-white" />}
               </Link>
             </header>
             {pending && !logging && (
-              <div className="bg-accent-soft border-b border-accent/15 px-4 py-2 flex items-center gap-3 text-[13px] no-print">
+              <div className="mx-3 sm:mx-6 mb-2 rounded-2xl bg-lime/60 px-4 py-2 flex items-center gap-3 text-[13px] no-print">
                 <span>Calling <b>{pending.t.name}</b> ({fmtPhone(pending.t.phone)}) — log the outcome when you're done.</span>
                 <div className="flex-1" />
                 <Button size="sm" variant="primary" onClick={() => setLogging(pending.t)}>Log outcome</Button>
@@ -155,7 +162,7 @@ export function Layout({ children }: { children: ReactNode }) {
               </div>
             )}
             <main className="flex-1 overflow-y-auto">
-              <div className="mx-auto max-w-[1400px] p-4 sm:p-6 pb-32 lg:pb-8">{children}</div>
+              <div className="mx-auto max-w-[1400px] px-4 sm:px-6 pt-2 pb-32 lg:pb-8 page-in">{children}</div>
             </main>
             <MobileTabs items={items} />
           </div>
@@ -173,11 +180,11 @@ function MobileTabs({ items }: { items: typeof NAV }) {
   const short: Record<string, string> = { '/': 'Home', '/students': 'Students', '/collections': 'Collect', '/batches': 'Batches', '/leads': 'Leads' };
   return (
     <nav aria-label="Main" className="lg:hidden fixed bottom-0 inset-x-0 z-30 px-3 pt-2 no-print pointer-events-none" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 10px)' }}>
-      <div className="pointer-events-auto mx-auto max-w-md flex items-stretch gap-1 rounded-[22px] bg-white/95 backdrop-blur-md border border-zinc-200/80 p-1.5 shadow-[0_10px_30px_-10px_rgba(15,35,65,.35)]">
+      <div className="pointer-events-auto mx-auto max-w-md flex items-stretch gap-1 rounded-[26px] bg-sidebar/95 backdrop-blur-md p-1.5 shadow-[0_14px_30px_-10px_rgba(0,0,0,.55)]">
         {tabs.map((n) => (
           <NavLink key={n.to} to={n.to} end={n.to === '/'}
-            className={({ isActive }) => cx('flex-1 min-w-0 flex flex-col items-center justify-center gap-1 rounded-2xl py-2 text-[11.5px] font-semibold transition-colors',
-              isActive ? 'bg-[linear-gradient(135deg,#046b23,#0e9f3d)] text-white shadow-[0_6px_14px_-6px_rgba(4,107,35,.8)]' : 'text-zinc-500 active:bg-zinc-100')}>
+            className={({ isActive }) => cx('flex-1 min-w-0 flex flex-col items-center justify-center gap-1 rounded-[20px] py-2 text-[11.5px] font-semibold transition-colors',
+              isActive ? 'bg-lime text-ink' : 'text-zinc-400 active:bg-sidebar-2')}>
             <svg viewBox="0 0 16 16" className="size-[22px]" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d={n.icon} /></svg>
             <span className="truncate max-w-full px-0.5">{short[n.to] ?? n.label.split(' ')[0]}</span>
           </NavLink>
@@ -193,7 +200,7 @@ function RangePicker({ rk, range, onChange }: { rk: RangeKey; range: ISODateRang
   return (
     <div className="flex items-center gap-1.5">
       <select value={rk} onChange={(e) => { const k = e.target.value as RangeKey; onChange(k, k === 'custom' ? [a, b] : undefined); }}
-        className="h-9 rounded-lg border border-line bg-white px-2 text-[13px] max-w-[9.5rem]" aria-label="Date range">
+        className="h-10 rounded-full bg-white shadow-card px-3.5 text-[13px] font-medium max-w-[9.5rem] outline-none focus:ring-3 focus:ring-lime" aria-label="Date range">
         {(Object.keys(RANGE_LABELS) as RangeKey[]).map((k) => <option key={k} value={k}>{RANGE_LABELS[k]}</option>)}
       </select>
       {rk === 'custom' && (
@@ -223,9 +230,9 @@ function GlobalSearch() {
   return (
     <div className="relative hidden md:block w-64">
       <Input ref={ref} value={q} onChange={(e) => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)}
-        placeholder="Search students, leads…  Ctrl K" className="pl-3" />
+        placeholder="Search students, leads…  Ctrl K" className="pl-4 rounded-full border-0 shadow-card" />
       {open && t.length > 1 && (
-        <div className="absolute right-0 mt-1 w-80 rounded-lg border border-line bg-white shadow-lg z-50 py-1 max-h-96 overflow-y-auto">
+        <div className="absolute right-0 mt-2 w-80 rounded-2xl bg-white shadow-xl z-50 py-2 max-h-96 overflow-y-auto kit-zoom">
           {!students.length && !leads.length && <div className="px-3 py-3 text-muted">No matches for “{q}”</div>}
           {!!students.length && <div className="px-3 pt-2 pb-1 text-[11px] uppercase tracking-wide text-muted">Students</div>}
           {students.map((s) => <button key={s.id} onMouseDown={() => go(`/students/${s.id}`)} className="block w-full text-left px-3 py-1.5 hover:bg-surface">{s.name} <span className="text-muted">· {s.code} · {fmtPhone(s.phone)}</span></button>)}

@@ -14,8 +14,13 @@
   --color-info-soft: #eff4ff;
   --color-ink: #181818;
   --color-muted: #5f5f6b; /* darker grey: easier to read (6.4:1 on white) */
-  --color-line: #e7e7ea;
-  --color-surface: #fafafa;
+  --color-line: #ebe8e1; /* warm hairline to sit on the canvas */
+  --color-surface: #f7f6f2;
+  /* layout: warm canvas, charcoal sidebar (logo black), lime-green highlight (logo bright green) */
+  --color-canvas: #f2f1ec;
+  --color-sidebar: #151715;
+  --color-sidebar-2: #222522;
+  --color-lime: #b6f09c;
   --color-ok: #028a02;
   --color-ok-soft: #ebf7ea;
   --color-warn: #c2410c;
@@ -25,7 +30,7 @@
 }
 
 html, body, #root { height: 100%; }
-body { @apply bg-white text-ink antialiased text-[14px]; font-feature-settings: "cv11", "ss01"; -webkit-tap-highlight-color: transparent; }
+body { @apply bg-canvas text-ink antialiased text-[14px]; font-feature-settings: "cv11", "ss01"; -webkit-tap-highlight-color: transparent; }
 input, select, textarea { font-size: 16px; } /* avoids iOS zoom */
 @media (min-width: 768px) { input, select, textarea { font-size: 14px; } }
 .tabular { font-variant-numeric: tabular-nums; }
@@ -42,3 +47,11 @@ input, select, textarea { font-size: 16px; } /* avoids iOS zoom */
 .kit-fade { animation: kit-fade .25s ease-out both; }
 .kit-zoom { animation: kit-zoom .35s cubic-bezier(.2,.8,.2,1) both; }
 @media (prefers-reduced-motion: reduce) { .kit-rise, .kit-fade, .kit-zoom { animation: none; } }
+
+/* soft floating card shadow used across the app */
+.shadow-card { box-shadow: 0 1px 2px rgba(24,24,24,.04), 0 8px 24px -12px rgba(24,24,24,.10); }
+@keyframes page-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.page-in { animation: page-in .35s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes drawer-in { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: none; } }
+.drawer-in { animation: drawer-in .3s cubic-bezier(.2,.8,.2,1) both; }
+@media (prefers-reduced-motion: reduce) { .page-in, .drawer-in { animation: none; } }
