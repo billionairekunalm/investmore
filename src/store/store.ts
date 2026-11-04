@@ -212,7 +212,7 @@ function guard(d: DB, mod: Module, act: Action) {
   if (!can(d.settings.permissions, u!.role, mod, act)) fail(`Your role does not allow "${act}" on ${mod}.`);
   return u!;
 }
-export const empName = (id?: string, d: DB = db) => d.employees.find((e) => e.id === id)?.name ?? (id === 'system' ? 'System' : '—');
+export const empName = (id?: string, d: DB = db) => d.employees.find((e) => e.id === id)?.name ?? (id && d.settings.formerStaff?.[id]) ?? (id === 'system' ? 'System' : '—');
 
 // ponytail: "sign in as" until Supabase Auth replaces it; permission checks already live in the data layer.
 export function login(id: string) {
@@ -289,6 +289,28 @@ export function saveEmployee(e: Omit<Employee, 'id' | 'createdAt'> & { id?: stri
     d.employees.push({ ...e, phone, id, createdAt: nowISO() });
     audit(d, 'employee.create', 'employee', id, `${e.name} (${e.role})`);
     return id;
+  });
+}
+
+/**
+ * Removes an employee for good. Their leads, batches and students are left unassigned (the cloud tables link to
+ * employees, so those links must be cleared first); past payments, calls and the activity log keep their name.
+ */
+export function deleteEmployee(id: string) {
+  return tx((d) => {
+    const u = guard(d, 'employees', 'delete');
+    if (u.role !== 'super_admin' && u.role !== 'admin') fail('Only an admin can delete an employee.');
+    const e = d.employees.find((x) => x.id === id) ?? fail('Employee not found.');
+    if (e.id === u.id) fail('You cannot delete your own account.');
+    if (e.role === 'super_admin' && u.role !== 'super_admin') fail('Only a Super Admin can delete a Super Admin.');
+    if (e.role === 'super_admin' && e.active && d.employees.filter((x) => x.role === 'super_admin' && x.active).length === 1) fail('At least one active Super Admin is required.');
+    const leads = d.leads.filter((l) => l.assignedTo === id);
+    for (const l of leads) l.assignedTo = '';
+    for (const b of d.batches) if (b.teacherId === id) b.teacherId = '';
+    for (const s of d.students) if (s.counsellorId === id) s.counsellorId = '';
+    d.settings = { ...d.settings, formerStaff: { ...d.settings.formerStaff, [id]: e.name } };
+    d.employees = d.employees.filter((x) => x.id !== id);
+    audit(d, 'employee.delete', 'employee', id, `${e.name} (${e.role}, ${e.phone}) · ${leads.length} leads unassigned`);
   });
 }
 

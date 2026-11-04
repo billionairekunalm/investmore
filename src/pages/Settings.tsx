@@ -5,13 +5,11 @@ import { Button, Card, Empty, Field, Input, PageHeader, SearchInput, Table, cx, 
 import { cloudEnabled } from '../store/cloud';
 import { fmtDateTime } from '../domain/util';
 import { loadDemo } from '../lib/demo';
-import { balance } from './Courses';
 
 /** Settings, kept to what the academy actually changes. Each section saves on its own. */
 const SECTIONS = [
   { id: 'academy', label: 'Academy', icon: 'M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6' },
   { id: 'fees', label: 'Fees', icon: 'M6 3h12M6 8h12M13 21 6 13h3a5 5 0 0 0 0-10' },
-  { id: 'profit', label: 'Profit split', icon: 'M21 12A9 9 0 1 1 12 3v9z M15 3.5A9 9 0 0 1 20.5 9H15z' },
   { id: 'attendance', label: 'Attendance', icon: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 18h2v2h-2z' },
   { id: 'leads', label: 'Leads', icon: 'M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z' },
   { id: 'automation', label: 'Automation', icon: 'M13 2 4 14h7l-1 8 9-12h-7z' },
@@ -43,7 +41,6 @@ export default function Settings() {
         <div className="min-w-0 max-w-3xl">
           {sec === 'academy' && <Academy canEdit={canEdit} />}
           {sec === 'fees' && <Fees canEdit={canEdit} />}
-          {sec === 'profit' && <Profit />}
           {sec === 'attendance' && <Attendance canEdit={canEdit} />}
           {sec === 'leads' && <Leads canEdit={canEdit} />}
           {sec === 'automation' && <Automation canEdit={canEdit} />}
@@ -123,38 +120,6 @@ function Fees({ canEdit }: { canEdit: boolean }) {
           <Field label="GST included in fees (%)" hint="0 if not GST-registered" error={gstOk ? undefined : 'Enter 0–28'}><Input value={gst} disabled={!canEdit} inputMode="decimal" onChange={(e) => setGst(e.target.value)} /></Field>
           <Field label="Payment reminder days" hint="Before (−) or after the due date, e.g. -2, 0, 1, 3" error={daysOk ? undefined : 'Whole numbers, comma separated'}><Input value={days} disabled={!canEdit} onChange={(e) => setDays(e.target.value)} /></Field>
         </div>
-      </div>
-    </Section>
-  );
-}
-
-function Profit() {
-  const db = S.useDB();
-  const run = useRun();
-  const isSA = S.currentUser()?.role === 'super_admin';
-  const init = () => db.settings.shares.map((s) => ({ name: s.name, pct: String(s.pctBp / 100) }));
-  const [rows, setRows] = useState(init);
-  const total = rows.reduce((a, r) => a + Math.round((parseFloat(r.pct) || 0) * 100), 0);
-  const dirty = JSON.stringify(rows) !== JSON.stringify(init());
-  const ok = total === 10000 && rows.every((r) => r.name.trim());
-  return (
-    <Section title="Default profit split" sub="Used for courses without their own split. Changing one founder re-shares the rest so it stays 100%." dirty={isSA && dirty && ok}
-      onSave={() => run(() => S.updateSettings({ shares: rows.map((r) => ({ name: r.name.trim(), pctBp: Math.round((parseFloat(r.pct) || 0) * 100) })) }), 'Profit split saved')}>
-      <div className="space-y-2">
-        {rows.map((r, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <Input aria-label="Founder name" value={r.name} disabled={!isSA} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />
-            <div className="relative w-28 shrink-0">
-              <Input aria-label="Share %" value={r.pct} disabled={!isSA} inputMode="decimal" className="w-28 pr-7 text-right" onChange={(e) => setRows(balance(rows, i, e.target.value))} />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted">%</span>
-            </div>
-            {isSA && rows.length > 1 && <Button size="sm" variant="ghost" aria-label="Remove founder" onClick={() => setRows(rows.filter((_, j) => j !== i))}>✕</Button>}
-          </div>
-        ))}
-      </div>
-      <div className="mt-3 flex items-center justify-between">
-        {isSA ? <Button size="sm" onClick={() => setRows([...rows, { name: '', pct: '0' }])}>+ Founder</Button> : <span className="text-[12.5px] text-muted">Only the Super Admin can change this.</span>}
-        <span className={cx('text-[13px] font-semibold tabular', total === 10000 ? 'text-accent' : 'text-bad')}>Total {total / 100}%</span>
       </div>
     </Section>
   );

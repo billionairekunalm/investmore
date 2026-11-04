@@ -71,7 +71,7 @@ function CourseCard({ c, onEdit }: { c: Course; onEdit?: () => void }) {
               </li>
             ))}
           </ul>
-          {!c.shares && <p className="mt-2 text-[11.5px] text-muted">Using the default split from Settings.</p>}
+          {!c.shares && <p className="mt-2 text-[11.5px] text-muted">Default split. Edit this course to set its own founder split.</p>}
         </div>
       </div>
     </Card>

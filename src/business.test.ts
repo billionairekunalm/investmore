@@ -484,3 +484,16 @@ describe('delete a student', () => {
     expect(d.audit.find((a) => a.action === 'student.delete')?.detail).toMatch(/Duplicate admission/);
   });
 });
+
+describe('employee delete', () => {
+  it('unassigns their records, keeps their name on history, and protects self / last Super Admin', () => {
+    const cal = S.saveEmployee({ name: 'Cal', phone: '9700000001', email: '', role: 'caller', active: true });
+    const lead = S.saveLead({ name: 'L', phone: '9333333333', assignedTo: cal });
+    S.deleteEmployee(cal);
+    const d = S.getDB();
+    expect(d.employees.some((e) => e.id === cal)).toBe(false);
+    expect(d.leads.find((l) => l.id === lead)!.assignedTo).toBe('');
+    expect(S.empName(cal)).toBe('Cal');
+    expect(() => S.deleteEmployee(admin)).toThrow(/own account/);
+  });
+});

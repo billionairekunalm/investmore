@@ -47,9 +47,21 @@ function EmployeeModal({ emp, onClose }: { emp: Partial<Employee> | null; onClos
   const me = S.useMe()!;
   const [e, setE] = useState<Partial<Employee>>({});
   useEffect(() => { if (emp) setE(emp); }, [emp]);
+  const { ask } = useUI();
+  const db = S.useDB();
   const roles = ROLES.filter((r) => r.id !== 'super_admin' || me.role === 'super_admin');
+  const canDelete = !!e.id && e.id !== me.id && (me.role === 'super_admin' || me.role === 'admin') && S.allowed('employees', 'delete', db)
+    && (emp?.role !== 'super_admin' || me.role === 'super_admin');
+  const del = async () => {
+    const id = e.id!, name = emp?.name;
+    const n = db.leads.filter((l) => l.assignedTo === id).length;
+    onClose(); // the confirm dialog would otherwise open underneath this one
+    const ok = await ask({ title: `Delete ${name}?`, danger: true, confirm: 'Delete employee',
+      message: `They will no longer be able to sign in.${n ? ` Their ${n} lead${n > 1 ? 's' : ''} will become unassigned.` : ''} Past payments and calls keep their name. This cannot be undone.` });
+    if (ok) run(() => S.deleteEmployee(id), 'Employee deleted');
+  };
   return (
-    <Modal open={!!emp} onClose={onClose} title={e.id ? `Edit ${emp?.name}` : 'Add employee'} footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" disabled={!e.name || !e.phone} onClick={() => { let ok = false; run(() => { S.saveEmployee(e as Employee); ok = true; }, 'Saved'); if (ok) onClose(); }}>Save</Button></>}>
+    <Modal open={!!emp} onClose={onClose} title={e.id ? `Edit ${emp?.name}` : 'Add employee'} footer={<>{canDelete && <Button variant="danger" className="mr-auto" onClick={del}>Delete</Button>}<Button onClick={onClose}>Cancel</Button><Button variant="primary" disabled={!e.name || !e.phone} onClick={() => { let ok = false; run(() => { S.saveEmployee(e as Employee); ok = true; }, 'Saved'); if (ok) onClose(); }}>Save</Button></>}>
       <div className="grid sm:grid-cols-2 gap-3">
         <Field label="Name" required><Input value={e.name ?? ''} onChange={(x) => setE({ ...e, name: x.target.value })} /></Field>
         <Field label="Mobile" required><Input inputMode="tel" value={e.phone ?? ''} onChange={(x) => setE({ ...e, phone: x.target.value })} /></Field>
