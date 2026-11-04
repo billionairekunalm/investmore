@@ -7,6 +7,7 @@ import { RANGE_LABELS, resolveRange, todayIST, fmtPhone, type RangeKey } from '.
 export type ISODateRange = [string, string];
 import { Button, Input, LogoMark, Wordmark, cx } from './kit';
 import { CallOutcomeModal } from './modals';
+import { resizeImage } from '../lib/ocr';
 import { cloudEnabled, getSyncStatus, subscribeSync } from '../store/cloud';
 
 // ---------------- global date range ----------------
@@ -86,6 +87,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const unread = S.notificationsFor(db, me).filter((n) => !n.readBy.includes(me.id)).length;
   const current = navItem(loc.pathname);
   const role = ROLES.find((r) => r.id === me.role)?.label;
+  const photo = db.settings.staffPhotos?.[me.id];
   // `m` = icon-only (desktop collapsed). The phone drawer always renders full.
   const sidebar = (m: boolean) => (
     <nav className="flex flex-col h-full whitespace-nowrap text-zinc-300">
@@ -95,7 +97,15 @@ export function Layout({ children }: { children: ReactNode }) {
       </div>
       {/* profile greeting */}
       <div className={cx('shrink-0 flex flex-col items-center text-center', m ? 'py-2' : 'pt-3 pb-5')}>
-        <div className={cx('rounded-full grid place-items-center font-bold text-ink bg-lime ring-4 ring-sidebar-2 transition-all duration-300', m ? 'size-9 text-[14px]' : 'size-16 text-[24px]')} title={m ? me.name : undefined}>{me.name[0]}</div>
+        {/* click to set your own photo; Super Admin shows the logo until they pick one */}
+        <label title={m ? me.name : 'Change photo'} className={cx('group relative cursor-pointer rounded-full grid place-items-center overflow-hidden font-bold text-ink ring-4 ring-sidebar-2 transition-all duration-300', m ? 'size-9 text-[14px]' : 'size-16 text-[24px]', photo || me.role !== 'super_admin' ? 'bg-lime' : 'bg-white')}>
+          {photo ? <img src={photo} alt="" className="size-full object-cover" />
+            : me.role === 'super_admin' ? <img src="/logo-mark.png" alt="" className="size-[70%] object-contain" /> : me.name[0]}
+          {!m && <span className="absolute inset-0 grid place-items-center bg-black/45 text-white text-[10.5px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity">Change</span>}
+          <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only"
+            onChange={async (e) => { const f = e.target.files?.[0]; if (f) S.setMyPhoto(await resizeImage(f, 160)); e.target.value = ''; }} />
+        </label>
+        {!m && photo && <button onClick={() => S.setMyPhoto()} className="mt-1.5 text-[10.5px] text-zinc-500 hover:text-white">Remove photo</button>}
         {!m && <><div className="mt-3 text-[11.5px] text-zinc-500">Welcome back,</div><div className="text-[15px] font-semibold text-white truncate max-w-full px-4">{me.name}</div><div className="text-[11px] text-brand-bright font-medium">{role}</div></>}
       </div>
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 space-y-1 [scrollbar-width:none]">

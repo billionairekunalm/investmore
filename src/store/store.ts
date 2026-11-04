@@ -270,6 +270,16 @@ export function updateSettings(patch: Partial<Settings>, reason = '') {
   });
 }
 
+/** The signed-in user's own sidebar photo (undefined = remove). Kept in settings so it syncs without a new cloud column. */
+export function setMyPhoto(photo?: string) {
+  tx((d) => {
+    const u = currentUser(d) ?? fail('Sign in first.');
+    const p = { ...d.settings.staffPhotos };
+    if (photo) p[u.id] = photo; else delete p[u.id];
+    d.settings.staffPhotos = p;
+  });
+}
+
 export function saveEmployee(e: Omit<Employee, 'id' | 'createdAt'> & { id?: string }) {
   return tx((d) => {
     const u = guard(d, 'employees', e.id ? 'edit' : 'create');

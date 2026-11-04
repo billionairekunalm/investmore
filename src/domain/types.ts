@@ -161,6 +161,7 @@ export interface LoginEvent { id: string; userId: string; at: string; userAgent:
 
 export interface Settings {
   academyName: string;
+  staffPhotos?: Record<string, string>; // employee id -> sidebar photo (small data URL)
   formerStaff?: Record<string, string>; // deleted employees: id -> name, so past payments/calls still show who did them
   bookingPolicy: BookingPolicy | null; // null = admin has not chosen; admissions are blocked
   startEvent: 'admission' | 'batch_start';
