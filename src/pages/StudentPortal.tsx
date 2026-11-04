@@ -127,6 +127,8 @@ export default function StudentPortal() {
         {/* below the tabs: as before */}
         <InstallApp />
         <Reminders />
+        {/* fees, fee schedule and payments live on the ID Card tab only (not repeated on Attendance / Courses / Certificates) */}
+        {tab === 'id' && <>
         <Card className="overflow-hidden rounded-3xl">
           <h2 className="px-4 pt-4 pb-2 font-bold text-[16px] text-ink">My fees</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-line border-t border-line">
@@ -177,6 +179,7 @@ export default function StudentPortal() {
           )}
         </Card>
         <p className="text-center text-[12px] text-muted">Questions about your fees? Contact the academy office.</p>
+        </>}
       </main>
 
       {/* the four main tabs, at the bottom like a phone app */}
