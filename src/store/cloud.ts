@@ -38,6 +38,26 @@ export async function sendReset(email: string) {
   const { error } = await sb!.auth.resetPasswordForEmail(email.trim(), { redirectTo: location.origin });
   if (error) throw new Error(error.message);
 }
+/** Signs in again with the current password: a wrong one throws, so nothing changes. */
+async function checkMyPassword(password: string) {
+  const email = (await getSession())?.user.email;
+  if (!email) throw new Error('Please sign in again.');
+  await signIn(email, password).catch(() => { throw new Error('Your current password is wrong.'); });
+}
+export async function changeMyPassword(current: string, next: string) {
+  await checkMyPassword(current);
+  const { error } = await sb!.auth.updateUser({ password: next });
+  if (error) throw new Error(error.message);
+}
+/** Super Admin: sign in with this real email from now on, so a forgotten password can be reset by email (migration 0023). */
+export async function setMyLoginEmail(email: string, password: string): Promise<string> {
+  await checkMyPassword(password);
+  await flushSync(); // upload pending changes under the old login first
+  const { data, error } = await sb!.rpc('set_my_login_email', { p_email: email.trim() });
+  if (error) throw new Error(/could not find the function/i.test(error.message) ? 'The database needs update 0023 first (ask your developer).' : error.message);
+  await signIn(String(data), password); // a fresh session under the new email
+  return String(data);
+}
 export async function signOutCloud() { await sb?.auth.signOut(); synced.clear(); syncedState = ''; }
 
 // ---------------- pull ----------------

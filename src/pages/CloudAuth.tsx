@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import * as S from '../store/store';
-import { hasEmployees, loginIdOf, sb, setupAdmin, signInWithId, studentSignup } from '../store/cloud';
+import { hasEmployees, loginIdOf, sb, sendReset, setupAdmin, signInWithId, studentSignup } from '../store/cloud';
 import { Button, Field, Input, LogoMark, Wordmark, cx, useRun } from '../ui/kit';
 import { ROLES } from '../domain/types';
 
@@ -8,7 +8,7 @@ type Who = 'student' | 'staff' | 'admin';
 const WHO: { id: Who; label: string; icon: string; field: string; hint: string }[] = [
   { id: 'student', label: 'Student', icon: 'M12 3 2 8l10 5 10-5-10-5Zm-6 7.5V15c0 1.7 2.7 3 6 3s6-1.3 6-3v-4.5', field: 'Student ID', hint: 'Your student ID is on your fee receipt.' },
   { id: 'staff', label: 'Staff', icon: 'M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm13 9v-1a4 4 0 0 0-3-3.9M16 3.1a3.5 3.5 0 0 1 0 6.8', field: 'Staff login ID', hint: 'Given to you by your admin.' },
-  { id: 'admin', label: 'Admin', icon: 'M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Zm-3 10 2 2 4-4', field: 'Admin login ID', hint: 'The main academy login.' },
+  { id: 'admin', label: 'Admin', icon: 'M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Zm-3 10 2 2 4-4', field: 'Admin login ID or email', hint: 'The main academy login.' },
 ];
 const Icon = ({ d, className = 'size-4' }: { d: string; className?: string }) => (
   <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d={d} /></svg>
@@ -60,6 +60,36 @@ function SignInOrSetup({ error }: { error?: string }) {
 }
 
 function SignInForm({ error, first, onSignup }: { error?: string; first: boolean; onSignup: () => void }) {
+  const [forgot, setForgot] = useState(false);
+  return forgot ? <ForgotPassword onBack={() => setForgot(false)} /> : <SignInFields error={error} first={first} onSignup={onSignup} onForgot={() => setForgot(true)} />;
+}
+
+/** Super Admin with a recovery email (My account): Supabase emails a link that opens "Set a new password". */
+function ForgotPassword({ onBack }: { onBack: () => void }) {
+  const [email, setEmail] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ tone: 'bad' | 'ok'; text: string } | null>(null);
+  const go = async () => {
+    setBusy(true); setMsg(null);
+    try { await sendReset(email); setMsg({ tone: 'ok', text: 'If this email belongs to an admin login, a reset link is on its way. Check your inbox and spam folder.' }); }
+    catch (e) { setMsg({ tone: 'bad', text: (e as Error).message }); }
+    setBusy(false);
+  };
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); if (email.includes('@')) void go(); }} className="space-y-3">
+      <Title sub="Enter the recovery email you added under My account. We'll send you a link to set a new password.">Reset password</Title>
+      <Field label="Email"><Input type="email" autoComplete="email" autoFocus value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
+      {msg && <Msg tone={msg.tone}>{msg.text}</Msg>}
+      <Button type="submit" variant="primary" className="w-full" loading={busy} disabled={!email.includes('@')}>Send reset link</Button>
+      <p className="text-center text-[12px] text-muted">No recovery email? Another Super Admin can reset your password from Employees.</p>
+      <div className="pt-3 border-t border-line text-center text-[13px] text-zinc-600">
+        <button type="button" onClick={onBack} className="font-semibold text-accent hover:underline">Back to sign in</button>
+      </div>
+    </form>
+  );
+}
+
+function SignInFields({ error, first, onSignup, onForgot }: { error?: string; first: boolean; onSignup: () => void; onForgot: () => void }) {
   const [who, setWho0] = useState<Who>('student'); // Student first; nothing pre-filled
   const [id, setId] = useState('');
   const [pw, setPw] = useState('');
@@ -104,7 +134,9 @@ function SignInForm({ error, first, onSignup }: { error?: string; first: boolean
       </Field>
       {msg && <Msg tone={msg.tone}>{msg.text}</Msg>}
       <Button type="submit" variant="primary" className="w-full" loading={busy} disabled={!id.trim() || !pw}>Sign in as {w.label.toLowerCase()}</Button>
-      <p className="text-center text-[12px] text-muted">Forgot your password? {who === 'student' ? 'Ask the academy office.' : 'Ask your admin.'}</p>
+      <p className="text-center text-[12px] text-muted">Forgot your password? {who === 'admin'
+        ? <button type="button" onClick={onForgot} className="font-semibold text-accent hover:underline">Reset it by email</button>
+        : who === 'student' ? 'Ask the academy office.' : 'Ask your admin.'}</p>
       <div className="pt-3 border-t border-line text-center text-[13px] text-zinc-600">
         New student? <button type="button" onClick={onSignup} className="font-semibold text-accent hover:underline">Sign up as a student</button>
       </div>

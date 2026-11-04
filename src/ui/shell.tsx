@@ -8,6 +8,7 @@ export type ISODateRange = [string, string];
 import { Button, Input, LogoMark, Wordmark, cx } from './kit';
 import { CallOutcomeModal } from './modals';
 import { resizeImage } from '../lib/ocr';
+import { MyAccount } from './MyAccount';
 import { cloudEnabled, getSyncStatus, subscribeSync } from '../store/cloud';
 
 // ---------------- global date range ----------------
@@ -69,6 +70,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const range = resolveRange(rk, todayIST(), custom);
   const [pending, setPending] = useState<{ t: CallTarget; at: number } | null>(null);
   const [logging, setLogging] = useState<CallTarget | null>(null);
+  const [account, setAccount] = useState(false);
 
   useEffect(() => setDrawer(false), [loc.pathname]);
   // When staff return from the dialler, ask for the outcome. Opening the dialler alone never counts as a call.
@@ -106,7 +108,8 @@ export function Layout({ children }: { children: ReactNode }) {
             onChange={async (e) => { const f = e.target.files?.[0]; if (f) S.setMyPhoto(await resizeImage(f, 160)); e.target.value = ''; }} />
         </label>
         {!m && photo && <button onClick={() => S.setMyPhoto()} className="mt-1.5 text-[10.5px] text-zinc-500 hover:text-white">Remove photo</button>}
-        {!m && <><div className="mt-3 text-[11.5px] text-zinc-500">Welcome back,</div><div className="text-[15px] font-semibold text-white truncate max-w-full px-4">{me.name}</div><div className="text-[11px] text-brand-bright font-medium">{role}</div></>}
+        {!m && <><div className="mt-3 text-[11.5px] text-zinc-500">Welcome back,</div><div className="text-[15px] font-semibold text-white truncate max-w-full px-4">{me.name}</div><div className="text-[11px] text-brand-bright font-medium">{role}</div>
+          {cloudEnabled && <button onClick={() => setAccount(true)} className="mt-2 h-7 px-3 rounded-full text-[11px] font-medium text-zinc-400 bg-sidebar-2 hover:text-white">My account · password</button>}</>}
       </div>
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 space-y-1 [scrollbar-width:none]">
         {items.map((n) => (
@@ -179,6 +182,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
         </div>
         <CallOutcomeModal target={logging} onClose={() => { setLogging(null); setPending(null); }} />
+        {account && <MyAccount onClose={() => setAccount(false)} />}
       </CallCtx.Provider>
     </RangeCtx.Provider>
   );

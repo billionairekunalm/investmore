@@ -69,8 +69,9 @@ function EmployeeModal({ emp, onClose }: { emp: Partial<Employee> | null; onClos
         <Field label="Role"><Select value={e.role ?? 'caller'} onChange={(x) => setE({ ...e, role: x.target.value as Role })} options={roles.map((r) => ({ value: r.id, label: r.label }))} /></Field>
         <div className="sm:col-span-2"><Checkbox checked={e.active ?? true} onChange={(x) => setE({ ...e, active: x.target.checked })} label="Active (can sign in)" /></div>
       </div>
-      {cloudEnabled && me.role === 'super_admin' && (e.id
-        ? <StaffLogin id={e.id} />
+      {cloudEnabled && me.role === 'super_admin' && (e.id === me.id
+        ? <p className="mt-4 text-[12.5px] text-muted">Change your own password or add a recovery email from <b>My account</b> in the sidebar.</p>
+        : e.id ? <StaffLogin id={e.id} />
         : <p className="mt-4 text-[12.5px] text-muted">Save the employee first, then open them again to give a login ID and password.</p>)}
     </Modal>
   );
