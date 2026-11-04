@@ -525,3 +525,21 @@ describe('lead marked Converted by a caller', () => {
     expect(() => S.setLeadStatus(id, 'Hot')).toThrow(/already a student/);
   });
 });
+
+describe('schedule many classes', () => {
+  it('creates one class per chosen weekday, skips days that already have one, rejects bad input', () => {
+    S.saveBatch({ name: 'Sched', courseId: course(), teacherId: '', startDate: T, endDate: addDays(T, 60), schedule: 'Mon-Fri', timing: '10:00-12:00', capacity: 30, status: 'running' } as never);
+    const b = S.getDB().batches.find((x) => x.name === 'Sched')!.id;
+    const from = '2026-11-02', to = '2026-11-15'; // Mon 2 Nov .. Sun 15 Nov
+    expect(S.classDays(from, to, [1, 2, 3, 4, 5])).toHaveLength(10);
+    expect(S.classDays(from, to, [6, 0])).toEqual(['2026-11-07', '2026-11-08', '2026-11-14', '2026-11-15']);
+    const r1 = S.scheduleClasses(b, { days: [1, 2, 3, 4, 5], startTime: '10:00', endTime: '12:00', from, to });
+    expect(r1).toEqual({ made: 10, skipped: 0 });
+    const r2 = S.scheduleClasses(b, { days: [1, 2, 3, 4, 5, 6], startTime: '10:30', endTime: '11:30', from, to }); // overlaps the 10 existing weekdays
+    expect(r2).toEqual({ made: 2, skipped: 10 });
+    expect(S.getDB().classes.filter((c) => c.batchId === b)).toHaveLength(12);
+    expect(() => S.scheduleClasses(b, { days: [], startTime: '10:00', endTime: '12:00', from, to })).toThrow(/at least one day/);
+    expect(() => S.scheduleClasses(b, { days: [1], startTime: '12:00', endTime: '10:00', from, to })).toThrow(/End time/);
+    expect(() => S.scheduleClasses(b, { days: [1], startTime: '10:00', endTime: '12:00', from, to: '2028-01-01' })).toThrow(/one year/);
+  });
+});

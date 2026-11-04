@@ -10,8 +10,9 @@ import ClassroomQr from '../ui/ClassroomQr';
 /** Settings, kept to what the academy actually changes. Each section saves on its own. */
 const SECTIONS = [
   { id: 'academy', label: 'Academy', icon: 'M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6' },
+  { id: 'qr', label: 'Attendance QR', icon: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 18h2v2h-2zM18 14h2' },
   { id: 'fees', label: 'Fees', icon: 'M6 3h12M6 8h12M13 21 6 13h3a5 5 0 0 0 0-10' },
-  { id: 'attendance', label: 'Attendance', icon: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 18h2v2h-2z' },
+  { id: 'attendance', label: 'Attendance rules', icon: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 18h2v2h-2z' },
   { id: 'leads', label: 'Leads', icon: 'M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z' },
   { id: 'automation', label: 'Automation', icon: 'M13 2 4 14h7l-1 8 9-12h-7z' },
   { id: 'activity', label: 'Activity log', icon: 'M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z' },
@@ -41,6 +42,7 @@ export default function Settings() {
         </nav>
         <div className="min-w-0 max-w-3xl">
           {sec === 'academy' && <Academy canEdit={canEdit} />}
+          {sec === 'qr' && <ClassroomQr canEdit={canEdit} />}
           {sec === 'fees' && <Fees canEdit={canEdit} />}
           {sec === 'attendance' && <Attendance canEdit={canEdit} />}
           {sec === 'leads' && <Leads canEdit={canEdit} />}
@@ -136,7 +138,6 @@ function Attendance({ canEdit }: { canEdit: boolean }) {
   const dirty = b !== w.beforeMins || a !== w.afterMins || f.noQr !== (db.settings.attendanceNoQr ?? true);
   return (
     <div className="space-y-4">
-    <ClassroomQr canEdit={canEdit} />
     <Section title="Attendance" sub="When students can mark themselves present for a class." dirty={dirty && ok && canEdit}
       onSave={() => run(() => S.updateSettings({ attendanceWindow: { beforeMins: b, afterMins: a }, attendanceNoQr: f.noQr }), 'Saved')}>
       <div className="grid sm:grid-cols-2 gap-x-4 gap-y-3.5">

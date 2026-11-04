@@ -7,7 +7,7 @@ import { NEEDS_DATE } from '../domain/types';
 import { buildSchedule } from '../domain/fees';
 import { financeFor, periodFigures, splitProfit } from '../domain/finance';
 import { can, defaultPermissions } from '../domain/permissions';
-import { addDays, monthOf, monthRange, normalizePhone, nowISO, todayIST, uid } from '../domain/util';
+import { addDays, daysBetween, monthOf, monthRange, normalizePhone, nowISO, todayIST, uid } from '../domain/util';
 import { idbGet, idbSet } from './idb';
 import { cloudEnabled, getSession, getSyncStatus, isStudentEmail, pullAll, pushSoon, resetSynced, sb, signOutCloud } from './cloud';
 
@@ -442,6 +442,35 @@ export function saveClass(c: Pick<ClassSession, 'batchId' | 'date' | 'startTime'
     d.classes.push({ id, batchId: c.batchId, date: c.date, startTime: c.startTime, endTime: c.endTime, status: 'scheduled', notes, createdAt: nowISO() });
     audit(d, 'class.schedule', 'class', id, `${b.name} ${c.date} ${c.startTime}–${c.endTime}`);
     return id;
+  });
+}
+/** Weekdays (0 = Sunday … 6 = Saturday) of every date from..to that matches `days`. */
+export function classDays(from: string, to: string, days: number[]) {
+  const out: string[] = [];
+  for (let day = from; day <= to && out.length < 400; day = addDays(day, 1)) if (days.includes(new Date(`${day}T00:00:00Z`).getUTCDay())) out.push(day);
+  return out;
+}
+/**
+ * Schedule a batch's classes for many days at once (e.g. Mon–Fri 10:00–12:00 until the batch ends), so the permanent
+ * attendance QR always has a class to mark. A day that already has a class at that time is skipped. One save, one sync.
+ */
+export function scheduleClasses(batchId: string, o: { days: number[]; startTime: string; endTime: string; from: string; to: string }) {
+  return tx((d) => {
+    guard(d, 'batches', 'create');
+    const b = d.batches.find((x) => x.id === batchId) ?? fail('Choose a batch.');
+    if (!o.days.length) fail('Pick at least one day of the week.');
+    if (!HHMM.test(o.startTime) || !HHMM.test(o.endTime)) fail('Enter start and end time.');
+    if (o.endTime <= o.startTime) fail('End time must be after the start time.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(o.from) || !/^\d{4}-\d{2}-\d{2}$/.test(o.to) || o.to < o.from) fail('Choose a valid date range.');
+    if (daysBetween(o.from, o.to) > 366) fail('Schedule at most one year at a time.');
+    let made = 0, skipped = 0;
+    for (const day of classDays(o.from, o.to, o.days)) {
+      if (d.classes.some((x) => x.batchId === batchId && x.date === day && x.status === 'scheduled' && x.startTime < o.endTime && o.startTime < x.endTime)) { skipped++; continue; }
+      d.classes.push({ id: uid(), batchId, date: day, startTime: o.startTime, endTime: o.endTime, status: 'scheduled', notes: '', createdAt: nowISO() });
+      made++;
+    }
+    audit(d, 'class.schedule_many', 'batch', batchId, `${b.name}: ${made} classes ${o.from} → ${o.to}, ${o.startTime}–${o.endTime}${skipped ? ` (${skipped} days already had one)` : ''}`);
+    return { made, skipped };
   });
 }
 export function setClassStatus(id: string, status: ClassSession['status'], reason = '') {
