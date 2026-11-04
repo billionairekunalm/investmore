@@ -1,4 +1,4 @@
-// Sends due class reminders through Firebase Cloud Messaging (HTTP v1).
+// Sends due class and fee reminders through Firebase Cloud Messaging (HTTP v1).
 // Runs every minute (pg_cron → pg_net, see migration 0013). Secrets (Supabase → Edge Functions → Secrets):
 //   FIREBASE_SERVICE_ACCOUNT  the Firebase service-account JSON (private — never in the app or the repo)
 //   CRON_SECRET               shared with the cron job, so nobody else can trigger sends
@@ -9,6 +9,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.117.3';
 type Job = {
   id: number; kind: string; attempts: number; class_id: string | null; student_id: string; student: string | null; course: string | null;
   batch: string | null; date: string | null; start_time: string | null; end_time: string | null; tokens: string[];
+  title: string | null; body: string | null; // ready-made text (fee reminders)
 };
 const MAX_ATTEMPTS = 5;
 
@@ -40,6 +41,7 @@ const time12 = (t: string) => { const [h, m] = t.split(':').map(Number); return 
 const day = (d: string) => new Intl.DateTimeFormat('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${d}T00:00:00Z`));
 /** Friendly, personal reminder text: greets the student by first name and says what, when and where. */
 function message(j: Job) {
+  if (j.title && j.body) return { title: j.title, body: j.body };
   const hi = `Hi ${(j.student ?? '').trim().split(/\s+/)[0] || 'there'}`;
   const what = j.course ? `${j.course} class` : 'class';
   const batch = j.batch ? ` (${j.batch})` : '';
@@ -72,7 +74,7 @@ function message(j: Job) {
     };
     default: return {
       title: `🔔 ${hi}, notifications are on!`,
-      body: 'You will get your InvestMore class reminders here: one day before, on the morning of the class, and 30 minutes before it starts.',
+      body: 'You will get your InvestMore reminders here: classes (a day before, that morning and 30 minutes before) and fee due dates.',
     };
   }
 }
@@ -108,7 +110,7 @@ Deno.serve(async (req) => {
           webpush: {
             // high urgency: delivered straight away even when the phone is asleep and the app is closed (like chat apps);
             // TTL: if the phone is offline, keep trying until the reminder would be pointless
-            headers: { Urgency: 'high', TTL: String(j.kind === 'soon' ? 1800 : j.kind === 'test' ? 600 : 6 * 3600) },
+            headers: { Urgency: 'high', TTL: String(j.kind === 'soon' ? 1800 : j.kind === 'test' ? 600 : j.kind.startsWith('fee_') ? 12 * 3600 : 6 * 3600) },
             fcm_options: { link },
             notification: { icon: `${site}/icon-512.png`, badge: `${site}/icon-192.png`, tag: `im-${j.id}`, renotify: true, vibrate: [200, 100, 200] },
           },
