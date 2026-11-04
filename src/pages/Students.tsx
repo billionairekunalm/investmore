@@ -271,59 +271,62 @@ function StudentIdCard({ s, f, onPay }: { s: Student; f: Fin; onPay: (id: string
   const paidPct = pct(f.paid, f.total);
   return (
     <div role="link" tabIndex={0} onClick={() => nav(`/students/${s.id}`)} onKeyDown={(e) => e.key === 'Enter' && nav(`/students/${s.id}`)}
-      className="group flex flex-col rounded-2xl bg-white border border-line overflow-hidden cursor-pointer shadow-[0_2px_10px_-4px_rgba(15,35,65,.18)] hover:shadow-[0_14px_30px_-12px_rgba(15,35,65,.35)] hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-accent transition-all">
-      {/* card header band */}
-      <div className="relative h-20 bg-gradient-to-r from-navy via-[#173563] to-[#0b4d2c] px-4 flex items-start justify-between pt-3">
-        <div className="absolute inset-0 opacity-[.08] bg-[radial-gradient(circle_at_1px_1px,white_1px,transparent_0)] [background-size:14px_14px]" />
+      className="group flex flex-col rounded-[26px] bg-white ring-1 ring-emerald-900/5 overflow-hidden cursor-pointer shadow-[0_14px_32px_-22px_rgba(4,57,26,.55)] hover:shadow-[0_22px_40px_-20px_rgba(4,57,26,.55)] hover:-translate-y-1 focus-visible:outline-2 focus-visible:outline-accent transition-all">
+      {/* charcoal header, same as the student app's ID card */}
+      <div className="relative h-24 overflow-hidden bg-sidebar px-4 pt-3.5 flex items-start justify-between">
+        <span aria-hidden className="absolute -right-10 -top-12 size-36 rounded-full border-[16px] border-lime opacity-[.14]" />
+        <span aria-hidden className="absolute -left-8 -bottom-16 size-28 rounded-full border-[12px] border-brand-bright opacity-[.12]" />
         <div className="relative flex items-center gap-2">
-          <span className="size-7 rounded-md bg-white grid place-items-center"><LogoMark className="size-5" /></span>
-          <div className="leading-tight text-white">
-            <div className="text-[11px] font-bold tracking-[0.18em]">INVEST<span className="text-[#5be35b]">MORE</span></div>
-            <div className="text-[9px] uppercase tracking-[0.14em] text-white/65">Student identity card</div>
+          <span className="size-8 rounded-lg bg-white grid place-items-center"><LogoMark className="size-6 border-0" /></span>
+          <div className="leading-tight">
+            <div className="text-[11px] font-extrabold tracking-[0.16em] text-white">INVEST<span className="text-brand-bright">MORE</span></div>
+            <div className="text-[8.5px] tracking-[0.24em] text-zinc-400">STUDENT ID</div>
           </div>
         </div>
-        <span className={cx('relative text-[10px] font-bold uppercase tracking-wider rounded-full px-2 py-0.5',
-          s.status === 'Active' ? 'bg-[#5be35b]/20 text-[#9ff59f]' : s.status === 'Completed' ? 'bg-white/20 text-white' : 'bg-white/10 text-white/70')}>{s.status}</span>
+        <span className={cx('relative inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1',
+          s.status === 'Active' ? 'bg-lime text-ink' : s.status === 'Completed' ? 'bg-white/90 text-ink' : 'bg-white/10 text-zinc-300')}>
+          <span className={cx('size-1.5 rounded-full', s.status === 'Active' ? 'bg-accent' : s.status === 'Completed' ? 'bg-info' : 'bg-zinc-400')} />{s.status}
+        </span>
       </div>
 
       <div className="px-4 pb-4 flex-1 flex flex-col">
-        {/* photo + name */}
-        {/* photo overlaps the band; the name starts just below it (container is pulled up 32px, name pushed down 36px) */}
-        <div className="flex items-start gap-3 -mt-8">
-          <div className="relative z-10 shrink-0"><Avatar name={s.name} photo={s.photo} size="size-[68px] text-xl ring-4!" /></div>
-          <div className="min-w-0 pt-9">
-            <div className="font-bold text-navy text-[15.5px] leading-tight truncate" title={s.name}>{s.name}</div>
-            <div className="mt-1 inline-flex items-center gap-1 rounded-md bg-navy-soft px-1.5 py-0.5 text-[11px] font-semibold text-navy tabular tracking-wide">{s.code}</div>
-          </div>
+        {/* round photo overlaps the header, name centred below */}
+        <div className="relative -mt-11 flex flex-col items-center text-center">
+          {s.photo ? <img src={s.photo} alt="" className="size-[84px] rounded-full object-cover ring-[4px] ring-white shadow-[0_10px_20px_-10px_rgba(4,57,26,.55)]" />
+            : <span className="size-[84px] rounded-full ring-[4px] ring-white grid place-items-center text-[26px] font-bold text-white bg-[linear-gradient(135deg,#035a1d,#16b04a)] shadow-[0_10px_20px_-10px_rgba(4,57,26,.55)]">{s.name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}</span>}
+          <div className="mt-2.5 w-full font-bold text-ink text-[16.5px] leading-tight truncate" title={s.name}>{s.name}</div>
+          <div className="mt-0.5 w-full text-[12px] text-zinc-500 truncate">{course?.name ?? '—'}</div>
+          <div className="mt-2 rounded-full bg-accent-soft px-3 py-0.5 text-[12px] font-bold text-accent tabular tracking-[0.08em]">{s.code}</div>
         </div>
 
-        {/* identity details */}
-        <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 mt-4 text-[12.5px]">
+        {/* identity details in soft green chips */}
+        <dl className="grid grid-cols-2 gap-2 mt-4 text-[12.5px]">
           <IdRow label="Mobile" value={fmtPhone(s.phone)} />
           <IdRow label="Admitted" value={fmtDate(s.admissionDate)} />
           <IdRow label="Batch" value={batch?.name ?? 'Not assigned'} sub={batch?.timing} />
-          <IdRow label="Course" value={course?.name ?? '—'} />
-          {(s.dob || s.gender) && <IdRow label="Born · gender" value={[s.dob && fmtDate(s.dob), s.gender].filter(Boolean).join(' · ')} />}
-          {s.city && <IdRow label="City" value={s.city} />}
+          {(s.dob || s.gender) ? <IdRow label="Born · gender" value={[s.dob && fmtDate(s.dob), s.gender].filter(Boolean).join(' · ')} />
+            : <IdRow label="City" value={s.city || '—'} />}
+          {(s.dob || s.gender) && s.city && <IdRow label="City" value={s.city} />}
         </dl>
 
         {/* fee strip */}
         {fees && f.lines.length > 0 && (
-          <div className="mt-4 rounded-xl bg-surface border border-line px-3 py-2.5">
+          <div className="mt-3 rounded-2xl bg-[linear-gradient(135deg,#f6fbf7,#e9f6ec)] px-3.5 py-3">
             <div className="flex items-baseline justify-between text-[12px] tabular">
-              <span><b className="text-navy">{fmtINR(f.paid)}</b><span className="text-muted"> / {fmtINR(f.total)}</span></span>
-              <span className="text-[11px] font-semibold text-accent">{paidPct}%</span>
+              <span><b className="text-ink text-[13.5px]">{fmtINR(f.paid)}</b><span className="text-zinc-500"> / {fmtINR(f.total)}</span></span>
+              <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-accent">{paidPct}%</span>
             </div>
-            <Bar value={paidPct} className="mt-1.5 h-1" />
+            <div className="mt-2 h-1.5 rounded-full bg-white overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#16b04a,#028a02)]" style={{ width: `${paidPct}%` }} /></div>
             <div className="mt-2 flex items-center justify-between gap-2 text-[11.5px]">
-              {f.outstanding > 0 ? <span className="font-semibold text-warn tabular">{fmtINR(f.outstanding)} pending</span> : <span className="font-medium text-accent">Fully paid</span>}
-              {f.next && <span className="flex items-center gap-1.5 text-muted">{fmtDate(f.next.dueDate)} <DueChip date={f.next.dueDate} today={today} /></span>}
+              {f.outstanding > 0 ? <span className="font-semibold text-warn tabular">{fmtINR(f.outstanding)} pending</span> : <span className="font-semibold text-accent">Fully paid ✓</span>}
+              {f.next && <span className="flex items-center gap-1.5 text-zinc-500">{fmtDate(f.next.dueDate)} <DueChip date={f.next.dueDate} today={today} /></span>}
             </div>
           </div>
         )}
 
-        {/* footer */}
-        <div className="mt-auto pt-3 flex items-center justify-between gap-2">
+        {/* footer below a tear line */}
+        <div className="h-3 shrink-0" />
+        <div className="mt-auto pt-3 border-t-2 border-dashed border-zinc-100 flex items-center justify-between gap-2">
           {fees ? <Badge>{f.status}</Badge> : <span />}
           <div className="-mr-1"><RowActions s={s} f={f} onPay={onPay} /></div>
         </div>
@@ -332,9 +335,9 @@ function StudentIdCard({ s, f, onPay }: { s: Student; f: Fin; onPay: (id: string
   );
 }
 const IdRow = ({ label, value, sub }: { label: string; value: ReactNode; sub?: string }) => (
-  <div className="min-w-0">
-    <dt className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">{label}</dt>
-    <dd className="font-medium text-zinc-800 truncate" title={typeof value === 'string' ? value : undefined}>{value}</dd>
+  <div className="min-w-0 rounded-xl bg-[#f2faf4] px-3 py-2">
+    <dt className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-zinc-500">{label}</dt>
+    <dd className="font-semibold text-ink truncate" title={typeof value === 'string' ? value : undefined}>{value}</dd>
     {sub && <dd className="text-[11px] text-muted truncate">{sub}</dd>}
   </div>
 );
