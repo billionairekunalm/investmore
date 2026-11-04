@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useId, useMemo } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import * as S from '../store/store';
@@ -6,7 +6,7 @@ import { cloudEnabled } from '../store/cloud';
 import { Button, Card, CardHeader, Empty, PageHeader, cx } from '../ui/kit';
 import { useRange } from '../ui/shell';
 import { financeFor, periodFigures } from '../domain/finance';
-import { addDays, fmtDate, fmtINR, fmtINRShort, fmtMonth, inRange, monthOf, monthRange, monthsBetween, RANGE_LABELS, todayIST } from '../domain/util';
+import { addDays, daysBetween, fmtDate, fmtINR, fmtINRShort, fmtMonth, inRange, monthOf, monthRange, monthsBetween, RANGE_LABELS, todayIST } from '../domain/util';
 import type { DB } from '../domain/types';
 import { ReportsPanel } from './Reports';
 
@@ -84,6 +84,14 @@ export default function Dashboard() {
   const { key, range } = useRange();
   const nav = useNavigate();
   const a = useAnalytics(db, range);
+  // the same-length period just before the filter, for the change badges on the top tiles ("All time" has none)
+  const prev = useMemo(() => {
+    if (range[0] < '2000-02-01') return null;
+    const p: [string, string] = [addDays(range[0], -(daysBetween(range[0], range[1]) + 1)), addDays(range[0], -1)];
+    const leads = db.leads.filter((l) => inRange(l.createdAt, p));
+    return { admissions: db.students.filter((s) => inRange(s.admissionDate, p)).length, leads: leads.length,
+      conv: leads.length ? (leads.filter((l) => l.status === 'Converted').length / leads.length) * 100 : null };
+  }, [db, range[0], range[1]]); // eslint-disable-line react-hooks/exhaustive-deps
   const fin = S.allowed('fees', 'view', db) || S.allowed('profit', 'view', db);
   const hasData = db.students.length || db.leads.length || db.expenses.length;
 
@@ -108,13 +116,14 @@ export default function Dashboard() {
 
       <Section title="Student overview">
         <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <StatTile color="#1d4ed8" icon="students" label="Active students" scope={T} value={a.active} to="/students?status=Active"
-            subs={[['All students', a.totalStudents], ['Completed', a.completed]]} />
-          <StatTile color="#15803d" icon="userPlus" label="New admissions" scope={P} value={a.admissions} to={`/students?from=${range[0]}&to=${range[1]}`}
-            subs={[['From leads', a.fromLeads], ['Direct', a.admissions - a.fromLeads]]} />
-          <StatTile color="#0f766e" icon="leads" label="Total leads" scope={P} value={a.leads} to="/leads"
-            subs={[['Contacted', a.contacted], ['Still open', a.openLeads]]} />
-          <StatTile color="#6d28d9" icon="target" label="Conversion rate" scope={P} value={a.conv === null ? '—' : `${a.conv.toFixed(1)}%`} to="/leads?status=Converted"
+          <HeroTile tone="violet" icon="students" art="people" label="Active students" scope={T} value={a.active} to="/students?status=Active"
+            subs={[['All', a.totalStudents], ['Completed', a.completed]]} />
+          <HeroTile tone="mint" icon="userPlus" art="clipboard" label="New admissions" scope={P} value={a.admissions} to={`/students?from=${range[0]}&to=${range[1]}`}
+            trend={prev && change(a.admissions, prev.admissions)} subs={[['From leads', a.fromLeads], ['Direct', a.admissions - a.fromLeads]]} />
+          <HeroTile tone="peach" icon="leads" art="bars" label="Total leads" scope={P} value={a.leads} to="/leads"
+            trend={prev && change(a.leads, prev.leads)} subs={[['Contacted', a.contacted], ['Still open', a.openLeads]]} />
+          <HeroTile tone="sky" icon="target" art="donut" label="Conversion rate" scope={P} value={a.conv === null ? '—' : `${a.conv.toFixed(1)}%`} to="/leads?status=Converted"
+            trend={prev && a.conv !== null && prev.conv !== null ? { text: `${a.conv - prev.conv >= 0 ? '+' : ''}${(a.conv - prev.conv).toFixed(1)} pts`, up: a.conv >= prev.conv } : null}
             subs={[['Converted', `${a.converted} of ${a.leads}`], ['Lost', a.lost]]} />
         </div>
       </Section>
@@ -246,6 +255,76 @@ export function StatTile({ color, icon, label, value, subs, note, scope, to }: {
   );
   const style = { background: k.bg, color: k.fg };
   return to ? <Link to={to} className={cls} style={style}>{body}</Link> : <div className={cls} style={style}>{body}</div>;
+}
+
+/** Soft pastel themes + small illustrations for the top "Student overview" tiles. */
+const HERO = {
+  violet: { bg: 'linear-gradient(135deg,#f6f1ff 0%,#e9defe 100%)', icon: '#7c3aed', chip: '#ede4ff' },
+  mint: { bg: 'linear-gradient(135deg,#effbf1 0%,#d6f3dc 100%)', icon: '#15803d', chip: '#dcf5e1' },
+  peach: { bg: 'linear-gradient(135deg,#fff7ec 0%,#ffe6c9 100%)', icon: '#ea7a2b', chip: '#ffecd6' },
+  sky: { bg: 'linear-gradient(135deg,#f1f6ff 0%,#dde8ff 100%)', icon: '#2563eb', chip: '#e2ebff' },
+} as const;
+type HeroTone = keyof typeof HERO;
+
+function Illustration({ kind }: { kind: 'people' | 'clipboard' | 'bars' | 'donut' }) {
+  const uid = useId().replace(/:/g, ''); // gradient ids must be unique on the page, or url(#…) can pick a hidden copy
+  const g = (id: string, a: string, b: string) => <linearGradient id={uid + id} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={a} /><stop offset="1" stopColor={b} /></linearGradient>;
+  const u = (id: string) => `url(#${uid}${id})`;
+  return (
+    <svg viewBox="0 0 96 80" className="w-[92px] h-[76px] drop-shadow-[0_10px_14px_rgba(24,24,24,.14)]" aria-hidden>
+      {kind === 'people' && <><defs>{g('pp', '#a78bfa', '#6d28d9')}{g('pb', '#ddd6fe', '#a78bfa')}</defs>
+        <circle cx="24" cy="34" r="9" fill={u('pb')} /><path d="M8 66c0-10 7-17 16-17s16 7 16 17Z" fill={u('pb')} />
+        <circle cx="72" cy="34" r="9" fill={u('pb')} /><path d="M56 66c0-10 7-17 16-17s16 7 16 17Z" fill={u('pb')} />
+        <circle cx="48" cy="26" r="13" fill={u('pp')} /><path d="M26 70c0-14 10-24 22-24s22 10 22 24Z" fill={u('pp')} /></>}
+      {kind === 'clipboard' && <><defs>{g('cg', '#4ade80', '#15803d')}</defs>
+        <rect x="22" y="10" width="52" height="64" rx="10" fill={u('cg')} transform="rotate(6 48 42)" />
+        <rect x="29" y="18" width="40" height="50" rx="6" fill="#fff" transform="rotate(6 48 42)" />
+        <rect x="38" y="6" width="22" height="10" rx="4" fill="#166534" transform="rotate(6 48 42)" />
+        <g transform="rotate(6 48 42)" stroke="#16a34a" strokeWidth="3.2" strokeLinecap="round" fill="none"><path d="m34 31 3 3 5-6M34 45l3 3 5-6M34 59l3 3 5-6" /><path d="M47 32h15M47 46h15M47 60h11" stroke="#bbf7d0" /></g></>}
+      {kind === 'bars' && <><defs>{g('bo', '#fdba74', '#ea580c')}</defs>
+        <rect x="14" y="48" width="18" height="24" rx="4" fill={u('bo')} /><rect x="39" y="32" width="18" height="40" rx="4" fill={u('bo')} /><rect x="64" y="12" width="18" height="60" rx="4" fill={u('bo')} />
+        <rect x="10" y="72" width="76" height="3" rx="1.5" fill="#fdba74" /></>}
+      {kind === 'donut' && <><defs>{g('dg', '#60a5fa', '#1d4ed8')}</defs>
+        <circle cx="48" cy="40" r="26" fill="none" stroke="#dbeafe" strokeWidth="14" />
+        <circle cx="48" cy="40" r="26" fill="none" stroke={u('dg')} strokeWidth="14" strokeLinecap="round" strokeDasharray="122 163" transform="rotate(-90 48 40)" /></>}
+    </svg>
+  );
+}
+
+/** Top-row KPI: pastel card, icon chip, big number, change vs the previous period, illustration on the right. */
+function HeroTile({ tone, icon, art, label, value, trend, scope, subs, to }: { tone: HeroTone; icon: string; art: 'people' | 'clipboard' | 'bars' | 'donut'; label: string; value: React.ReactNode; trend?: { text: string; up: boolean } | null; scope: string; subs: [string, React.ReactNode][]; to: string }) {
+  const t = HERO[tone];
+  return (
+    <Link to={to} className="@container relative overflow-hidden block h-full rounded-3xl p-5 border border-white/70 shadow-[0_10px_30px_-18px_rgba(24,24,24,.35)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_18px_34px_-16px_rgba(24,24,24,.35)]" style={{ background: t.bg }}>
+      <span aria-hidden className="pointer-events-none absolute -right-8 -bottom-12 size-40 rounded-full bg-white/35" />
+      <div className="relative flex items-start justify-between gap-2">
+        <span className="size-11 shrink-0 grid place-items-center rounded-full shadow-[0_6px_14px_-8px_rgba(24,24,24,.4)]" style={{ background: t.chip, color: t.icon }}>
+          <svg viewBox="0 0 24 24" className="size-[22px]" fill={FILLED.has(icon) ? 'currentColor' : 'none'} stroke={FILLED.has(icon) ? 'none' : 'currentColor'} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d={ICONS[icon]} /></svg>
+        </span>
+        <span className="rounded-full bg-white/70 px-2.5 py-1 text-[10.5px] font-semibold text-zinc-600 whitespace-nowrap">{scope}</span>
+      </div>
+      <div className="relative flex items-end justify-between gap-2 mt-3">
+        <div className="min-w-0">
+          <div className="text-[13.5px] font-medium text-zinc-700">{label}</div>
+          <div className="mt-1 flex items-center gap-2 flex-wrap">
+            <span className="text-[34px] @max-[260px]:text-[28px] leading-none font-bold tracking-tight tabular text-ink">{value}</span>
+            {trend && <span className={cx('rounded-full px-2 py-0.5 text-[11.5px] font-bold tabular', trend.up ? 'bg-white/80 text-[#15803d]' : 'bg-white/80 text-[#b91c1c]')}>{trend.up ? '↗' : '↘'} {trend.text}</span>}
+          </div>
+        </div>
+        <span className="shrink-0 -mr-1 -mb-1 @max-[250px]:hidden"><Illustration kind={art} /></span>
+      </div>
+      <div className="relative mt-3 flex gap-4 text-[12px] text-zinc-600">
+        {subs.map(([l, v]) => <span key={l} className="truncate">{l} <b className="text-ink tabular">{v}</b></span>)}
+      </div>
+    </Link>
+  );
+}
+
+/** Change vs the previous period of the same length; none for "all time" or when there is nothing to compare. */
+function change(now: number, before: number): { text: string; up: boolean } | null {
+  if (!before) return null;
+  const p = ((now - before) / before) * 100;
+  return { text: `${p >= 0 ? '+' : ''}${Math.round(p)}%`, up: p >= 0 };
 }
 
 export const Chart = ({ children, h = 260 }: { children: React.ReactElement; h?: number }) => (
