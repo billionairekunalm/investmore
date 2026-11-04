@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import * as S from '../store/store';
-import { changeMyPassword, loginIdOf, setMyLoginEmail } from '../store/cloud';
+import { changeMyPassword, loginIdOf, setMyLoginEmail, signOutEverywhere } from '../store/cloud';
 import { Button, Field, Input, Modal, useUI } from './kit';
 
 /** Your own login: change your password; a Super Admin can also sign in with a real email so "Forgot password?" works. */
@@ -20,6 +20,9 @@ export function MyAccount({ onClose }: { onClose: () => void }) {
           <RecoveryEmail current={usesId ? '' : login} />
         </Section>
       )}
+      <Section title="Signed in on other devices?" sub="Signs this login out everywhere: every phone, computer and browser, including this one. You can sign in again with your password.">
+        <SignOutEverywhere />
+      </Section>
     </Modal>
   );
 }
@@ -55,6 +58,17 @@ function ChangePassword() {
       </form>
     </Section>
   );
+}
+
+function SignOutEverywhere() {
+  const { ask, toast } = useUI();
+  const [busy, setBusy] = useState(false);
+  const go = async () => {
+    if (!(await ask({ title: 'Sign out of all devices?', message: 'Every device using this login, including this one, is signed out within an hour at most (straight away on this device).', confirm: 'Sign out everywhere', danger: true }))) return;
+    setBusy(true);
+    try { await signOutEverywhere(); S.logout(); } catch (e) { toast((e as Error).message, 'bad'); setBusy(false); }
+  };
+  return <Button variant="danger" loading={busy} onClick={go}>Sign out of all devices</Button>;
 }
 
 function RecoveryEmail({ current }: { current: string }) {

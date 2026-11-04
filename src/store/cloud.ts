@@ -58,6 +58,11 @@ export async function setMyLoginEmail(email: string, password: string): Promise<
   await signIn(String(data), password); // a fresh session under the new email
   return String(data);
 }
+/** Revokes every session of this login (all devices). Other devices drop out when their access token expires (≤ 1 hour). */
+export async function signOutEverywhere() {
+  const { error } = await sb!.auth.signOut({ scope: 'global' });
+  if (error) throw new Error(error.message);
+}
 export async function signOutCloud() { await sb?.auth.signOut(); synced.clear(); syncedState = ''; }
 
 // ---------------- pull ----------------
