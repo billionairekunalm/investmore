@@ -9,6 +9,7 @@ import { LEAD_SOURCES, type Lead } from '../domain/types';
 import { addDays, fmtDate, fmtDateTime, fmtPhone, inRange, todayIST } from '../domain/util';
 import { downloadCSV, readSheet } from '../lib/export';
 import { useRange } from '../ui/shell';
+import { HeroTile, type Art, type HeroTone } from './Dashboard';
 
 type View = 'pipeline' | 'list' | 'calling' | 'calendar' | 'import' | 'performance';
 
@@ -37,13 +38,13 @@ export default function Leads() {
   const today = todayIST();
   const queue = callingQueue(leads, today);
   const myCallsToday = db.calls.filter((c) => c.entity === 'lead' && c.at.slice(0, 10) === today && (isManager || c.by === me.id)).length;
-  // [label, value, tile background, view/filter it opens]
-  const glance: [string, number, string, () => void][] = [
-    [isManager ? 'Total leads' : 'Assigned to me', leads.length, 'bg-sidebar text-white', () => setView('list')],
-    ['Called today', myCallsToday, 'bg-[#dcf2d0]', () => setView('list')],
-    ['Follow-ups due', queue.filter((l) => l.tier <= 2).length, 'bg-[#fbe3cf]', () => { sp.set('view', 'calling'); sp.set('due', 'followups'); setSp(sp, { replace: true }); }],
-    ['Hot leads', queue.filter((l) => l.status === 'Hot').length, 'bg-[#f9d9d6]', () => { sp.set('view', 'calling'); sp.set('due', 'hot'); setSp(sp, { replace: true }); }],
-    ['Converted', leads.filter((l) => l.status === 'Converted').length, 'bg-[#f3e9cc]', () => { setFStatus('Converted'); setView('list'); }],
+  // [label, value, card colour, icon, picture, view/filter it opens]
+  const glance: [string, number, HeroTone, string, Art, () => void][] = [
+    [isManager ? 'Total leads' : 'Assigned to me', leads.length, 'violet', 'leads', 'funnel', () => setView('list')],
+    ['Called today', myCallsToday, 'mint', 'phone', 'phone', () => setView('list')],
+    ['Follow-ups due', queue.filter((l) => l.tier <= 2).length, 'peach', 'clock', 'clock', () => { sp.set('view', 'calling'); sp.set('due', 'followups'); setSp(sp, { replace: true }); }],
+    ['Hot leads', queue.filter((l) => l.status === 'Hot').length, 'rose', 'flame', 'flame', () => { sp.set('view', 'calling'); sp.set('due', 'hot'); setSp(sp, { replace: true }); }],
+    ['Converted', leads.filter((l) => l.status === 'Converted').length, 'sky', 'check', 'badge', () => { setFStatus('Converted'); setView('list'); }],
   ];
 
   const tabs: { id: View; label: string; count?: number }[] = [
@@ -68,10 +69,8 @@ export default function Leads() {
       <PageHeader title="Leads" sub={`${leads.length} leads${me.role === 'caller' ? ' assigned to you' : ''}`}
         actions={S.allowed('leads', 'create', db) && <Button variant="primary" onClick={() => setAdding(true)}>+ New lead</Button>} />
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
-        {glance.map(([k, v, tone, go], i) => (
-          <button key={k} onClick={go} className={cx('rounded-3xl px-4 py-3.5 text-left transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_rgba(24,24,24,.4)]', tone, i === 0 && 'col-span-2 sm:col-span-1')}>
-            <div className={cx('text-[12px] font-medium', i === 0 ? 'text-zinc-400' : 'text-zinc-600')}>{k}</div><div className="text-[28px] font-bold tabular leading-tight">{v}</div>
-          </button>
+        {glance.map(([k, v, tone, icon, art, go], i) => (
+          <div key={k} className={cx(i === 0 && 'col-span-2 sm:col-span-1')}><HeroTile tone={tone} icon={icon} art={art} label={k} value={v} onClick={go} /></div>
         ))}
       </div>
       <Tabs tabs={tabs} value={view} onChange={setView} />

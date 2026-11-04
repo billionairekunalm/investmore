@@ -202,6 +202,8 @@ const ICONS: Record<string, string> = {
   wallet: 'M3 6h15a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H3V6Zm0 0 13-3v3m-1 8h.01',
   percent: 'M19 5 5 19M7.5 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Zm9 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z',
   calendar: 'M4 5h16v16H4V5Zm0 5h16M8 3v4m8-4v4',
+  flame: 'M12 22a7 7 0 0 0 7-7c0-4-3-6-4-10-2 2-3 4-3 6-1-1-2-2-2-4-2 2-5 5-5 8a7 7 0 0 0 7 7Z',
+  check: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm-4-9 3 3 5-6',
 };
 const FILLED = new Set(['students', 'leads']);
 
@@ -266,15 +268,15 @@ const HERO = {
   rose: { bg: 'linear-gradient(135deg,#fff3f2 0%,#fddcd8 100%)', icon: '#dc2626', chip: '#fee4e1' },
   stone: { bg: 'linear-gradient(135deg,#f7f6f2 0%,#e8e6de 100%)', icon: '#52525b', chip: '#efeee8' },
 } as const;
-type Art = 'people' | 'clipboard' | 'bars' | 'donut' | 'coins' | 'clock' | 'alert' | 'wallet' | 'receipt' | 'trend' | 'pie';
-type HeroTone = keyof typeof HERO;
+export type Art = 'people' | 'clipboard' | 'bars' | 'donut' | 'coins' | 'clock' | 'alert' | 'wallet' | 'receipt' | 'trend' | 'pie' | 'funnel' | 'phone' | 'flame' | 'badge';
+export type HeroTone = keyof typeof HERO;
 
 function Illustration({ kind }: { kind: Art }) {
   const uid = useId().replace(/:/g, ''); // gradient ids must be unique on the page, or url(#…) can pick a hidden copy
   const g = (id: string, a: string, b: string) => <linearGradient id={uid + id} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={a} /><stop offset="1" stopColor={b} /></linearGradient>;
   const u = (id: string) => `url(#${uid}${id})`;
   return (
-    <svg viewBox="0 0 96 80" className="w-[92px] h-[76px] drop-shadow-[0_10px_14px_rgba(24,24,24,.14)]" aria-hidden>
+    <svg viewBox="0 0 96 80" className="w-[92px] h-[76px] @max-[250px]:w-[60px] @max-[250px]:h-[50px] drop-shadow-[0_10px_14px_rgba(24,24,24,.14)]" aria-hidden>
       {kind === 'people' && <><defs>{g('pp', '#a78bfa', '#6d28d9')}{g('pb', '#ddd6fe', '#a78bfa')}</defs>
         <circle cx="24" cy="34" r="9" fill={u('pb')} /><path d="M8 66c0-10 7-17 16-17s16 7 16 17Z" fill={u('pb')} />
         <circle cx="72" cy="34" r="9" fill={u('pb')} /><path d="M56 66c0-10 7-17 16-17s16 7 16 17Z" fill={u('pb')} />
@@ -314,22 +316,37 @@ function Illustration({ kind }: { kind: Art }) {
       {kind === 'pie' && <><defs>{g('pi', '#a78bfa', '#6d28d9')}</defs>
         <circle cx="44" cy="42" r="30" fill="#ddd6fe" /><path d="M44 42V12a30 30 0 1 1-28.5 39.3Z" fill={u('pi')} />
         <path d="M50 36V8a30 30 0 0 1 28 28Z" fill="#c4b5fd" transform="translate(4 -2)" /></>}
+      {kind === 'funnel' && <><defs>{g('fu', '#a78bfa', '#6d28d9')}</defs>
+        <path d="M12 10h72L58 42v24l-20 8V42Z" fill={u('fu')} stroke={u('fu')} strokeWidth="6" strokeLinejoin="round" />
+        <path d="M22 16h52" stroke="#ddd6fe" strokeWidth="4" strokeLinecap="round" /></>}
+      {kind === 'phone' && <><defs>{g('ph', '#4ade80', '#15803d')}</defs>
+        <path d="M24 10h14l6 16-8 5a38 38 0 0 0 19 19l5-8 16 6v14a7 7 0 0 1-7 7A55 55 0 0 1 17 17a7 7 0 0 1 7-7Z" fill={u('ph')} />
+        <path d="M60 10a22 22 0 0 1 20 20M60 22a10 10 0 0 1 8 8" stroke="#16a34a" strokeWidth="4.5" strokeLinecap="round" fill="none" /></>}
+      {kind === 'flame' && <><defs>{g('fl', '#fca5a5', '#dc2626')}{g('fi', '#fde68a', '#f59e0b')}</defs>
+        <path d="M48 76c16 0 26-11 26-25 0-15-11-22-15-38-7 7-10 14-10 21-4-4-7-8-7-14-8 8-20 19-20 31 0 14 10 25 26 25Z" fill={u('fl')} />
+        <path d="M48 76c8 0 13-6 13-13 0-8-6-11-8-19-4 4-6 8-6 12-2-2-4-4-4-7-4 4-8 9-8 14 0 7 5 13 13 13Z" fill={u('fi')} /></>}
+      {kind === 'badge' && <><defs>{g('bd', '#fcd34d', '#d97706')}</defs>
+        <path d="M34 50 26 76l14-6 8 10 4-28M62 50l8 26-14-6-8 10-4-28" fill="#f59e0b" />
+        <circle cx="48" cy="34" r="26" fill={u('bd')} /><circle cx="48" cy="34" r="19" fill="none" stroke="#fef3c7" strokeWidth="2.5" />
+        <path d="m38 34 7 7 13-14" stroke="#fff" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" fill="none" /></>}
     </svg>
   );
 }
 
 /** Top-row KPI: pastel card, icon chip, big number, change vs the previous period, illustration on the right. */
 type Trend = { text: string; up: boolean; good?: boolean } | null;
-function HeroTile({ tone, icon, art, label, value, trend, scope, subs, note, to }: { tone: HeroTone; icon: string; art: Art; label: string; value: React.ReactNode; trend?: Trend; scope: string; subs?: [string, React.ReactNode][]; note?: string; to: string }) {
+/** Pastel KPI card (Dashboard, Leads, Students). Opens `to`, or runs `onClick`, or is plain when neither is given. */
+export function HeroTile({ tone, icon, art, label, value, trend, scope, subs, note, to, onClick }: { tone: HeroTone; icon: string; art: Art; label: string; value: React.ReactNode; trend?: Trend; scope?: string; subs?: [string, React.ReactNode][]; note?: string; to?: string; onClick?: () => void }) {
   const t = HERO[tone];
-  return (
-    <Link to={to} className="@container relative overflow-hidden block h-full rounded-3xl p-5 border border-white/70 shadow-[0_10px_30px_-18px_rgba(24,24,24,.35)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_18px_34px_-16px_rgba(24,24,24,.35)]" style={{ background: t.bg }}>
+  const cls = cx('@container relative overflow-hidden block w-full h-full text-left rounded-3xl p-5 border border-white/70 shadow-[0_10px_30px_-18px_rgba(24,24,24,.35)] transition-all duration-200', (to || onClick) && 'hover:-translate-y-1 hover:shadow-[0_18px_34px_-16px_rgba(24,24,24,.35)]');
+  const style = { background: t.bg };
+  const body = (<>
       <span aria-hidden className="pointer-events-none absolute -right-8 -bottom-12 size-40 rounded-full bg-white/35" />
       <div className="relative flex items-start justify-between gap-2">
         <span className="size-11 shrink-0 grid place-items-center rounded-full shadow-[0_6px_14px_-8px_rgba(24,24,24,.4)]" style={{ background: t.chip, color: t.icon }}>
           <svg viewBox="0 0 24 24" className="size-[22px]" fill={FILLED.has(icon) ? 'currentColor' : 'none'} stroke={FILLED.has(icon) ? 'none' : 'currentColor'} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d={ICONS[icon]} /></svg>
         </span>
-        <span className="rounded-full bg-white/70 px-2.5 py-1 text-[10.5px] font-semibold text-zinc-600 whitespace-nowrap">{scope}</span>
+        {scope && <span className="rounded-full bg-white/70 px-2.5 py-1 text-[10.5px] font-semibold text-zinc-600 whitespace-nowrap">{scope}</span>}
       </div>
       <div className="relative flex items-end justify-between gap-2 mt-3">
         <div className="min-w-0">
@@ -339,14 +356,16 @@ function HeroTile({ tone, icon, art, label, value, trend, scope, subs, note, to 
             {trend && <span className={cx('rounded-full px-2 py-0.5 text-[11.5px] font-bold tabular', (trend.good ?? trend.up) ? 'bg-white/80 text-[#15803d]' : 'bg-white/80 text-[#b91c1c]')}>{trend.up ? '↗' : '↘'} {trend.text}</span>}
           </div>
         </div>
-        <span className="shrink-0 -mr-1 -mb-1 @max-[250px]:hidden"><Illustration kind={art} /></span>
+        <span className="shrink-0 -mr-1 -mb-1"><Illustration kind={art} /></span>
       </div>
-      <div className="relative mt-3 flex gap-4 text-[12px] text-zinc-600">
+      {(note || subs) && <div className="relative mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-zinc-600">
         {note && <span className="truncate">{note}</span>}
         {subs?.map(([l, v]) => <span key={l} className="truncate">{l} <b className="text-ink tabular">{v}</b></span>)}
-      </div>
-    </Link>
-  );
+      </div>}
+    </>);
+  return to ? <Link to={to} className={cls} style={style}>{body}</Link>
+    : onClick ? <button type="button" onClick={onClick} className={cls} style={style}>{body}</button>
+      : <div className={cls} style={style}>{body}</div>;
 }
 
 /** Change vs the previous period of the same length; none for "all time" or when there is nothing to compare.

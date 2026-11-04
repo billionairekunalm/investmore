@@ -12,7 +12,7 @@ import { GENDERS, PAY_METHODS, STUDENT_STATUSES, type DB, type IdDocument, type 
 import { daysBetween, fmtDate, fmtDateTime, fmtINR, fmtPhone, parseRupees, todayIST } from '../domain/util';
 import { downloadCSV } from '../lib/export';
 import { resizeImage } from '../lib/ocr';
-import { StatTile } from './Dashboard';
+import { HeroTile } from './Dashboard';
 import { InvoiceTable } from './Invoices';
 
 type Fin = ReturnType<typeof financeFor>;
@@ -123,19 +123,19 @@ export function StudentList() {
 
       {/* summary — same tiles as the Dashboard; figures cover the students currently shown */}
       <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
-        <StatTile color="#15803d" icon="students" label="Total students" scope={scope} value={shown.length}
+        <HeroTile tone="violet" icon="students" art="people" label="Total students" scope={scope} value={shown.length}
           subs={[['Active', shown.filter((r) => r.s.status === 'Active').length], ['Completed', shown.filter((r) => r.s.status === 'Completed').length], ['Other', shown.filter((r) => r.s.status !== 'Active' && r.s.status !== 'Completed').length]]} />
         {fees ? <>
-          <StatTile color="#1d4ed8" icon="wallet" label="Total fees" scope={scope} value={fmtINR(sumOf('total'))} to="/fees"
+          <HeroTile tone="sky" icon="wallet" art="wallet" label="Total fees" scope={scope} value={fmtINR(sumOf('total'))} to="/fees"
             subs={[['On fee plans', onPlans], ['Average fee', onPlans ? fmtINR(Math.round(sumOf('total') / onPlans)) : '—']]} />
-          <StatTile color="#047857" icon="rupee" label="Fees collected" scope={scope} value={fmtINR(sumOf('paid'))} to="/collections?view=all"
+          <HeroTile tone="mint" icon="rupee" art="coins" label="Fees collected" scope={scope} value={fmtINR(sumOf('paid'))} to="/collections?view=all"
             subs={[['Collected', `${pct(sumOf('paid'), sumOf('total'))}%`], ['Refunds', fmtINR(refunds)]]} />
-          <StatTile color="#c2410c" icon="clock" label="Pending fees" scope={scope} value={fmtINR(sumOf('outstanding'))} to="/collections?view=overdue"
+          <HeroTile tone="peach" icon="clock" art="clock" label="Pending fees" scope={scope} value={fmtINR(sumOf('outstanding'))} to="/collections?view=overdue"
             subs={[['Overdue', fmtINR(owedOverdue)], ['Upcoming', fmtINR(owedUpcoming)]]} />
         </> : <>
-          <StatTile color="#047857" icon="userPlus" label="Active" scope={scope} value={countBy('Active')} note="Currently studying" />
-          <StatTile color="#1d4ed8" icon="target" label="Completed" scope={scope} value={countBy('Completed')} note="Finished the course" />
-          <StatTile color="#6d28d9" icon="alert" label="Inactive / dropped" scope={scope} value={countBy('Inactive') + countBy('Dropped')} note="Not attending" />
+          <HeroTile tone="mint" icon="userPlus" art="clipboard" label="Active" scope={scope} value={countBy('Active')} note="Currently studying" />
+          <HeroTile tone="sky" icon="check" art="badge" label="Completed" scope={scope} value={countBy('Completed')} note="Finished the course" />
+          <HeroTile tone="rose" icon="alert" art="alert" label="Inactive / dropped" scope={scope} value={countBy('Inactive') + countBy('Dropped')} note="Not attending" />
         </>}
       </div>
 
