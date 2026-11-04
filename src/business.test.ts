@@ -508,3 +508,20 @@ describe('move follow-up', () => {
     expect(() => S.moveFollowUp(id, addDays(todayIST(), -1))).toThrow(/past/);
   });
 });
+
+describe('lead marked Converted by a caller', () => {
+  it('is a one-click status (no admission form); admission is completed later from Admissions', () => {
+    const id = S.saveLead({ name: 'Win', phone: '9555555555' });
+    S.setLeadStatus(id, 'Converted');
+    let l = S.getDB().leads.find((x) => x.id === id)!;
+    expect(l.status).toBe('Converted');
+    expect(l.convertedStudentId).toBeFalsy();
+    expect(S.getDB().notifications.some((n) => n.key === `conv:${id}`)).toBe(true);
+    S.setLeadStatus(id, 'Hot'); // mis-click can be undone while there is no student yet
+    S.setLeadStatus(id, 'Converted');
+    const sid = S.convertLead(id, { key: uid(), courseId: course(), batchId: '', admissionDate: T, counsellorId: admin, bookingAmount: 100000, bookingPaid: null });
+    l = S.getDB().leads.find((x) => x.id === id)!;
+    expect(l.convertedStudentId).toBe(sid);
+    expect(() => S.setLeadStatus(id, 'Hot')).toThrow(/already a student/);
+  });
+});

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import * as S from '../store/store';
 import { cloudEnabled, setStudentLogin } from '../store/cloud';
 import { Badge, Button, Card, Checkbox, Field, Input, Select, cx, useRun, useUI, Money } from '../ui/kit';
@@ -29,11 +29,38 @@ const Ic = ({ d, className = 'size-4' }: { d: string; className?: string }) => (
 
 export default function Admissions() {
   const nav = useNavigate();
+  const db = S.useDB();
+  const [sp, setSp] = useSearchParams();
+  const leadId = sp.get('lead') ?? undefined;
+  // leads a caller has marked Converted: they only need the admission to be completed here
+  const waiting = db.leads.filter((l) => l.status === 'Converted' && !l.convertedStudentId);
+  const lead = leadId ? db.leads.find((l) => l.id === leadId && !l.convertedStudentId) : undefined;
   return (
     <div className="mx-auto max-w-[1100px]">
       <Link to="/students" className="text-[12.5px] text-muted hover:text-ink">← Students</Link>
-      <h1 className="text-[22px] font-bold tracking-tight mt-1 mb-5">New admission</h1>
-      <AdmissionForm page onDone={(id) => nav(id ? `/students/${id}` : '/students')} />
+      <h1 className="text-[22px] font-bold tracking-tight mt-1 mb-5">{lead ? `Admit ${lead.name}` : 'New admission'}</h1>
+      {lead && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl bg-lime/50 px-4 py-3 text-[13.5px]">
+          <span>Completing the admission for <b>{lead.name}</b>, converted by {S.empName(lead.assignedTo, db)}. Their details are filled in.</span>
+          <button onClick={() => { sp.delete('lead'); setSp(sp, { replace: true }); }} className="ml-auto font-semibold underline">Admit someone else</button>
+        </div>
+      )}
+      {!lead && waiting.length > 0 && (
+        <Card className="mb-5 overflow-hidden">
+          <div className="flex items-baseline gap-2 px-5 pt-4 pb-2"><h2 className="font-semibold text-[15px]">Ready for admission</h2><span className="rounded-full bg-lime px-2 text-[12px] font-bold tabular">{waiting.length}</span>
+            <span className="ml-auto text-[12px] text-muted hidden sm:block">Marked Converted by the calling team — tap to complete the admission</span></div>
+          <div className="divide-y divide-line">
+            {waiting.map((l) => (
+              <div key={l.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
+                <div className="min-w-0 mr-auto"><div className="font-semibold">{l.name}</div><div className="text-[12.5px] text-muted tabular">{l.phone} · {l.source} · caller {S.empName(l.assignedTo, db)}</div></div>
+                <Button variant="primary" onClick={() => { sp.set('lead', l.id); setSp(sp, { replace: true }); window.scrollTo({ top: 0 }); }}>Start admission</Button>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+      {!lead && waiting.length > 0 && <h2 className="font-semibold text-[15px] mb-3">Or admit a new student directly</h2>}
+      <AdmissionForm key={lead?.id ?? 'new'} page leadId={lead?.id} onDone={(id) => nav(id ? `/students/${id}` : '/students')} />
     </div>
   );
 }
@@ -225,7 +252,7 @@ export function AdmissionForm({ leadId, onDone, page }: { leadId?: string; onDon
         <div className="flex gap-2 w-full sm:w-auto shrink-0">
           <Button onClick={() => onDone()} className="h-10">Cancel</Button>
           <Button variant="primary" loading={busy} disabled={blocked} onClick={submit} className="h-10 px-5 flex-1 sm:flex-none text-[14px]">
-            {leadId ? 'Convert & admit' : 'Complete admission'}{total !== null ? ` · ${fmtINR(total)}` : ''}
+            Complete admission{total !== null ? ` · ${fmtINR(total)}` : ''}
           </Button>
         </div>
       </div>

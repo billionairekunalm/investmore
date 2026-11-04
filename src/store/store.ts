@@ -839,10 +839,14 @@ export function assignLeads(ids: string[], callerId: string) {
 export function setLeadStatus(id: string, status: string) {
   tx((d) => {
     guard(d, 'leads', 'edit');
-    if (status === 'Converted') fail('Use "Convert to student" so the admission and fee schedule are created.');
     const l = ownLead(d, id);
-    if (l.status === 'Converted') fail('Converted leads cannot change status.');
+    if (l.convertedStudentId) fail('This lead is already a student, so its status cannot change.');
     const prev = l.status; l.status = status;
+    if (status === 'Converted') {
+      // the caller's job ends here; the admission team completes the admission from Admissions → Ready for admission
+      l.nextFollowUp = undefined;
+      notify(d, { key: `conv:${id}`, title: 'Ready for admission', body: `${l.name} was marked Converted — complete the admission`, link: '/admissions', forRoles: ['admin', 'super_admin'] });
+    }
     if (status === 'Hot') {
       if (!l.nextFollowUp || l.nextFollowUp > todayIST()) l.nextFollowUp = todayIST();
       notify(d, { key: `hot:${id}:${todayIST()}`, title: 'Hot lead', body: `${l.name} marked Hot — follow up today`, link: '/leads?view=calling', forRoles: ['calling_manager'], forUser: l.assignedTo }, 'lead_hot');

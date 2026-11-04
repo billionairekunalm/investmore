@@ -4,7 +4,6 @@ import * as S from '../store/store';
 import { Badge, Button, Card, CardHeader, Empty, Field, Modal, PageHeader, SearchInput, Select, Table, Tabs, useRun, useUI, cx } from '../ui/kit';
 import { CallButton, useCall } from '../ui/shell';
 import { LeadModal } from '../ui/modals';
-import { AdmissionForm } from './Admissions';
 import { callingQueue, checkImport, guessMapping, IMPORT_FIELDS, roundRobin, TIER_LABELS, type ImportCheck, type ImportField } from '../domain/leads';
 import { LEAD_SOURCES, type Lead } from '../domain/types';
 import { addDays, fmtDate, fmtDateTime, fmtPhone, inRange, todayIST } from '../domain/util';
@@ -360,11 +359,9 @@ function Pipeline({ leads, onOpen }: { leads: Lead[]; onOpen: (id: string) => vo
   const db = S.useDB();
   const run = useRun();
   const [drag, setDrag] = useState<string | null>(null);
-  const [convert, setConvert] = useState<string | null>(null);
   const drop = (status: string) => {
     if (!drag) return;
-    if (status === 'Converted') setConvert(drag);
-    else run(() => S.setLeadStatus(drag, status));
+    run(() => S.setLeadStatus(drag, status), status === 'Converted' ? 'Marked converted — the admission team will complete the admission' : undefined);
     setDrag(null);
   };
   return (
@@ -393,7 +390,6 @@ function Pipeline({ leads, onOpen }: { leads: Lead[]; onOpen: (id: string) => vo
           );
         })}
       </div>
-      <ConvertModal leadId={convert} onClose={() => setConvert(null)} />
     </>
   );
 }
@@ -462,7 +458,6 @@ function LeadDetail({ id, onClose, onEdit }: { id: string; onClose: () => void; 
   const db = S.useDB();
   const run = useRun();
   const { log } = useCall();
-  const [convert, setConvert] = useState(false);
   const l = S.visibleLeads(db).find((x) => x.id === id);
   if (!l) return <Modal open onClose={onClose} title="Lead"><Empty title="Lead not found or not assigned to you" /></Modal>;
   const calls = db.calls.filter((c) => c.entity === 'lead' && c.entityId === id);
@@ -470,10 +465,9 @@ function LeadDetail({ id, onClose, onEdit }: { id: string; onClose: () => void; 
   return (
     <>
       <Modal open onClose={onClose} title={<>{l.name} <span className="text-muted font-normal">· {l.id}</span></>} wide
-        footer={l.status !== 'Converted' ? <>
+        footer={!l.convertedStudentId ? <>
           <Button onClick={onEdit}>Edit</Button>
           <Button onClick={() => log({ entity: 'lead', id, name: l.name, phone: l.phone })}>Log call</Button>
-          {S.allowed('admissions', 'create', db) && <Button variant="primary" onClick={() => setConvert(true)}>Convert to student</Button>}
         </> : student && <a href={`/students/${student.id}`} className="text-accent font-medium">Open student {student.code} →</a>}>
         <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-accent/20 bg-[linear-gradient(135deg,#f0faf2,#ffffff)] p-4">
           <div className="mr-auto"><a href={`tel:+91${l.phone}`} className="text-[22px] font-bold tabular text-accent">{fmtPhone(l.phone)}</a>
@@ -486,8 +480,8 @@ function LeadDetail({ id, onClose, onEdit }: { id: string; onClose: () => void; 
           <Info k="Assigned caller" v={S.empName(l.assignedTo, db)} />
           <Info k="Interest" v={l.interest} />
           <Info k="Created" v={fmtDateTime(l.createdAt)} />
-          <Info k="Status" v={l.status === 'Converted' ? <Badge>Converted</Badge> : (
-            <Select value={l.status} onChange={(e) => (e.target.value === 'Converted' ? setConvert(true) : run(() => S.setLeadStatus(id, e.target.value), 'Status updated'))} options={db.settings.leadStatuses} className="h-8" />
+          <Info k="Status" v={l.convertedStudentId ? <Badge>Converted</Badge> : (
+            <Select value={l.status} onChange={(e) => run(() => S.setLeadStatus(id, e.target.value), e.target.value === 'Converted' ? 'Marked converted — the admission team will complete the admission' : 'Status updated')} options={db.settings.leadStatuses} className="h-8" />
           )} />
         </div>
         {l.notes && <div className="rounded-lg bg-surface border border-line p-3 mb-5 text-zinc-700 whitespace-pre-wrap">{l.notes}</div>}
@@ -500,19 +494,11 @@ function LeadDetail({ id, onClose, onEdit }: { id: string; onClose: () => void; 
           </ol>
         )}
       </Modal>
-      <ConvertModal leadId={convert ? id : null} onClose={() => setConvert(false)} />
     </>
   );
 }
 const Info = ({ k, v }: { k: string; v: React.ReactNode }) => <div><div className="text-xs text-muted mb-0.5">{k}</div><div>{v}</div></div>;
 
-export function ConvertModal({ leadId, onClose }: { leadId: string | null; onClose: () => void }) {
-  return (
-    <Modal open={!!leadId} onClose={onClose} title="Convert lead to student" wide>
-      {leadId && <AdmissionForm leadId={leadId} onDone={onClose} />}
-    </Modal>
-  );
-}
 
 // ------------------------------------------------------------------ import
 function ImportLeads() {
