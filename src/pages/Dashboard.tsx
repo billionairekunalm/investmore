@@ -89,7 +89,7 @@ export default function Dashboard() {
     if (range[0] < '2000-02-01') return null;
     const p: [string, string] = [addDays(range[0], -(daysBetween(range[0], range[1]) + 1)), addDays(range[0], -1)];
     const leads = db.leads.filter((l) => inRange(l.createdAt, p));
-    return { admissions: db.students.filter((s) => inRange(s.admissionDate, p)).length, leads: leads.length,
+    return { fig: periodFigures(db, p[0], p[1], todayIST()), admissions: db.students.filter((s) => inRange(s.admissionDate, p)).length, leads: leads.length,
       conv: leads.length ? (leads.filter((l) => l.status === 'Converted').length / leads.length) * 100 : null };
   }, [db, range[0], range[1]]); // eslint-disable-line react-hooks/exhaustive-deps
   const fin = S.allowed('fees', 'view', db) || S.allowed('profit', 'view', db);
@@ -109,7 +109,6 @@ export default function Dashboard() {
 
   const P = RANGE_LABELS[key]; // period figures follow the date filter
   const T = 'As of today';     // snapshot figures
-  const profitTone = a.fig.netProfit >= 0 ? '#15803d' : '#b91c1c';
   return (
     <>
       <PageHeader title={`Welcome back, ${S.currentUser()?.name.split(' ')[0] ?? ''}`} sub={`Here’s how the academy is doing · ${P} · ${fmtDate(range[0])} – ${fmtDate(range[1])}`} />
@@ -131,23 +130,24 @@ export default function Dashboard() {
       {fin && <>
         <Section title="Fee overview">
           <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            <StatTile color="#047857" icon="rupee" label="Fees collected" scope={P} value={fmtINR(a.fig.collected)} to="/collections?view=all"
-              subs={[['Payments', a.payments], ['Refunds', fmtINR(a.fig.refunds)]]} />
-            <StatTile color="#c2410c" icon="clock" label="Pending fees" scope={T} value={fmtINR(a.pending)} to="/collections?view=due7"
+            <HeroTile tone="mint" icon="rupee" art="coins" label="Fees collected" scope={P} value={fmtINR(a.fig.collected)} to="/collections?view=all"
+              trend={prev && change(a.fig.collected, prev.fig.collected)} subs={[['Payments', a.payments], ['Refunds', fmtINR(a.fig.refunds)]]} />
+            <HeroTile tone="peach" icon="clock" art="clock" label="Pending fees" scope={T} value={fmtINR(a.pending)} to="/collections?view=due7"
               subs={[['Students', a.pendingStudents], ['Due in 7 days', fmtINR(a.due7)]]} />
-            <StatTile color="#b91c1c" icon="alert" label="Overdue fees" scope={T} value={fmtINR(a.overdue)} to="/collections?view=overdue"
+            <HeroTile tone="rose" icon="alert" art="alert" label="Overdue fees" scope={T} value={fmtINR(a.overdue)} to="/collections?view=overdue"
               subs={[['Students', a.overdueStudents], ['Of all owed', pctOf(a.overdue, a.overdue + a.pending)]]} />
           </div>
         </Section>
 
         <Section title="Financial overview">
           <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            <StatTile color="#1d4ed8" icon="wallet" label="Total revenue" scope={P} value={fmtINR(a.fig.earned)} to="/profit"
-              subs={[['Collected', fmtINR(a.fig.collected)], ['Refunds & GST', fmtINR(a.fig.refunds + a.fig.gst)]]} />
-            <StatTile color="#6d28d9" icon="receipt" label="Total expenses" scope={P} value={fmtINR(a.fig.totalExpenses)} to="/expenses"
-              subs={[['Fixed', fmtINR(a.fig.fixedExpenses)], ['Variable', fmtINR(a.fig.variableExpenses)]]} />
-            <StatTile color={profitTone} icon="trend" label="Net profit" scope={P} value={fmtINR(a.fig.netProfit)} to="/profit" note="Revenue minus expenses" />
-            <StatTile color={profitTone} icon="percent" label="Profit margin" scope={P} value={pctOf(a.fig.netProfit, a.fig.earned)} to="/profit" note="Net profit as a share of revenue" />
+            <HeroTile tone="sky" icon="wallet" art="wallet" label="Total revenue" scope={P} value={fmtINR(a.fig.earned)} to="/profit"
+              trend={prev && change(a.fig.earned, prev.fig.earned)} subs={[['Collected', fmtINR(a.fig.collected)], ['Refunds & GST', fmtINR(a.fig.refunds + a.fig.gst)]]} />
+            <HeroTile tone="stone" icon="receipt" art="receipt" label="Total expenses" scope={P} value={fmtINR(a.fig.totalExpenses)} to="/expenses"
+              trend={prev && change(a.fig.totalExpenses, prev.fig.totalExpenses, true)} subs={[['Fixed', fmtINR(a.fig.fixedExpenses)], ['Variable', fmtINR(a.fig.variableExpenses)]]} />
+            <HeroTile tone={a.fig.netProfit >= 0 ? 'mint' : 'rose'} icon="trend" art="trend" label="Net profit" scope={P} value={fmtINR(a.fig.netProfit)} to="/profit"
+              trend={prev && prev.fig.netProfit > 0 ? change(a.fig.netProfit, prev.fig.netProfit) : null} note="Revenue minus expenses" />
+            <HeroTile tone="violet" icon="percent" art="pie" label="Profit margin" scope={P} value={pctOf(a.fig.netProfit, a.fig.earned)} to="/profit" note="Net profit as a share of revenue" />
           </div>
         </Section>
       </>}
@@ -263,10 +263,13 @@ const HERO = {
   mint: { bg: 'linear-gradient(135deg,#effbf1 0%,#d6f3dc 100%)', icon: '#15803d', chip: '#dcf5e1' },
   peach: { bg: 'linear-gradient(135deg,#fff7ec 0%,#ffe6c9 100%)', icon: '#ea7a2b', chip: '#ffecd6' },
   sky: { bg: 'linear-gradient(135deg,#f1f6ff 0%,#dde8ff 100%)', icon: '#2563eb', chip: '#e2ebff' },
+  rose: { bg: 'linear-gradient(135deg,#fff3f2 0%,#fddcd8 100%)', icon: '#dc2626', chip: '#fee4e1' },
+  stone: { bg: 'linear-gradient(135deg,#f7f6f2 0%,#e8e6de 100%)', icon: '#52525b', chip: '#efeee8' },
 } as const;
+type Art = 'people' | 'clipboard' | 'bars' | 'donut' | 'coins' | 'clock' | 'alert' | 'wallet' | 'receipt' | 'trend' | 'pie';
 type HeroTone = keyof typeof HERO;
 
-function Illustration({ kind }: { kind: 'people' | 'clipboard' | 'bars' | 'donut' }) {
+function Illustration({ kind }: { kind: Art }) {
   const uid = useId().replace(/:/g, ''); // gradient ids must be unique on the page, or url(#…) can pick a hidden copy
   const g = (id: string, a: string, b: string) => <linearGradient id={uid + id} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={a} /><stop offset="1" stopColor={b} /></linearGradient>;
   const u = (id: string) => `url(#${uid}${id})`;
@@ -287,12 +290,37 @@ function Illustration({ kind }: { kind: 'people' | 'clipboard' | 'bars' | 'donut
       {kind === 'donut' && <><defs>{g('dg', '#60a5fa', '#1d4ed8')}</defs>
         <circle cx="48" cy="40" r="26" fill="none" stroke="#dbeafe" strokeWidth="14" />
         <circle cx="48" cy="40" r="26" fill="none" stroke={u('dg')} strokeWidth="14" strokeLinecap="round" strokeDasharray="122 163" transform="rotate(-90 48 40)" /></>}
+      {kind === 'coins' && <><defs>{g('co', '#4ade80', '#15803d')}</defs>
+        {[62, 52, 42].map((y) => <g key={y}><ellipse cx="34" cy={y + 6} rx="20" ry="7" fill="#166534" /><ellipse cx="34" cy={y} rx="20" ry="7" fill={u('co')} /></g>)}
+        <circle cx="66" cy="34" r="20" fill={u('co')} /><circle cx="66" cy="34" r="14.5" fill="none" stroke="#bbf7d0" strokeWidth="2" />
+        <text x="66" y="41" textAnchor="middle" fontSize="20" fontWeight="800" fill="#fff">₹</text></>}
+      {kind === 'clock' && <><defs>{g('ck', '#fdba74', '#ea580c')}</defs>
+        <circle cx="48" cy="40" r="30" fill={u('ck')} /><circle cx="48" cy="40" r="23" fill="#fff" />
+        <path d="M48 26v14l9 6" stroke="#ea580c" strokeWidth="4.5" strokeLinecap="round" fill="none" /><circle cx="48" cy="40" r="3" fill="#ea580c" /></>}
+      {kind === 'alert' && <><defs>{g('al', '#fca5a5', '#dc2626')}</defs>
+        <path d="M48 8 86 72H10Z" fill={u('al')} stroke={u('al')} strokeWidth="8" strokeLinejoin="round" />
+        <path d="M48 32v18" stroke="#fff" strokeWidth="7" strokeLinecap="round" /><circle cx="48" cy="61" r="4.2" fill="#fff" /></>}
+      {kind === 'wallet' && <><defs>{g('wa', '#60a5fa', '#1d4ed8')}</defs>
+        <rect x="18" y="12" width="44" height="26" rx="5" fill="#86efac" transform="rotate(-10 40 25)" />
+        <rect x="10" y="24" width="76" height="48" rx="11" fill={u('wa')} />
+        <rect x="58" y="38" width="28" height="20" rx="7" fill="#1e3a8a" /><circle cx="68" cy="48" r="4" fill="#bfdbfe" /></>}
+      {kind === 'receipt' && <><defs>{g('rc', '#e4e4e7', '#a1a1aa')}</defs>
+        <path d="M24 6h48v68l-8-6-8 6-8-6-8 6-8-6-8 6Z" fill={u('rc')} /><path d="M30 12h36v52l-6-4-6 4-6-4-6 4-6-4-6 4Z" fill="#fff" />
+        <path d="M37 24h22M37 34h22M37 44h14" stroke="#a1a1aa" strokeWidth="3.5" strokeLinecap="round" /></>}
+      {kind === 'trend' && <><defs>{g('tr', '#4ade80', '#15803d')}</defs>
+        {[[14, 54, 14], [34, 44, 24], [54, 36, 32], [74, 24, 44]].map(([x, y, hh]) => <rect key={x} x={x} y={y} width="12" height={hh + 4} rx="3" fill="#bbf7d0" />)}
+        <path d="M10 56 32 38l16 10 34-34" stroke={u('tr')} strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+        <path d="M66 12h18v18" stroke="#15803d" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" fill="none" /></>}
+      {kind === 'pie' && <><defs>{g('pi', '#a78bfa', '#6d28d9')}</defs>
+        <circle cx="44" cy="42" r="30" fill="#ddd6fe" /><path d="M44 42V12a30 30 0 1 1-28.5 39.3Z" fill={u('pi')} />
+        <path d="M50 36V8a30 30 0 0 1 28 28Z" fill="#c4b5fd" transform="translate(4 -2)" /></>}
     </svg>
   );
 }
 
 /** Top-row KPI: pastel card, icon chip, big number, change vs the previous period, illustration on the right. */
-function HeroTile({ tone, icon, art, label, value, trend, scope, subs, to }: { tone: HeroTone; icon: string; art: 'people' | 'clipboard' | 'bars' | 'donut'; label: string; value: React.ReactNode; trend?: { text: string; up: boolean } | null; scope: string; subs: [string, React.ReactNode][]; to: string }) {
+type Trend = { text: string; up: boolean; good?: boolean } | null;
+function HeroTile({ tone, icon, art, label, value, trend, scope, subs, note, to }: { tone: HeroTone; icon: string; art: Art; label: string; value: React.ReactNode; trend?: Trend; scope: string; subs?: [string, React.ReactNode][]; note?: string; to: string }) {
   const t = HERO[tone];
   return (
     <Link to={to} className="@container relative overflow-hidden block h-full rounded-3xl p-5 border border-white/70 shadow-[0_10px_30px_-18px_rgba(24,24,24,.35)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_18px_34px_-16px_rgba(24,24,24,.35)]" style={{ background: t.bg }}>
@@ -308,23 +336,25 @@ function HeroTile({ tone, icon, art, label, value, trend, scope, subs, to }: { t
           <div className="text-[13.5px] font-medium text-zinc-700">{label}</div>
           <div className="mt-1 flex items-center gap-2 flex-wrap">
             <span className="text-[34px] @max-[260px]:text-[28px] leading-none font-bold tracking-tight tabular text-ink">{value}</span>
-            {trend && <span className={cx('rounded-full px-2 py-0.5 text-[11.5px] font-bold tabular', trend.up ? 'bg-white/80 text-[#15803d]' : 'bg-white/80 text-[#b91c1c]')}>{trend.up ? '↗' : '↘'} {trend.text}</span>}
+            {trend && <span className={cx('rounded-full px-2 py-0.5 text-[11.5px] font-bold tabular', (trend.good ?? trend.up) ? 'bg-white/80 text-[#15803d]' : 'bg-white/80 text-[#b91c1c]')}>{trend.up ? '↗' : '↘'} {trend.text}</span>}
           </div>
         </div>
         <span className="shrink-0 -mr-1 -mb-1 @max-[250px]:hidden"><Illustration kind={art} /></span>
       </div>
       <div className="relative mt-3 flex gap-4 text-[12px] text-zinc-600">
-        {subs.map(([l, v]) => <span key={l} className="truncate">{l} <b className="text-ink tabular">{v}</b></span>)}
+        {note && <span className="truncate">{note}</span>}
+        {subs?.map(([l, v]) => <span key={l} className="truncate">{l} <b className="text-ink tabular">{v}</b></span>)}
       </div>
     </Link>
   );
 }
 
-/** Change vs the previous period of the same length; none for "all time" or when there is nothing to compare. */
-function change(now: number, before: number): { text: string; up: boolean } | null {
+/** Change vs the previous period of the same length; none for "all time" or when there is nothing to compare.
+ *  `lowerIsBetter` (expenses): a rise shows red. */
+function change(now: number, before: number, lowerIsBetter = false): Trend {
   if (!before) return null;
   const p = ((now - before) / before) * 100;
-  return { text: `${p >= 0 ? '+' : ''}${Math.round(p)}%`, up: p >= 0 };
+  return { text: `${p >= 0 ? '+' : ''}${Math.round(p)}%`, up: p >= 0, good: lowerIsBetter ? p <= 0 : p >= 0 };
 }
 
 export const Chart = ({ children, h = 260 }: { children: React.ReactElement; h?: number }) => (
