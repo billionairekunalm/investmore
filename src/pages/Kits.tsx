@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import * as S from '../store/store';
 import { Badge, Button, Card, Empty, PageHeader, SearchInput, Select, Table, cx, useRun } from '../ui/kit';
-import { StatTile } from './Dashboard';
+import { HeroTile } from './Dashboard';
 import { Avatar } from './Students';
 import type { Student } from '../domain/types';
 import { fmtDate, fmtDateTime, fmtPhone } from '../domain/util';
@@ -37,9 +37,9 @@ export default function Kits() {
     <>
       <PageHeader title="Kits" sub="Course kits handed to students" />
       <div className="grid sm:grid-cols-3 gap-4 mb-5">
-        <StatTile color="#1d4ed8" icon="students" label="Total students" value={students.length} note="Everyone on the student list" />
-        <StatTile color="#15803d" icon="target" label="Kits given" value={given.length} note={`${students.length ? Math.round((given.length / students.length) * 100) : 0}% of students`} />
-        <StatTile color="#c2410c" icon="clock" label="Kits pending" value={students.length - given.length} note="Still to hand over" />
+        <HeroTile tone="violet" icon="students" art="people" label="Total students" value={students.length} note="Everyone on the student list" />
+        <HeroTile tone="mint" icon="check" art="gift" label="Kits given" value={given.length} note={`${students.length ? Math.round((given.length / students.length) * 100) : 0}% of students`} />
+        <HeroTile tone="peach" icon="clock" art="clock" label="Kits pending" value={students.length - given.length} note="Still to hand over" />
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">

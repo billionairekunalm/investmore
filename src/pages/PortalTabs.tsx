@@ -46,31 +46,40 @@ export function IdCardTab({ p }: { p: PortalCore }) {
   return (
     <div className="space-y-4">
       {/* the card */}
-      <div className="relative overflow-hidden rounded-[28px] p-5 sm:p-6 text-white shadow-[0_18px_40px_-18px_rgba(2,90,30,.75)] bg-[linear-gradient(135deg,#035a1d_0%,#058a2e_55%,#16b04a_100%)]">
-        <span className="absolute -top-16 -right-14 size-56 rounded-full bg-white/10" aria-hidden />
-        <span className="absolute -bottom-24 -left-10 size-56 rounded-full bg-black/10" aria-hidden />
-        <div className="relative flex items-center gap-2.5">
-          <span className="size-9 rounded-xl bg-white grid place-items-center overflow-hidden"><img src="/logo-mark.png" alt="" className="w-[85%]" /></span>
-          <div className="leading-tight"><div className="font-bold tracking-[0.16em] text-[13px]">INVESTMORE</div><div className="text-[10px] tracking-[0.28em] text-white/75">TRAINING ACADEMY</div></div>
-          <span className="ml-auto rounded-full bg-white/15 border border-white/20 px-2.5 py-1 text-[10.5px] font-semibold tracking-wider">STUDENT ID</span>
-        </div>
-        <div className="relative mt-5 flex items-center gap-4">
-          {s.photo ? <img src={s.photo} alt="" className="size-24 rounded-2xl object-cover ring-4 ring-white/80 shadow-lg" />
-            : <span className="size-24 rounded-2xl bg-white/20 ring-4 ring-white/60 grid place-items-center text-3xl font-bold">{initialsOf(s.name)}</span>}
-          <div className="min-w-0">
-            <div className="text-[22px] font-bold leading-tight truncate">{s.name}</div>
-            <div className="mt-1 inline-flex items-center rounded-lg bg-white text-[#035a1d] px-2 py-0.5 text-[13px] font-bold tabular tracking-wide">{s.code}</div>
-            <div className="mt-1.5 text-[13px] text-white/85 truncate">{p.course?.name ?? 'Course'}</div>
+      <div className="relative mx-auto max-w-md overflow-hidden rounded-[28px] bg-white ring-1 ring-emerald-900/5 shadow-[0_24px_48px_-24px_rgba(4,57,26,.55)]">
+        {/* charcoal header, same family as the app sidebar */}
+        <div className="relative h-32 overflow-hidden bg-sidebar px-5 pt-4">
+          <span aria-hidden className="absolute -right-12 -top-14 size-44 rounded-full border-[20px] border-lime opacity-[.14]" />
+          <span aria-hidden className="absolute -left-10 -bottom-20 size-36 rounded-full border-[16px] border-brand-bright opacity-[.12]" />
+          <div className="relative flex items-center gap-2.5">
+            <span className="size-9 rounded-xl bg-white grid place-items-center overflow-hidden"><img src="/logo-mark.png" alt="" className="w-[85%]" /></span>
+            <div className="leading-tight"><div className="font-extrabold tracking-[0.16em] text-[13px] text-white">INVEST<span className="text-brand-bright">MORE</span></div><div className="text-[9.5px] tracking-[0.28em] text-zinc-400">TRAINING ACADEMY</div></div>
+            <span className="ml-auto rounded-full bg-lime text-ink px-2.5 py-1 text-[10px] font-bold tracking-[0.14em]">STUDENT ID</span>
           </div>
         </div>
-        <div className="relative mt-5 flex items-end gap-4">
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px] flex-1 min-w-0">
-            <div><dt className="text-white/65">Batch</dt><dd className="font-semibold truncate">{p.batch?.name ?? '—'}</dd></div>
-            <div><dt className="text-white/65">Mobile</dt><dd className="font-semibold tabular">{fmtPhone(s.phone)}</dd></div>
-            <div><dt className="text-white/65">Joined</dt><dd className="font-semibold tabular">{fmtDate(s.admissionDate)}</dd></div>
-            <div><dt className="text-white/65">Valid till</dt><dd className="font-semibold tabular">{p.batch ? fmtDate(p.batch.endDate) : '—'}</dd></div>
-          </dl>
-          {qr && <img src={qr} alt={`QR code for ${s.code}`} className="size-20 rounded-xl bg-white p-1.5 shrink-0" />}
+        {/* photo overlaps the header */}
+        <div className="relative -mt-14 flex flex-col items-center px-5 text-center">
+          {s.photo ? <img src={s.photo} alt="" className="size-28 rounded-full object-cover ring-[5px] ring-white shadow-[0_12px_24px_-10px_rgba(4,57,26,.5)]" />
+            : <span className="size-28 rounded-full ring-[5px] ring-white grid place-items-center text-[34px] font-bold text-white bg-[linear-gradient(135deg,#035a1d,#16b04a)] shadow-[0_12px_24px_-10px_rgba(4,57,26,.5)]">{initialsOf(s.name)}</span>}
+          <div className="mt-3 text-[22px] font-bold leading-tight text-ink">{s.name}</div>
+          <div className="mt-0.5 text-[13px] text-zinc-500">{p.course?.name ?? 'Course'}</div>
+          <div className="mt-2.5 rounded-full bg-accent-soft px-3.5 py-1 text-[13.5px] font-bold tabular tracking-[0.08em] text-accent">{s.code}</div>
+        </div>
+        <dl className="grid grid-cols-2 gap-2 p-5">
+          {([['Batch', p.batch?.name ?? '—'], ['Mobile', fmtPhone(s.phone)], ['Joined', fmtDate(s.admissionDate)], ['Valid till', p.batch ? fmtDate(p.batch.endDate) : '—']] as const).map(([k, v]) => (
+            <div key={k} className="rounded-2xl bg-[#f2faf4] px-3.5 py-2.5 min-w-0"><dt className="text-[10.5px] font-semibold uppercase tracking-[0.12em] text-zinc-500">{k}</dt><dd className="mt-0.5 font-semibold text-[13.5px] text-ink tabular truncate">{v}</dd></div>
+          ))}
+        </dl>
+        {/* tear line, then the QR */}
+        <div className="flex items-center gap-4 border-t-2 border-dashed border-zinc-200 bg-[linear-gradient(180deg,#ffffff,#eef9f1)] px-5 py-4">
+          {qr ? <img src={qr} alt={`QR code for ${s.code}`} className="size-20 shrink-0 rounded-xl bg-white p-1.5 ring-1 ring-zinc-200" /> : <span className="size-20 shrink-0 rounded-xl bg-zinc-100" />}
+          <div className="min-w-0 flex-1">
+            <div className="text-[12px] text-zinc-500">Show this card at the academy</div>
+            <div className="mt-0.5 font-bold text-[15px] tabular tracking-wide text-ink">{s.code}</div>
+            <span className={cx('mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold', s.status === 'Active' ? 'bg-accent-soft text-accent' : 'bg-zinc-100 text-zinc-600')}>
+              <span className={cx('size-1.5 rounded-full', s.status === 'Active' ? 'bg-accent' : 'bg-zinc-400')} />{s.status}
+            </span>
+          </div>
         </div>
       </div>
 

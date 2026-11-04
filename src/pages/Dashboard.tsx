@@ -268,7 +268,7 @@ const HERO = {
   rose: { bg: 'linear-gradient(135deg,#fff3f2 0%,#fddcd8 100%)', icon: '#dc2626', chip: '#fee4e1' },
   stone: { bg: 'linear-gradient(135deg,#f7f6f2 0%,#e8e6de 100%)', icon: '#52525b', chip: '#efeee8' },
 } as const;
-export type Art = 'people' | 'clipboard' | 'bars' | 'donut' | 'coins' | 'clock' | 'alert' | 'wallet' | 'receipt' | 'trend' | 'pie' | 'funnel' | 'phone' | 'flame' | 'badge';
+export type Art = 'people' | 'clipboard' | 'bars' | 'donut' | 'coins' | 'clock' | 'alert' | 'wallet' | 'receipt' | 'trend' | 'pie' | 'funnel' | 'phone' | 'flame' | 'badge' | 'gift';
 export type HeroTone = keyof typeof HERO;
 
 function Illustration({ kind }: { kind: Art }) {
@@ -325,6 +325,10 @@ function Illustration({ kind }: { kind: Art }) {
       {kind === 'flame' && <><defs>{g('fl', '#fca5a5', '#dc2626')}{g('fi', '#fde68a', '#f59e0b')}</defs>
         <path d="M48 76c16 0 26-11 26-25 0-15-11-22-15-38-7 7-10 14-10 21-4-4-7-8-7-14-8 8-20 19-20 31 0 14 10 25 26 25Z" fill={u('fl')} />
         <path d="M48 76c8 0 13-6 13-13 0-8-6-11-8-19-4 4-6 8-6 12-2-2-4-4-4-7-4 4-8 9-8 14 0 7 5 13 13 13Z" fill={u('fi')} /></>}
+      {kind === 'gift' && <><defs>{g('gb', '#4ade80', '#15803d')}</defs>
+        <rect x="16" y="34" width="64" height="40" rx="7" fill={u('gb')} /><rect x="12" y="24" width="72" height="16" rx="5" fill="#22c55e" />
+        <rect x="43" y="24" width="10" height="50" fill="#fde68a" />
+        <path d="M48 24c-4-12-20-14-20-4 0 5 9 6 20 4Zm0 0c4-12 20-14 20-4 0 5-9 6-20 4Z" fill="none" stroke="#fbbf24" strokeWidth="5" strokeLinejoin="round" /></>}
       {kind === 'badge' && <><defs>{g('bd', '#fcd34d', '#d97706')}</defs>
         <path d="M34 50 26 76l14-6 8 10 4-28M62 50l8 26-14-6-8 10-4-28" fill="#f59e0b" />
         <circle cx="48" cy="34" r="26" fill={u('bd')} /><circle cx="48" cy="34" r="19" fill="none" stroke="#fef3c7" strokeWidth="2.5" />
