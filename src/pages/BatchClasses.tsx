@@ -3,6 +3,7 @@ import * as S from '../store/store';
 import { Badge, Button, Card, Empty, Field, Input, Modal, SearchInput, Select, Textarea, cx, useRun, useUI } from '../ui/kit';
 import { cloudEnabled, sb } from '../store/cloud';
 import { downloadCSV, printTable } from '../lib/export';
+import ClassroomQr from '../ui/ClassroomQr';
 import type { Batch, ClassMark, ClassSession, DB, ISODate, Student } from '../domain/types';
 import { addDays, batchTimes, fmtDate, fmtDateTime, fmtPhone, fmtTime, minutesOf, nowIST, timeOf, todayIST } from '../domain/util';
 
@@ -368,54 +369,26 @@ const SumTile = ({ label, value, tone, sub }: { label: string; value: ReactNode;
 function QrPanel() {
   const db = S.useDB();
   const run = useRun();
-  const { ask, toast } = useUI();
-  const [token, setToken] = useState<string | null>(null);
-  const [img, setImg] = useState('');
   const [show, setShow] = useState(false);
   const w = db.settings.attendanceWindow ?? S.DEFAULT_ATTENDANCE_WINDOW;
   const [win, setWin] = useState({ before: String(w.beforeMins), after: String(w.afterMins) });
-  const url = token ? `${location.origin}/attend?t=${token}` : '';
-  const load = async (regen = false) => {
-    const { data, error } = await sb!.rpc('classroom_qr_token', { p_regenerate: regen });
-    if (error) return toast(error.message, 'bad');
-    setToken(String(data));
-  };
-  useEffect(() => { if (show && !token) void load(); }, [show]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (url) void import('qrcode').then((Q) => Q.toDataURL(url, { width: 640, margin: 2, errorCorrectionLevel: 'M' })).then(setImg); }, [url]);
-  const print = () => {
-    const wnd = window.open('', '_blank'); if (!wnd) return;
-    wnd.document.write(`<!doctype html><title>Classroom attendance QR</title><body style="font-family:system-ui,sans-serif;text-align:center;padding:40px"><img src="/logo-mark.png" style="height:80px"><h1 style="margin:8px 0 4px">Scan to mark your attendance</h1><p style="color:#555;margin:0 0 20px">Open your phone camera and scan. Sign in with your student ID if asked.</p><img src="${img}" style="width:420px;max-width:90%"><p style="color:#888;font-size:12px">${db.settings.academyName}</p><script>onload=()=>print()<\/script></body>`);
-    wnd.document.close();
-  };
   return (
     <Card className="p-4 rounded-2xl">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="mr-auto"><div className="font-semibold text-navy">Classroom QR code</div><div className="text-[12.5px] text-muted">One code for the classroom, reused for every class. Students scan it to mark themselves present.</div></div>
+        <div className="mr-auto"><div className="font-semibold text-navy">Classroom QR code</div><div className="text-[12.5px] text-muted">One permanent code for the classroom, reused for every class. Students scan it to mark themselves present. Also in Settings → Attendance.</div></div>
         <Button size="sm" onClick={() => setShow(!show)}>{show ? 'Hide' : 'Show QR code'}</Button>
       </div>
       {show && (
-        <div className="mt-4 grid sm:grid-cols-[auto_1fr] gap-5 items-start">
-          <div className="rounded-xl border border-line p-2 bg-white w-fit">{img ? <img src={img} alt="Classroom attendance QR code" className="size-52" /> : <div className="size-52 grid place-items-center text-muted">Loading…</div>}</div>
-          <div className="space-y-3 text-[13px]">
-            <div className="flex flex-wrap gap-2">
-              <a href={img} download="classroom-attendance-qr.png" className={cx('inline-flex items-center h-9 px-3.5 rounded-lg border border-zinc-300 bg-white font-medium hover:bg-surface', !img && 'pointer-events-none opacity-50')}>Download</a>
-              <Button disabled={!img} onClick={print}>Print</Button>
-              <Button variant="danger" onClick={async () => { if (await ask({ title: 'Make a new QR code?', message: 'The old printed code stops working straight away. Print and put up the new one.', confirm: 'New code', danger: true })) { setImg(''); await load(true); toast('New QR code made — print it again', 'ok'); } }}>Regenerate</Button>
+        <div className="mt-4 space-y-4">
+          <ClassroomQr />
+          <div>
+            <div className="font-medium mb-1">Attendance window</div>
+            <div className="flex flex-wrap items-end gap-2">
+              <Field label="Opens (min before start)"><Input type="number" min={0} max={180} className="w-28" value={win.before} onChange={(e) => setWin({ ...win, before: e.target.value })} /></Field>
+              <Field label="Closes (min after end)"><Input type="number" min={0} max={180} className="w-28" value={win.after} onChange={(e) => setWin({ ...win, after: e.target.value })} /></Field>
+              <Button onClick={() => run(() => { const b = Math.round(+win.before), a = Math.round(+win.after); if (!(b >= 0 && b <= 180 && a >= 0 && a <= 180)) throw new S.AppError('Use 0–180 minutes.'); S.updateSettings({ attendanceWindow: { beforeMins: b, afterMins: a } }); }, 'Saved')}>Save</Button>
             </div>
-            <div>
-              <div className="font-medium mb-1">Attendance window</div>
-              <div className="flex flex-wrap items-end gap-2">
-                <Field label="Opens (min before start)"><Input type="number" min={0} max={180} className="w-28" value={win.before} onChange={(e) => setWin({ ...win, before: e.target.value })} /></Field>
-                <Field label="Closes (min after end)"><Input type="number" min={0} max={180} className="w-28" value={win.after} onChange={(e) => setWin({ ...win, after: e.target.value })} /></Field>
-                <Button onClick={() => run(() => { const b = Math.round(+win.before), a = Math.round(+win.after); if (!(b >= 0 && b <= 180 && a >= 0 && a <= 180)) throw new S.AppError('Use 0–180 minutes.'); S.updateSettings({ attendanceWindow: { beforeMins: b, afterMins: a } }); }, 'Saved')}>Save</Button>
-              </div>
-              <p className="mt-1 text-[12px] text-muted">Students can mark themselves present only during their own batch's class, inside this window, and only once.</p>
-              <label className="mt-3 flex items-start gap-2 text-[13px] cursor-pointer">
-                <input type="checkbox" className="mt-0.5 size-4 accent-[var(--color-accent)]" checked={db.settings.attendanceNoQr ?? true}
-                  onChange={(e) => run(() => S.updateSettings({ attendanceNoQr: e.target.checked }), e.target.checked ? 'Students can mark without QR' : 'QR scan required')} />
-                <span><b>Allow marking without QR</b> — for students who can't scan. Still only during their own class time; shown to you as "in the app (no QR)".</span>
-              </label>
-            </div>
+            <p className="mt-1 text-[12px] text-muted">Students can mark themselves present only during their own batch's class, inside this window, and only once.</p>
           </div>
         </div>
       )}

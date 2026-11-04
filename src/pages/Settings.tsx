@@ -5,6 +5,7 @@ import { Button, Card, Empty, Field, Input, PageHeader, SearchInput, Table, cx, 
 import { cloudEnabled } from '../store/cloud';
 import { fmtDateTime } from '../domain/util';
 import { loadDemo } from '../lib/demo';
+import ClassroomQr from '../ui/ClassroomQr';
 
 /** Settings, kept to what the academy actually changes. Each section saves on its own. */
 const SECTIONS = [
@@ -134,6 +135,8 @@ function Attendance({ canEdit }: { canEdit: boolean }) {
   const ok = b >= 0 && b <= 180 && a >= 0 && a <= 180;
   const dirty = b !== w.beforeMins || a !== w.afterMins || f.noQr !== (db.settings.attendanceNoQr ?? true);
   return (
+    <div className="space-y-4">
+    <ClassroomQr canEdit={canEdit} />
     <Section title="Attendance" sub="When students can mark themselves present for a class." dirty={dirty && ok && canEdit}
       onSave={() => run(() => S.updateSettings({ attendanceWindow: { beforeMins: b, afterMins: a }, attendanceNoQr: f.noQr }), 'Saved')}>
       <div className="grid sm:grid-cols-2 gap-x-4 gap-y-3.5">
@@ -144,8 +147,8 @@ function Attendance({ canEdit }: { canEdit: boolean }) {
         <span><span className="block font-medium text-[14px]">Allow marking without QR</span><span className="block text-[12.5px] text-muted">For students who can't scan. Shown to you as "in the app (no QR)".</span></span>
         <Switch on={f.noQr} disabled={!canEdit} onChange={(v) => setF({ ...f, noQr: v })} />
       </label>
-      <p className="mt-3 text-[12.5px] text-muted">The classroom QR code is in Batches → a batch → Attendance.</p>
     </Section>
+    </div>
   );
 }
 

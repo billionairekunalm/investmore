@@ -35,14 +35,14 @@ const PhoneIcon = () => <svg width="13" height="13" viewBox="0 0 16 16" fill="no
 // ---------------- nav ----------------
 const BELL = 'M4 6.5a4 4 0 0 1 8 0c0 4 1.5 5.5 1.5 5.5h-11S4 10.5 4 6.5ZM6.5 14h3'; // top-bar notifications (no menu item)
 const NAV: { to: string; label: string; mod: Module; icon: string }[] = [
-  // most used first: daily front-desk work, then money, then setup
+  // Dashboard, Leads CRM first, then daily front-desk work, money, setup
   { to: '/', label: 'Dashboard', mod: 'dashboard', icon: 'M2 9h5V2H2zM9 14h5V7H9zM2 14h5v-3H2zM9 5h5V2H9z' },
+  { to: '/leads', label: 'Leads CRM', mod: 'leads', icon: 'M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2.5 14a5.5 5.5 0 0 1 11 0' },
   { to: '/students', label: 'Students', mod: 'students', icon: 'M1 6l7-3.5L15 6 8 9.5zM4 7.5v3.5c1 1 2.5 1.5 4 1.5s3-.5 4-1.5V7.5' },
   { to: '/admissions', label: 'Admissions', mod: 'admissions', icon: 'M8 3v10M3 8h10' },
   { to: '/collections', label: 'Collections', mod: 'collections', icon: 'M1.5 4.5h13v8h-13zM1.5 7h13M4 10.5h2' },
   { to: '/fees', label: 'Fees', mod: 'fees', icon: 'M4 2h8v12l-2-1.2-2 1.2-2-1.2L4 14zM6 5.5h4M6 8h4' },
   { to: '/batches', label: 'Batches', mod: 'batches', icon: 'M2 3h12v10H2zM2 6h12M5.5 1.5v3M10.5 1.5v3' },
-  { to: '/leads', label: 'Leads CRM', mod: 'leads', icon: 'M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2.5 14a5.5 5.5 0 0 1 11 0' },
   { to: '/invoices', label: 'Invoices', mod: 'fees', icon: 'M4 1.5h5.5L12 4v10.5H4zM9.5 1.5V4H12M6 7h4M6 9.5h4M6 12h2' },
   { to: '/expenses', label: 'Expenses', mod: 'expenses', icon: 'M8 1.5v13M11 4H6.5a2 2 0 0 0 0 4h3a2 2 0 0 1 0 4H5' },
   { to: '/kits', label: 'Kits', mod: 'students', icon: 'M2 5.5 8 2.5l6 3v5L8 13.5l-6-3zM2 5.5 8 8.5l6-3M8 8.5v5' },

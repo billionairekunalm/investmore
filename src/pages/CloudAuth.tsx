@@ -83,7 +83,7 @@ function SignInForm({ error, first, onSignup }: { error?: string; first: boolean
   };
   return (
     <form onSubmit={(e) => { e.preventDefault(); if (id.trim() && pw) void go(); }} className="space-y-3">
-      <Title sub={location.pathname === '/attend' ? 'Sign in with your student ID to mark your attendance.' : 'Choose how you want to log in.'}>Sign in</Title>
+      <Title sub={location.pathname === '/attend' ? 'Sign in with your student ID to mark your attendance. You only need to do this once on this phone.' : 'Choose how you want to log in.'}>Sign in</Title>
       <div role="tablist" aria-label="Sign in as" className="grid grid-cols-3 gap-1 p-1 rounded-full bg-surface">
         {WHO.map((x) => (
           <button key={x.id} type="button" role="tab" aria-selected={who === x.id} onClick={() => setWho(x.id)}

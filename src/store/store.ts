@@ -103,6 +103,7 @@ export async function boot() {
       if (event === 'SIGNED_OUT' && cloud.phase !== 'signed-out') clearSession();
     });
     window.addEventListener('focus', refreshFromCloud);
+    void navigator.storage?.persist?.(); // asks the browser not to clear the saved login when the phone is short on space
     const session = await getSession();
     if (session?.user.email && cloud.phase !== 'recovery') await enterCloud(session.user.email);
     return;
