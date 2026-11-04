@@ -9,7 +9,7 @@ import Leads from './pages/Leads';
 import { StudentList, StudentProfile } from './pages/Students';
 import Admissions from './pages/Admissions';
 import Fees from './pages/Fees';
-import Collections from './pages/Collections';
+import { CollectionsRedirect } from './pages/Fees';
 import Batches from './pages/Batches';
 import Certificates from './pages/Certificates';
 import Expenses from './pages/Expenses';
@@ -51,7 +51,7 @@ export default function App() {
                   <Route path="/courses" element={guard('settings', <Courses />)} />
                   <Route path="/admissions" element={guard('admissions', <Admissions />)} />
                   <Route path="/fees" element={guard('fees', <Fees />)} />
-                  <Route path="/collections" element={guard('collections', <Collections />)} />
+                  <Route path="/collections" element={guard('collections', <CollectionsRedirect />)} />
                   <Route path="/invoices" element={guard('fees', <Invoices />)} />
                   <Route path="/batches" element={guard('batches', <Batches />)} />
                   <Route path="/certificates" element={guard('certificates', <Certificates />)} />

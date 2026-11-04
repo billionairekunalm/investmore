@@ -40,7 +40,7 @@ const NAV: { to: string; label: string; mod: Module; icon: string }[] = [
   { to: '/students', label: 'Students', mod: 'students', icon: 'M1 6l7-3.5L15 6 8 9.5zM4 7.5v3.5c1 1 2.5 1.5 4 1.5s3-.5 4-1.5V7.5' },
   { to: '/admissions', label: 'Admissions', mod: 'admissions', icon: 'M8 3v10M3 8h10' },
   { to: '/collections', label: 'Collections', mod: 'collections', icon: 'M1.5 4.5h13v8h-13zM1.5 7h13M4 10.5h2' },
-  { to: '/fees', label: 'Fee Management', mod: 'fees', icon: 'M4 2h8v12l-2-1.2-2 1.2-2-1.2L4 14zM6 5.5h4M6 8h4' },
+  { to: '/fees', label: 'Fees', mod: 'fees', icon: 'M4 2h8v12l-2-1.2-2 1.2-2-1.2L4 14zM6 5.5h4M6 8h4' },
   { to: '/batches', label: 'Batches', mod: 'batches', icon: 'M2 3h12v10H2zM2 6h12M5.5 1.5v3M10.5 1.5v3' },
   { to: '/leads', label: 'Leads CRM', mod: 'leads', icon: 'M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2.5 14a5.5 5.5 0 0 1 11 0' },
   { to: '/invoices', label: 'Invoices', mod: 'fees', icon: 'M4 1.5h5.5L12 4v10.5H4zM9.5 1.5V4H12M6 7h4M6 9.5h4M6 12h2' },
@@ -81,7 +81,8 @@ export function Layout({ children }: { children: ReactNode }) {
   useEffect(() => { S.runAutomations(); const t = setInterval(() => S.runAutomations(), 60000); return () => clearInterval(t); }, []);
 
   if (!me) return null;
-  const items = NAV.filter((n) => S.allowed(n.mod, 'view', db));
+  // Collections now lives inside Fee Management; the separate menu item only stays for a role that has Collections but not Fees
+  const items = NAV.filter((n) => S.allowed(n.mod, 'view', db) && !(n.to === '/collections' && S.allowed('fees', 'view', db)));
   const unread = S.notificationsFor(db, me).filter((n) => !n.readBy.includes(me.id)).length;
   const current = navItem(loc.pathname);
   const role = ROLES.find((r) => r.id === me.role)?.label;
@@ -175,9 +176,9 @@ export function Layout({ children }: { children: ReactNode }) {
 
 /** Phone bottom bar: a floating, rounded bar with big icons; the open page gets a green pill. */
 function MobileTabs({ items }: { items: typeof NAV }) {
-  const pick = ['/', '/students', '/collections', '/batches', '/leads'];
+  const pick = ['/', '/students', '/fees', '/collections', '/batches', '/leads'];
   const tabs = items.filter((i) => pick.includes(i.to)).slice(0, 5);
-  const short: Record<string, string> = { '/': 'Home', '/students': 'Students', '/collections': 'Collect', '/batches': 'Batches', '/leads': 'Leads' };
+  const short: Record<string, string> = { '/': 'Home', '/students': 'Students', '/fees': 'Fees', '/collections': 'Collect', '/batches': 'Batches', '/leads': 'Leads' };
   return (
     <nav aria-label="Main" className="lg:hidden fixed bottom-0 inset-x-0 z-30 px-3 pt-2 no-print pointer-events-none" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 10px)' }}>
       <div className="pointer-events-auto mx-auto max-w-md flex items-stretch gap-1 rounded-[26px] bg-sidebar/95 backdrop-blur-md p-1.5 shadow-[0_14px_30px_-10px_rgba(0,0,0,.55)]">
