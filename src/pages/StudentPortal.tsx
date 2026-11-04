@@ -127,6 +127,7 @@ export default function StudentPortal() {
         {/* below the tabs: as before */}
         <InstallApp />
         <Reminders />
+        {!attendToken && <NotifyGate name={s.name.split(' ')[0]} />}
         {/* fees, fee schedule and payments live on the ID Card tab only (not repeated on Attendance / Courses / Certificates) */}
         {tab === 'id' && <>
         <Card className="overflow-hidden rounded-3xl">
@@ -235,6 +236,58 @@ function MyClasses({ classes, marks, batch, onAttendance }: { classes: ClassSess
         })}
       </ul>
     </Card>
+  );
+}
+
+/**
+ * Full screen shown before the portal until notifications are on for this device, so no student misses class alerts.
+ * Phones only show the "Allow notifications?" popup after a tap, so this asks for one tap. "Not now" hides it until the
+ * app is opened again. iPhone: web notifications need the app on the Home Screen first, so it shows those steps.
+ */
+function NotifyGate({ name }: { name: string }) {
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const installed = matchMedia('(display-mode: standalone)').matches || (navigator as unknown as { standalone?: boolean }).standalone === true;
+  const [st, setSt] = useState<PushState | null>(null);
+  const [skip, setSkip] = useState(() => { try { return sessionStorage.getItem('notifySkip') === '1'; } catch { return false; } });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => { void pushState().then(setSt); }, []);
+  const needInstall = ios && !installed;
+  if (skip || !st || (!needInstall && st !== 'off' && st !== 'blocked')) return null;
+  const later = () => { try { sessionStorage.setItem('notifySkip', '1'); } catch { /* */ } setSkip(true); };
+  const allow = async () => { setBusy(true); setErr(null); try { await enablePush(); setSt('on'); } catch (e) { setErr((e as Error).message); setSt(await pushState()); } setBusy(false); };
+  const recheck = async () => { const now = await pushState(); if (now === 'on') { await refreshPush(); } setSt(now); };
+  const steps = needInstall
+    ? ['Tap the Share button (square with an arrow) at the bottom of Safari', 'Choose “Add to Home Screen”, then tap Add', 'Open InvestMore from your Home Screen and allow notifications there']
+    : st === 'blocked'
+      ? ios ? ['Open the iPhone Settings app', 'Tap Notifications → InvestMore', 'Turn on “Allow Notifications”, then come back here']
+        : ['Tap the lock icon next to the web address (or long-press the app icon → App info)', 'Open Permissions / Notifications', 'Choose “Allow”, then come back here']
+      : null;
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-[linear-gradient(180deg,#e8f6ec,#f7f8f7_60%)] page-in">
+      <div className="min-h-full max-w-md mx-auto px-6 py-10 flex flex-col">
+        <div className="flex-1 flex flex-col justify-center text-center">
+          <span className="mx-auto size-24 rounded-[28px] bg-white shadow-[0_18px_40px_-18px_rgba(2,138,2,.5)] grid place-items-center text-[44px]">🔔</span>
+          <h1 className="mt-6 text-[24px] font-bold text-ink leading-tight">{needInstall ? 'Add InvestMore to your Home Screen' : st === 'blocked' ? 'Notifications are blocked' : `${name}, turn on class notifications`}</h1>
+          <p className="mt-2 text-[14.5px] text-zinc-600">{needInstall ? 'On iPhone, class notifications only work from the app on your Home Screen.' : st === 'blocked' ? 'You won’t get class alerts until you allow them for InvestMore:' : 'So you never miss a class. You’ll be told:'}</p>
+          {steps ? (
+            <ol className="mt-5 space-y-2.5 text-left">
+              {steps.map((t, i) => <li key={i} className="flex gap-3 rounded-2xl bg-white px-4 py-3 shadow-card text-[14px] text-ink"><b className="size-6 shrink-0 rounded-full bg-accent text-white grid place-items-center text-[12px]">{i + 1}</b>{t}</li>)}
+            </ol>
+          ) : (
+            <ul className="mt-5 space-y-2.5 text-left">
+              {['📚 When a new class is scheduled, changed or cancelled', '⏰ 1 day before, on the morning, and 30 minutes before each class', '💳 When a fee payment is due'].map((t) => <li key={t} className="rounded-2xl bg-white px-4 py-3 shadow-card text-[14px] text-ink">{t}</li>)}
+            </ul>
+          )}
+          {err && <p role="alert" className="mt-4 rounded-xl bg-bad-soft px-3 py-2 text-[13px] text-bad">{err}</p>}
+        </div>
+        <div className="mt-8 space-y-2">
+          {st === 'off' && !needInstall && <Button variant="primary" className="w-full h-12 text-[16px] rounded-full" loading={busy} onClick={allow}>Allow notifications</Button>}
+          {st === 'blocked' && !needInstall && <Button variant="primary" className="w-full h-12 text-[16px] rounded-full" onClick={recheck}>I’ve allowed it — check again</Button>}
+          <button onClick={later} className="w-full h-11 text-[14px] font-medium text-zinc-500 hover:text-ink">Not now</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
