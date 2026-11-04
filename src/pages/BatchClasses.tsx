@@ -169,6 +169,7 @@ export function ClassModal({ open, classId, date, batchId, onClose, onAttendance
   const batches = db.batches.filter((b) => b.status !== 'cancelled' || b.id === c?.batchId);
   const [f, setF] = useState({ batchId: '', date: '', startTime: '', endTime: '', notes: '' });
   const [jobs, setJobs] = useState<Record<string, number> | null>(null);
+  const [ready, setReady] = useState<Set<string> | null>(null); // students with notifications on (null = unknown)
   useEffect(() => {
     if (!open) return;
     if (c) setF({ batchId: c.batchId, date: c.date, startTime: c.startTime, endTime: c.endTime, notes: c.notes });
@@ -178,6 +179,7 @@ export function ClassModal({ open, classId, date, batchId, onClose, onAttendance
       setF({ batchId: b?.id ?? '', date: date ?? todayIST(), startTime: st, endTime: en, notes: '' });
     }
     setJobs(null);
+    if (cloudEnabled) void sb!.rpc('push_ready_students').then(({ data, error }) => setReady(error ? null : new Set(data as string[])));
     if (c && cloudEnabled) void sb!.from('notification_jobs').select('status').eq('class_id', c.id).then(({ data }) => {
       const n: Record<string, number> = {}; for (const r of (data ?? []) as { status: string }[]) n[r.status] = (n[r.status] ?? 0) + 1; setJobs(n);
     });
@@ -223,6 +225,15 @@ export function ClassModal({ open, classId, date, batchId, onClose, onAttendance
         <Field label="End time" required error={f.startTime && f.endTime && dur <= 0 ? 'After the start time' : undefined}><Input type="time" value={f.endTime} disabled={!canEdit} onChange={(e) => setF({ ...f, endTime: e.target.value })} /></Field>
         <Field label="Note (optional)" className="sm:col-span-2"><Textarea value={f.notes} disabled={!canEdit} onChange={(e) => setF({ ...f, notes: e.target.value })} className="min-h-14" placeholder="e.g. Topic: Candlestick patterns" /></Field>
       </div>
+      {ready && (() => {
+        // a push only reaches students who turned on notifications on their phone (student login → Turn on reminders)
+        const off = db.students.filter((s) => s.batchId === f.batchId && s.status !== 'Dropped' && s.status !== 'Refunded' && !ready.has(s.id));
+        return off.length > 0 && (
+          <div className="mt-3 rounded-lg bg-warn-soft px-3 py-2 text-[12.5px] text-warn">
+            <b>{off.length} student{off.length > 1 ? 's' : ''} won't get app notifications</b> until they sign in to the student app and tap “Turn on reminders”: {off.map((s) => s.name).join(', ')}. Missed class notices are sent as soon as they do.
+          </div>
+        );
+      })()}
       {!c && <p className="mt-3 text-[12px] text-muted">Times are filled in from the batch's usual timing. Students of the batch are notified right away, then reminded 1 day before, at 8:00 AM on the day, and 30 minutes before. If you change or cancel the class, they are told too.</p>}
     </Modal>
   );
