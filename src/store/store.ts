@@ -854,6 +854,18 @@ export function setLeadStatus(id: string, status: string) {
 const OUTCOME_STATUS: Partial<Record<CallOutcome, string>> = {
   Connected: 'Connected', Interested: 'Warm', 'Not Interested': 'Cold', 'Wrong Number': 'Lost', 'Call Later': 'Call Later',
 };
+/** Move a lead's follow-up to another day without logging a call (e.g. "call tomorrow instead"). */
+export function moveFollowUp(id: string, date: ISODate) {
+  tx((d) => {
+    guard(d, 'leads', 'edit');
+    if (date < todayIST()) fail('Follow-up date cannot be in the past.');
+    const l = ownLead(d, id);
+    const prev = l.nextFollowUp;
+    l.nextFollowUp = date;
+    audit(d, 'lead.followup', 'lead', id, `${prev ?? 'none'} → ${date}`);
+  });
+}
+
 export function logCall(entity: 'lead' | 'student', entityId: string, outcome: CallOutcome, notes: string, nextFollowUp?: ISODate) {
   tx((d) => {
     const u = guard(d, entity === 'lead' ? 'leads' : 'collections', entity === 'lead' ? 'edit' : 'create');

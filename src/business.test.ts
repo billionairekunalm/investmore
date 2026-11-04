@@ -497,3 +497,14 @@ describe('employee delete', () => {
     expect(() => S.deleteEmployee(admin)).toThrow(/own account/);
   });
 });
+
+describe('move follow-up', () => {
+  it('moves the date without logging a call, never into the past', () => {
+    const id = S.saveLead({ name: 'Mover', phone: '9444444444' });
+    S.moveFollowUp(id, addDays(todayIST(), 3));
+    const l = S.getDB().leads.find((x) => x.id === id)!;
+    expect(l.nextFollowUp).toBe(addDays(todayIST(), 3));
+    expect(S.getDB().calls.some((c) => c.entityId === id)).toBe(false);
+    expect(() => S.moveFollowUp(id, addDays(todayIST(), -1))).toThrow(/past/);
+  });
+});

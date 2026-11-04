@@ -38,11 +38,13 @@ export default function Leads() {
   const today = todayIST();
   const queue = callingQueue(leads, today);
   const myCallsToday = db.calls.filter((c) => c.entity === 'lead' && c.at.slice(0, 10) === today && (isManager || c.by === me.id)).length;
-  const glance: [string, number, string][] = [
-    ['Follow-ups due', queue.filter((l) => l.tier <= 2).length, 'text-bad'],
-    ['Hot leads', queue.filter((l) => l.tier === 3).length, 'text-warn'],
-    ['New, not called', queue.filter((l) => l.tier === 4).length, 'text-navy'],
-    ['Calls made today', myCallsToday, 'text-accent'],
+  // [label, value, tile background, view/filter it opens]
+  const glance: [string, number, string, () => void][] = [
+    [isManager ? 'Total leads' : 'Assigned to me', leads.length, 'bg-sidebar text-white', () => setView('list')],
+    ['Called today', myCallsToday, 'bg-[#dcf2d0]', () => setView('list')],
+    ['Follow-ups due', queue.filter((l) => l.tier <= 2).length, 'bg-[#fbe3cf]', () => { sp.set('view', 'calling'); sp.set('due', 'followups'); setSp(sp, { replace: true }); }],
+    ['Hot leads', queue.filter((l) => l.status === 'Hot').length, 'bg-[#f9d9d6]', () => { sp.set('view', 'calling'); sp.set('due', 'hot'); setSp(sp, { replace: true }); }],
+    ['Converted', leads.filter((l) => l.status === 'Converted').length, 'bg-[#f3e9cc]', () => { setFStatus('Converted'); setView('list'); }],
   ];
 
   const tabs: { id: View; label: string; count?: number }[] = [
@@ -66,15 +68,15 @@ export default function Leads() {
     <>
       <PageHeader title="Leads" sub={`${leads.length} leads${me.role === 'caller' ? ' assigned to you' : ''}`}
         actions={S.allowed('leads', 'create', db) && <Button variant="primary" onClick={() => setAdding(true)}>+ New lead</Button>} />
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-        {glance.map(([k, v, tone]) => (
-          <div key={k} className="rounded-2xl border border-line bg-white px-4 py-3 shadow-[0_1px_3px_rgba(15,35,65,.05)]">
-            <div className="text-[12px] font-medium text-muted">{k}</div><div className={cx('text-[26px] font-bold tabular leading-tight', tone)}>{v}</div>
-          </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
+        {glance.map(([k, v, tone, go], i) => (
+          <button key={k} onClick={go} className={cx('rounded-3xl px-4 py-3.5 text-left transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_24px_-14px_rgba(24,24,24,.4)]', tone, i === 0 && 'col-span-2 sm:col-span-1')}>
+            <div className={cx('text-[12px] font-medium', i === 0 ? 'text-zinc-400' : 'text-zinc-600')}>{k}</div><div className="text-[28px] font-bold tabular leading-tight">{v}</div>
+          </button>
         ))}
       </div>
       <Tabs tabs={tabs} value={view} onChange={setView} />
-      {view === 'calling' && <>{filters}<CallingQueue leads={filtered} onOpen={(id) => { sp.set('lead', id); setSp(sp); }} /></>}
+      {view === 'calling' && <>{filters}<CallingQueue leads={filtered} due={(sp.get('due') as Due) || 'all'} setDue={(d) => { sp.set('due', d); setSp(sp, { replace: true }); }} onOpen={(id) => { sp.set('lead', id); setSp(sp); }} /></>}
       {view === 'calendar' && <>{filters}<FollowUpCalendar leads={filtered} onOpen={(id) => { sp.set('lead', id); setSp(sp); }} /></>}
       {view === 'pipeline' && <>{filters}<Pipeline leads={filtered} onOpen={(id) => { sp.set('lead', id); setSp(sp); }} /></>}
       {view === 'list' && <>{filters}<LeadList leads={filtered} onOpen={(id) => { sp.set('lead', id); setSp(sp); }} /></>}
@@ -121,40 +123,116 @@ function LeadCard({ l, onOpen }: { l: Lead & { tier?: number }; onOpen: () => vo
           {l.notes && <span className="block mt-1 text-[12.5px] text-zinc-500 italic truncate">“{l.notes}”</span>}
         </span>
       </button>
-      <div className="flex gap-2 sm:shrink-0 pl-14 sm:pl-0">
+      <div className="flex flex-wrap items-center gap-2 sm:shrink-0 pl-14 sm:pl-0">
         <CallButton size="md" target={target} />
+        <WhatsAppButton l={l} />
         <Button onClick={() => log(target)}>Log</Button>
+        <MoveFollowUp l={l} />
       </div>
     </div>
   );
 }
 
-function CallingQueue({ leads, onOpen }: { leads: Lead[]; onOpen: (id: string) => void }) {
+/** Opens WhatsApp with a ready greeting to this lead (works on phone and WhatsApp Web). */
+export function WhatsAppButton({ l, compact }: { l: Pick<Lead, 'name' | 'phone'>; compact?: boolean }) {
   const db = S.useDB();
+  const me = S.useMe();
+  const first = l.name.trim().split(/\s+/)[0];
+  const text = `Hi ${first}, this is ${me?.name.split(' ')[0] ?? ''} from ${db.settings.academyName} Training Academy. `;
+  return (
+    <a href={`https://wa.me/91${l.phone}?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
+      className={cx('inline-flex items-center justify-center gap-1.5 rounded-full border border-[#25d366]/40 bg-[#e9fbef] text-[#128c4a] font-semibold hover:bg-[#d4f7e0] transition-colors', compact ? 'h-7 px-2.5 text-[12.5px]' : 'h-10 px-3.5')}>
+      <svg viewBox="0 0 24 24" className="size-4" fill="currentColor" aria-hidden><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2 0-.1-.2-.2-.4-.3Z" /></svg>
+      WhatsApp
+    </a>
+  );
+}
+
+/** Push a follow-up to another day without logging a call. */
+function MoveFollowUp({ l }: { l: Lead }) {
+  const run = useRun();
   const today = todayIST();
+  const opts: [string, string][] = [['1', 'Tomorrow'], ['2', 'In 2 days'], ['3', 'In 3 days'], ['7', 'Next week'], ['30', 'Next month']];
+  return (
+    <select value="" aria-label="Move follow-up" onClick={(e) => e.stopPropagation()}
+      onChange={(e) => { const n = +e.target.value; if (n) run(() => S.moveFollowUp(l.id, addDays(today, n)), `Follow-up moved to ${fmtDate(addDays(today, n))}`); }}
+      className="h-10 rounded-full border border-line bg-white px-3 text-[13px] font-medium text-zinc-700 hover:border-zinc-300 cursor-pointer">
+      <option value="">↻ Move…</option>
+      {opts.map(([v, k]) => <option key={v} value={v}>{k}</option>)}
+    </select>
+  );
+}
+
+/** Note typed straight into the list (like "first interest"); saves when you leave the box. */
+function InlineNote({ l }: { l: Lead }) {
+  const run = useRun();
+  const [v, setV] = useState(l.notes);
+  return (
+    <input value={v} placeholder="Add note…" onClick={(e) => e.stopPropagation()} onChange={(e) => setV(e.target.value)}
+      onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+      onBlur={() => { if (v.trim() !== l.notes.trim()) run(() => S.saveLead({ ...l, notes: v.trim() }), 'Note saved'); }}
+      className="w-full min-w-40 h-8 rounded-lg border border-transparent bg-transparent px-2 text-[13px] hover:border-line focus:border-accent focus:bg-white outline-none placeholder:text-zinc-400" />
+  );
+}
+
+type Due = 'all' | 'followups' | 'overdue' | 'today' | 'hot' | 'new' | 'tomorrow' | 'called';
+function CallingQueue({ leads, onOpen, due, setDue }: { leads: Lead[]; onOpen: (id: string) => void; due: Due; setDue: (d: Due) => void }) {
+  const db = S.useDB();
+  const me = S.useMe()!;
+  const today = todayIST();
+  const tomorrow = addDays(today, 1);
   const q = callingQueue(leads, today);
   const [showOther, setShowOther] = useState(false);
   const [session, setSession] = useState(false);
-  const groups: [string, string, (Lead & { tier: number })[]][] = [
-    ['Follow-ups due', 'Call these first — they were promised a call back', q.filter((l) => l.tier <= 2)],
-    ['Hot leads', 'Very interested — close them', q.filter((l) => l.tier === 3)],
-    ['New leads', 'Never called yet', q.filter((l) => l.tier === 4)],
-  ];
+  const calledToday = (l: Lead) => (l.lastCallAt ?? '').slice(0, 10) === today;
+  const sets: Record<Exclude<Due, 'all'> | 'allHot', [string, string, (Lead & { tier: number })[]]> = {
+    followups: ['Follow-ups due', 'Call these first — they were promised a call back', q.filter((l) => l.tier <= 2)],
+    overdue: ['Missed follow-ups', 'The promised day has passed — call today', q.filter((l) => l.tier === 1)],
+    today: ['Follow-ups due today', 'Promised a call back today', q.filter((l) => l.tier === 2)],
+    hot: ['Hot leads', 'Very interested — close them', q.filter((l) => l.tier === 3)],
+    allHot: ['Hot leads', 'Every lead marked Hot', q.filter((l) => l.status === 'Hot')],
+    new: ['New leads', 'Never called yet', q.filter((l) => l.tier === 4)],
+    tomorrow: ['Tomorrow’s follow-ups', 'Plan ahead — or call early', q.filter((l) => l.nextFollowUp === tomorrow)],
+    called: ['Called today', 'Already called today', q.filter(calledToday)],
+  };
+  const groups = due === 'all' ? [sets.followups, sets.hot, sets.new] : [sets[due === 'hot' ? 'allHot' : due]];
   const other = q.filter((l) => l.tier === 5);
-  const toCall = q.filter((l) => l.tier <= 4 && (l.lastCallAt ?? '').slice(0, 10) !== today);
+  const toCall = q.filter((l) => l.tier <= 4 && !calledToday(l));
+  // today's progress: priority leads already called today vs still waiting
+  const doneToday = new Set(db.calls.filter((c) => c.entity === 'lead' && c.at.slice(0, 10) === today && (me.role !== 'caller' || c.by === me.id)).map((c) => c.entityId)).size;
+  const pct = doneToday + toCall.length ? Math.round((doneToday / (doneToday + toCall.length)) * 100) : 0;
+  const chips: [Due, string, number][] = [
+    ['all', 'To call', toCall.length], ['overdue', 'Missed', sets.overdue[2].length], ['today', 'Due today', sets.today[2].length],
+    ['hot', 'Hot', sets.allHot[2].length], ['new', 'New', sets.new[2].length], ['tomorrow', 'Tomorrow', sets.tomorrow[2].length], ['called', 'Called today', sets.called[2].length],
+  ];
   return (
     <>
       {q.length > 0 && (
-        <div className="mb-4 rounded-2xl border border-accent/20 bg-[linear-gradient(135deg,#f0faf2,#ffffff)] p-4 flex flex-wrap items-center gap-3">
-          <div className="mr-auto">
-            <div className="font-semibold text-ink text-[15px]">{toCall.length ? `${toCall.length} lead${toCall.length === 1 ? '' : 's'} to call now` : 'All priority calls done for today 🎉'}</div>
-            <div className="text-[12.5px] text-muted">One lead at a time: call, save the result, and the next one comes up.</div>
+        <div className="mb-4 rounded-3xl bg-sidebar text-white p-5 flex flex-wrap items-center gap-4">
+          <div className="mr-auto min-w-0 flex-1">
+            <div className="font-semibold text-[16px]">{toCall.length ? `${toCall.length} lead${toCall.length === 1 ? '' : 's'} to call now` : 'All priority calls done for today 🎉'}</div>
+            <div className="text-[12.5px] text-zinc-400">One lead at a time: call, save the result, and the next one comes up.</div>
+            <div className="mt-3 flex items-center gap-3 max-w-md">
+              <div className="h-2 flex-1 rounded-full bg-sidebar-2 overflow-hidden"><div className="h-full rounded-full bg-lime transition-all duration-500" style={{ width: `${pct}%` }} /></div>
+              <span className="text-[12px] font-semibold tabular text-lime whitespace-nowrap">{doneToday} called today · {pct}%</span>
+            </div>
           </div>
-          <Button variant="primary" className="h-11 px-5 text-[15px]" disabled={!toCall.length} onClick={() => setSession(true)}>▶ Start calling</Button>
+          <button disabled={!toCall.length} onClick={() => setSession(true)} className="h-11 px-5 rounded-full bg-lime text-ink font-semibold text-[15px] hover:brightness-105 active:scale-[.97] transition disabled:opacity-40">▶ Start calling</button>
+        </div>
+      )}
+      {q.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] mb-4 -mx-1 px-1">
+          {chips.map(([id, k, n]) => (
+            <button key={id} onClick={() => setDue(id)} aria-pressed={due === id}
+              className={cx('h-9 shrink-0 rounded-full px-3.5 text-[13px] font-semibold transition-colors inline-flex items-center gap-1.5', due === id ? 'bg-ink text-white' : 'bg-white text-zinc-600 shadow-card hover:text-ink')}>
+              {k}<span className={cx('rounded-full px-1.5 text-[11px] tabular', due === id ? 'bg-lime text-ink' : id === 'overdue' && n ? 'bg-bad-soft text-bad' : 'bg-surface')}>{n}</span>
+            </button>
+          ))}
         </div>
       )}
       {!q.length ? <Card><Empty title="No one to call" body="New and imported leads appear here automatically." /></Card> : (
         <div className="space-y-4">
+          {due !== 'all' && !groups[0][2].length && <Card><Empty title={`Nothing in “${chips.find((c) => c[0] === due)?.[1]}”`} body="Pick another filter above." /></Card>}
           {groups.filter(([, , list]) => list.length).map(([title, sub, list]) => (
             <Card key={title} className="overflow-hidden">
               <div className="flex items-baseline gap-2 px-4 pt-3.5 pb-2 border-b border-line">
@@ -164,7 +242,7 @@ function CallingQueue({ leads, onOpen }: { leads: Lead[]; onOpen: (id: string) =
               <div className="divide-y divide-line">{list.map((l) => <LeadCard key={l.id} l={l} onOpen={() => onOpen(l.id)} />)}</div>
             </Card>
           ))}
-          {other.length > 0 && (
+          {due === 'all' && other.length > 0 && (
             <Card className="overflow-hidden">
               <button onClick={() => setShowOther(!showOther)} className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-surface/60">
                 <h3 className="font-semibold text-navy">Other open leads</h3><span className="text-[12.5px] text-muted tabular">{other.length}</span>
@@ -320,14 +398,34 @@ function Pipeline({ leads, onOpen }: { leads: Lead[]; onOpen: (id: string) => vo
   );
 }
 
-function LeadList({ leads, onOpen }: { leads: Lead[]; onOpen: (id: string) => void }) {
+function LeadList({ leads: leads0, onOpen }: { leads: Lead[]; onOpen: (id: string) => void }) {
   const db = S.useDB();
   const run = useRun();
   const me = S.useMe()!;
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [to, setTo] = useState('');
+  const [part, setPart] = useState<'pending' | 'called'>('pending');
+  const [file, setFile] = useState('');
   const callers = db.employees.filter((e) => e.active && (e.role === 'caller' || e.role === 'calling_manager'));
+  const files = db.imports.filter((j) => leads0.some((l) => l.importJobId === j.id));
+  const callsBy = new Map<string, number>();
+  for (const c of db.calls) if (c.entity === 'lead') callsBy.set(c.entityId, (callsBy.get(c.entityId) ?? 0) + 1);
+  const inFile = leads0.filter((l) => !file || (file === 'manual' ? !l.importJobId : l.importJobId === file));
+  const isPending = (l: Lead) => !l.lastCallAt && !['Converted', 'Lost'].includes(l.status);
+  const pending = inFile.filter(isPending), called = inFile.filter((l) => !isPending(l));
+  const leads = part === 'pending' ? pending : called;
   return (
+    <>
+    <div className="flex flex-wrap items-center gap-2 mb-3">
+      <div className="flex gap-1 rounded-full bg-white p-1 shadow-card">
+        {([['pending', 'Not called yet', pending.length], ['called', 'Called / closed', called.length]] as const).map(([id, k, n]) => (
+          <button key={id} onClick={() => setPart(id)} className={cx('h-8 px-3.5 rounded-full text-[13px] font-semibold', part === id ? 'bg-ink text-white' : 'text-muted hover:text-ink')}>{k} <span className="tabular opacity-70">({n})</span></button>
+        ))}
+      </div>
+      {files.length > 0 && <Select value={file} onChange={(e) => setFile(e.target.value)} placeholder="All files" aria-label="Import file"
+        options={[...files.map((j) => ({ value: j.id, label: `📁 ${j.fileName}` })), { value: 'manual', label: 'Added by hand' }]} className="w-56" />}
+      <Button className="ml-auto" onClick={() => downloadCSV(leads.map(leadRow(db)), 'leads')}>⤓ Export CSV</Button>
+    </div>
     <Card>
       {sel.size > 0 && me.role !== 'caller' && (
         <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 border-b border-line bg-accent-soft/50">
@@ -343,13 +441,16 @@ function LeadList({ leads, onOpen }: { leads: Lead[]; onOpen: (id: string) => vo
         cols={[
           { key: 'name', label: 'Lead', sort: (l) => l.name, render: (l) => <div className="leading-tight"><div className="font-medium">{l.name}</div><div className="text-[12px] text-muted tabular">{fmtPhone(l.phone)}</div></div> },
           { key: 'status', label: 'Status', render: (l) => <Badge>{l.status}</Badge>, sort: (l) => l.status },
+          { key: 'note', label: 'Note', render: (l) => <InlineNote key={l.id + l.notes} l={l} /> },
           { key: 'src', label: 'Source', render: (l) => <span className="text-zinc-600">{l.source}</span>, sort: (l) => l.source },
+          { key: 'n', label: 'Calls', className: 'text-center', render: (l) => <span className="tabular">{callsBy.get(l.id) ?? 0}</span>, sort: (l) => callsBy.get(l.id) ?? 0 },
           { key: 'last', label: 'Last call', sort: (l) => l.lastCallAt ?? '', render: (l) => { const c = lastCallOf(db, l.id); return c ? <div className="leading-tight"><div>{c.outcome}</div><div className="text-[12px] text-muted">{ago(c.at)}</div></div> : <span className="text-muted">Never</span>; } },
           { key: 'next', label: 'Follow-up', render: (l) => <span className={l.nextFollowUp && l.nextFollowUp < todayIST() ? 'text-bad font-medium' : ''}>{l.nextFollowUp ? fmtDate(l.nextFollowUp) : '—'}</span>, sort: (l) => l.nextFollowUp ?? '9' },
           ...(me.role !== 'caller' ? [{ key: 'who', label: 'Caller', render: (l: Lead) => S.empName(l.assignedTo, db) }] : []),
-          { key: 'call', label: '', className: 'text-right', render: (l) => <span onClick={(e) => e.stopPropagation()}><CallButton target={{ entity: 'lead', id: l.id, name: l.name, phone: l.phone }} /></span> },
+          { key: 'call', label: '', className: 'text-right', render: (l) => <span onClick={(e) => e.stopPropagation()} className="inline-flex gap-1.5"><CallButton target={{ entity: 'lead', id: l.id, name: l.name, phone: l.phone }} /><WhatsAppButton l={l} compact /></span> },
         ]} />
     </Card>
+    </>
   );
 }
 const leadRow = (db: ReturnType<typeof S.getDB>) => (l: Lead) => ({
