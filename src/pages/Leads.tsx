@@ -207,16 +207,17 @@ function CallingQueue({ leads, onOpen, due, setDue }: { leads: Lead[]; onOpen: (
   return (
     <>
       {q.length > 0 && (
-        <div className="mb-4 rounded-3xl bg-sidebar text-white p-5 flex flex-wrap items-center gap-4">
-          <div className="mr-auto min-w-0 flex-1">
-            <div className="font-semibold text-[16px]">{toCall.length ? `${toCall.length} lead${toCall.length === 1 ? '' : 's'} to call now` : 'All priority calls done for today 🎉'}</div>
-            <div className="text-[12.5px] text-zinc-400">One lead at a time: call, save the result, and the next one comes up.</div>
-            <div className="mt-3 flex items-center gap-3 max-w-md">
-              <div className="h-2 flex-1 rounded-full bg-sidebar-2 overflow-hidden"><div className="h-full rounded-full bg-lime transition-all duration-500" style={{ width: `${pct}%` }} /></div>
-              <span className="text-[12px] font-semibold tabular text-lime whitespace-nowrap">{doneToday} called today · {pct}%</span>
-            </div>
+        <div className="mb-4 rounded-2xl bg-white shadow-card border-l-4 border-accent px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <span className="grid place-items-center size-9 shrink-0 rounded-xl bg-accent-soft text-accent text-[16px]">☎</span>
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold text-[14px] text-ink">{toCall.length ? `${toCall.length} lead${toCall.length === 1 ? '' : 's'} to call now` : 'All priority calls done for today 🎉'}</div>
+            <div className="text-[12px] text-muted truncate">Call, save the result, and the next lead comes up.</div>
           </div>
-          <button disabled={!toCall.length} onClick={() => setSession(true)} className="h-11 px-5 rounded-full bg-lime text-ink font-semibold text-[15px] hover:brightness-105 active:scale-[.97] transition disabled:opacity-40">▶ Start calling</button>
+          <div className="flex items-center gap-2 w-full sm:w-44">
+            <div className="h-1.5 flex-1 rounded-full bg-surface overflow-hidden"><div className="h-full rounded-full bg-accent transition-all duration-500" style={{ width: `${pct}%` }} /></div>
+            <span className="text-[11.5px] font-semibold tabular text-muted whitespace-nowrap">{doneToday} done · {pct}%</span>
+          </div>
+          <button disabled={!toCall.length} onClick={() => setSession(true)} className="h-9 px-4 rounded-full bg-accent text-white font-semibold text-[13px] hover:bg-accent-hover active:scale-[.97] transition disabled:opacity-40 max-sm:w-full">▶ Start calling</button>
         </div>
       )}
       {q.length > 0 && (
